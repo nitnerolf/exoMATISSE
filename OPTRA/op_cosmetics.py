@@ -14,8 +14,8 @@ def op_gen_ffm:
 def op_apply_ffm:
     here_do_domething
 
-def op_load_rawdata:
-    here_do_domething
+def op_load_rawdata(filename):
+    return fits.open(filename)
 
 def op_apply_cosmetics:
     here_do_domething
