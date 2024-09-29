@@ -1,21 +1,245 @@
 ##############################################
 # Cosmetics for data
 ##############################################
+from astropy.io import fits
+from scipy import stats
+import numpy as np
+import fnmatch
+from scipy.ndimage import median_filter
+from scipy import *
+from scipy import signal
+import matplotlib.pyplot as plt
 
-def op_gen_bpm:
-    here_do_domething
+##############################################
+# Function to interpolate bad pixels
+def op_interpolate_bad_pixels(data, bad_pixel_map, verbose=False):
+    if verbose:
+        print('Interpolating bad pixels...')
+    # Apply a median filter to the data
+    filtered_data = median_filter(data, size=3)
+    #plt.imshow(filtered_data, cmap='gray')
+    # Replace bad pixels with the median filtered values
+    data[bad_pixel_map] = filtered_data[bad_pixel_map]
+    return data, filtered_data
 
-def op_apply_bpm:
-    here_do_domething
 
-def op_gen_ffm:
-    here_do_domething
+##############################################
+def op_load_bpm(filename, verbose=True):
+    if verbose:
+        print('Loading bad pixel map...')
+    fh = fits.open(filename)
+    bpm = fh[0].data.astype(bool)
+    fh.close()
+    return bpm
 
-def op_apply_ffm:
-    here_do_domething
+##############################################
+# Apply bpm
+def op_apply_bpm(rawdata, bpmap, verbose=True):
+    if verbose:
+        print('Applying bad pixel map...')
+    # Subtract sky from rawdata
+    
+    corner = rawdata['INTERF']['corner']
+    naxis  = rawdata['INTERF']['naxis']
+    intf  = rawdata['INTERF']['data']
+    nframe = np.shape(intf)[0]
+    if verbose:
+        print(f'Processing {nframe} frames')
+    wbpm = bpmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
+    # Interpolate bad pixels in each frame
+    fdata = []
+    for i in range(nframe):
+        intf[i],filtdata = op_interpolate_bad_pixels(intf[i], wbpm)
+        fdata.append(filtdata)
+    rawdata['INTERF']['data'] = intf
+    
+    for key in rawdata['PHOT']:
+        corner = rawdata['PHOT'][key]['corner']
+        naxis  = rawdata['PHOT'][key]['naxis']
+        phot  = rawdata['PHOT'][key]['data']
+        wbpm = bpmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
+        # Interpolate bad pixels in each frame
+        fdata = []
+        for i in range(nframe):
+            phot[i],filtdata = op_interpolate_bad_pixels(phot[i], wbpm)
+            fdata.append(filtdata)
+        rawdata['PHOT'][key]['data'] = phot
+        
+    for key in rawdata['OTHER']:
+        corner = rawdata['OTHER'][key]['corner']
+        naxis  = rawdata['OTHER'][key]['naxis']
+        other  = rawdata['OTHER'][key]['data']
+        wbpm = bpmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
+        # Interpolate bad pixels in each frame
+        fdata = []
+        for i in range(nframe):
+            other[i],filtdata = op_interpolate_bad_pixels(other[i], wbpm)
+            fdata.append(filtdata)
+        rawdata['OTHER'][key]['data'] = other
+        
+    return rawdata
 
-def op_load_rawdata(filename):
-    return fits.open(filename)
+##############################################
+def op_load_ffm(filename, verbose=True):
+    if verbose:
+        print('Loading flat field...')
+    fh = fits.open(filename)
+    ffm = fh[0].data.astype(float)
+    fh.close()
+    return ffm
 
-def op_apply_cosmetics:
-    here_do_domething
+##############################################
+def op_apply_ffm(rawdata, ffmap, verbose=True):
+    if verbose:
+        print('Applying flat field map...')
+    # Subtract sky from rawdata
+    
+    corner = rawdata['INTERF']['corner']
+    naxis  = rawdata['INTERF']['naxis']
+    intf   = rawdata['INTERF']['data']
+    
+    nframe = np.shape(intf)[0]
+    if verbose:
+        print(f'Processing {nframe} frames')
+        
+    wffm = ffmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
+    # Interpolate bad pixels in each frame
+    
+    for i in range(nframe):
+        intf[i] /= wffm
+    rawdata['INTERF']['data'] = intf
+    
+    for key in rawdata['PHOT']:
+        corner = rawdata['PHOT'][key]['corner']
+        naxis  = rawdata['PHOT'][key]['naxis']
+        phot   = rawdata['PHOT'][key]['data']
+        wffm   = ffmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
+        # Interpolate bad pixels in each frame
+        
+        for i in range(nframe):
+            phot[i] /= wffm
+        rawdata['PHOT'][key]['data'] = phot
+        
+    for key in rawdata['OTHER']:
+        corner = rawdata['OTHER'][key]['corner']
+        naxis  = rawdata['OTHER'][key]['naxis']
+        other  = rawdata['OTHER'][key]['data']
+        wffm   = ffmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
+        # correct flat field
+        for i in range(nframe):
+            other[i] /= wffm
+        rawdata['OTHER'][key]['data'] = other
+        
+    return rawdata
+
+##############################################
+def op_subtract_sky(rawdata, skydata, verbose=True):
+    if verbose:
+        print('Subtracting sky...')
+    # Compute robust average of sky
+    skydata['INTERF']['data'] = stats.trim_mean(skydata['INTERF']['data'], 0.05, axis=0)
+    #print(skydata['INTERF']['data'].shape)
+    #print(len(skydata['PHOT']))
+    for key in skydata['PHOT']:
+        skydata['PHOT'][key]['data'] = stats.trim_mean(skydata['PHOT'][key]['data'], 0.05, axis=0)
+        
+    # Subtract sky from rawdata
+    rawdata['INTERF']['data'] -= skydata['INTERF']['data']
+    for key in skydata['PHOT']:
+        rawdata['PHOT'][key]['data'] -= skydata['PHOT'][key]['data']
+        
+    return rawdata
+    
+##############################################
+def op_print_fits_structure(fits_data):
+    for hdu in fits_data:
+        print(f'-------\nHDU: {hdu.name}')
+        #print(f'Header:\n{hdu.header}')
+        if hdu.data is not None:
+            if hdu.is_image:
+                print('This HDU contains image data.')
+            else:
+                print('This is a table.')
+            if isinstance(hdu.data, np.recarray):
+                print(f'Columns: {hdu.data.dtype.names}')
+            print(f'Data shape: {hdu.data.shape}')
+        #print('\n')
+
+##############################################
+def op_load_rawdata(filename, verbose=True):
+    if verbose:
+        print('Loading raw data...')
+    fh      =  fits.open(filename)
+    data    = {'hdr': fh[0].header}
+    nframes = len(fh['IMAGING_DATA'].data)
+    nreg    = len(fh['IMAGING_DETECTOR'].data)
+    
+    data['PHOT'] = {}
+    data['INTERF'] = {}
+    data['OTHER'] = {}
+    
+    for j in np.arange(nreg):
+        corner = fh['IMAGING_DETECTOR'].data[j]['CORNER']
+        naxis  = fh['IMAGING_DETECTOR'].data[j]['NAXIS']
+        #print(f'Processing region {j}:{fh['IMAGING_DETECTOR'].data['REGNAME'][j]}')
+        datarray = []
+        for i in np.arange(nframes):
+            datarray.append(fh['IMAGING_DATA'].data[i][j+1].astype(float))
+        if fnmatch.fnmatch(fh['IMAGING_DETECTOR'].data['REGNAME'][j], 'INTERF*'):
+            data['INTERF']['data'] = datarray
+            data['INTERF']['corner'] = corner
+            data['INTERF']['naxis'] = naxis
+        elif fnmatch.fnmatch(fh['IMAGING_DETECTOR'].data['REGNAME'][j], 'PHOT*'):
+            key = fh['IMAGING_DETECTOR'].data['REGNAME'][j]
+            data['PHOT'][key]={}
+            data['PHOT'][key]['data'] = datarray
+            data['PHOT'][key]['corner'] = corner
+            data['PHOT'][key]['naxis'] = naxis
+        else:
+            key = fh['IMAGING_DETECTOR'].data['REGNAME'][j].strip('\x001')
+            data['OTHER'][key]={}
+            data['OTHER'][key]['data'] = datarray
+            data['OTHER'][key]['corner'] = corner
+            data['OTHER'][key]['naxis'] = naxis
+    fh.close()
+    return data
+
+##############################################
+def op_apodize(data, verbose=True):
+    if verbose:
+        print('Apodizing data...')
+    # Apply a Hamming window to the data
+    nframes = np.shape(data['INTERF']['data'])[0]
+    nreg    = len(data['PHOT'])
+    
+    intf  = stats.trim_mean(data['INTERF']['data'],axis=0, proportiontocut=0.05)
+    n     = np.shape(intf)[1]
+    win   = signal.get_window(('kaiser', 14), n)
+    argmx = np.argmax(np.mean(intf, axis=0))
+    print('argmx', argmx)
+    centered_win_intf = np.roll(win, argmx - n//2)
+    
+    # Plot the Hanning window used for apodization
+    plt.figure()
+    plt.plot(centered_win_intf)
+    plt.title('Window for Apodization')
+    plt.xlabel('Pixel Index')
+    plt.ylabel('Window Value')
+    plt.grid(True)
+    plt.show()
+    
+    for i in np.arange(nframes):
+        data['INTERF']['data'][i] *= centered_win_intf
+        
+    for key in data['PHOT']:
+        pht   = stats.trim_mean(data['PHOT'][key]['data'],axis=0, proportiontocut=0.05)
+        n     = np.shape(pht)[1]
+        win   = signal.get_window(('kaiser', 14), n)
+        argmx = np.argmax(np.mean(pht, axis=0))
+        centered_win_pht = np.roll(win, argmx - n//2)
+        for i in np.arange(nframes):
+            data['PHOT'][key]['data'][i] *= centered_win_pht
+            
+    return data
+
+

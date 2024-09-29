@@ -5,17 +5,34 @@
 import numpy as np
 import astropy.constants as const
 
-def op_calc_fft:
+def op_calc_fft(data, verbose=True):
+    if verbose:
+        print('Computing FFT of interferograms...')
+    intf = data['INTERF']['data']
+    nframe = np.shape(intf)[0]
+    nwlen = np.shape(intf)[1]
+    npix = np.shape(intf)[2]
+    
+    # Compute FFT 1D of intf along the pixels axis
+    fft_intf = np.fft.fft(intf, axis=2)
+    fft_intf_magnitude = np.abs(fft_intf)
+    dsp_intf = fft_intf_magnitude**2
+    sum_dsp_intf = np.sum(dsp_intf, axis=0)
+    sdi_resh = np.fft.fftshift(sum_dsp_intf, axes=1)
+    freqs = np.fft.fftfreq(npix)
+    print('Shape of sum_dsp_intf:', sum_dsp_intf.shape)
+    
+    data['FFT'] = {'data': fft_intf, 'magnitude': fft_intf_magnitude, 'dsp': dsp_intf, 'sum_dsp': sum_dsp_intf, 'sdi': sdi_resh, 'freqs': freqs}
+    return data
+
+def op_extract_CF():
     here_do_domething
 
-def op_extract_CF:
-    here_do_domething
-
-def op_sortout_peaks:
+def op_sortout_peaks():
     here_do_domething
 
 def op_air_index(wl, T=15, P=1013.25, h=0.1, N_CO2=423, bands='all'):
-""" Compute the refractive index as a function of wavelength at a given temperature,
+    """ Compute the refractive index as a function of wavelength at a given temperature,
         pressure, relative humidity and CO2 concentration, using Equation (5) of Voronin & Zheltikov (2017).
         
         Reference: Voronin, A. A. and Zheltikov, A. M. The generalized Sellmeier equation for air. 
