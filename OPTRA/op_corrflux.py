@@ -1,10 +1,53 @@
 ##############################################
 # Correlated flux computation
 ##############################################
-
+from astropy.io import fits
 import numpy as np
 import astropy.constants as const
+import matplotlib.pyplot as plt
+from scipy import *
 
+##############################################
+def op_apodize(data, verbose=True,plot=False):
+    if verbose:
+        print('Apodizing data...')
+    # Apply a Hamming window to the data
+    nframes = np.shape(data['INTERF']['data'])[0]
+    nreg    = len(data['PHOT'])
+    
+    intf  = stats.trim_mean(data['INTERF']['data'],axis=0, proportiontocut=0.05)
+    n     = np.shape(intf)[1]
+    win   = signal.get_window(('kaiser', 14), n)
+    argmx = np.argmax(np.mean(intf, axis=0))
+    print('argmx', argmx)
+    centered_win_intf = np.roll(win, argmx - n//2)
+    
+    if plot:
+        # Plot the Hanning window used for apodization
+        plt.figure()
+        plt.plot(centered_win_intf)
+        plt.title('Window for Apodization')
+        plt.xlabel('Pixel Index')
+        plt.ylabel('Window Value')
+        plt.grid(True)
+        plt.show()
+    
+    for i in np.arange(nframes):
+        data['INTERF']['data'][i] *= centered_win_intf
+        
+    for key in data['PHOT']:
+        pht   = stats.trim_mean(data['PHOT'][key]['data'],axis=0, proportiontocut=0.05)
+        n     = np.shape(pht)[1]
+        win   = signal.get_window(('kaiser', 14), n)
+        argmx = np.argmax(np.mean(pht, axis=0))
+        centered_win_pht = np.roll(win, argmx - n//2)
+        for i in np.arange(nframes):
+            data['PHOT'][key]['data'][i] *= centered_win_pht
+            
+    return data
+
+##############################################
+# Function to compute the FFT of interferograms
 def op_calc_fft(data, verbose=True):
     if verbose:
         print('Computing FFT of interferograms...')
@@ -25,12 +68,99 @@ def op_calc_fft(data, verbose=True):
     data['FFT'] = {'data': fft_intf, 'magnitude': fft_intf_magnitude, 'dsp': dsp_intf, 'sum_dsp': sum_dsp_intf, 'sdi': sdi_resh, 'freqs': freqs}
     return data
 
-def op_extract_CF():
-    here_do_domething
+##############################################
+# Function to compute the wavelength 
+def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
+    if verbose:
+        print('Computing wavelength map...')
+    # Compute wavelength map from shift map
+    fh        = fits.open(shift_map)
+    shift_map = fh['SHIFT_MAP'].data
+    disp      = shift_map['DISP']
+    if verbose:
+        print('shape of disp:', np.shape(disp))
+        print('disp:', disp)
+        print('disp0:', disp[0])
+        print('disp1:', disp[1])
+    
+    corner = rawdata['INTERF']['corner']
+    px = corner[1]+np.arange(np.shape(rawdata['INTERF']['data'])[1])
+    wlen = disp[0][0] + disp[0][1]*px + disp[0][2]*px**2
+    
+    if verbose:
+        print(disp)
+        print(wlen)
+        
+    if plot:
+        plt.figure()
+        plt.plot(wlen)
+        plt.show()
+    
+    return wlen
 
-def op_sortout_peaks():
-    here_do_domething
+##############################################
 
+def op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
+    npix = np.shape(fftdata['FFT']['data'])[2]
+    if instrument == 'MATISSE':
+        peaks = np.arange(7)
+        interfringe = 17.88*2.75*2*0.85 # in D/lambda
+        peakswd = 4.
+        pkwds = np.ones_like(peaks) * peakswd
+        peak = peaks[:,None] * interfringe / wlen[None,:]
+        peakwd = pkwds[:,None] * interfringe / wlen[None,:]
+    
+    if verbose:
+        print('Shape of peak:', np.shape(peak))
+        print('Peak:', peak)
+    return peak, peakwd
+    
+
+##############################################
+# Function to extract the correlated flux
+def op_extract_CF(fftdata, wlen, baselines, baselwd=1, verbose=True):
+    if verbose:
+        print('Extracting correlated flux...')
+    bck = fftdata['FFT']['data']
+    FT = []
+    for i in baselines:
+        FT.append(fftdata['FFT']['data'][:,i-baselwd:i+baselwd+1,:])
+        bck[:,i-baselwd:i+baselwd+1,:] = 0
+    FT = np.array(FT)
+    print('Shape of FT:', np.shape(FT))
+    
+    
+        
+
+##############################################
+# Function to sort out peaks
+def op_sortout_peaks(peaksin, peaksout, verbose=True):
+    tel    = (1,2,3,4)
+    telname= ("U1","U2","U3","U4")
+    telscr = (3,4,2,1)
+    
+    bcdin_  = (2,1,0,0)
+    bcdout_ = (1,2,0,0)
+    bcd_in  = (0,0,4,3)
+    bcd_out = (0,0,3,4)
+    
+    bcd = bcdin_ + bcd_in
+    
+    coding = (1,3,6,7)
+    
+    ntel = len(coding)
+    for i in np.arange(ntel):
+        for j in np.arange(ntel-i-1)+i+1:
+            print(i,j)
+            telnamei = telname[telscr[bcd[tel[i]-1]-1]-1]
+            telnamej = telname[telscr[bcd[tel[j]-1]-1]-1]
+            teli = coding[i]
+            telj = coding[j]
+            lng = telj-teli
+            print(telnamei, telnamej, lng)
+
+##############################################
+# Function to compute the air refractive index
 def op_air_index(wl, T=15, P=1013.25, h=0.1, N_CO2=423, bands='all'):
     """ Compute the refractive index as a function of wavelength at a given temperature,
         pressure, relative humidity and CO2 concentration, using Equation (5) of Voronin & Zheltikov (2017).

@@ -2,12 +2,10 @@
 # Cosmetics for data
 ##############################################
 from astropy.io import fits
-from scipy import stats
 import numpy as np
 import fnmatch
 from scipy.ndimage import median_filter
 from scipy import *
-from scipy import signal
 import matplotlib.pyplot as plt
 
 ##############################################
@@ -203,43 +201,3 @@ def op_load_rawdata(filename, verbose=True):
             data['OTHER'][key]['naxis'] = naxis
     fh.close()
     return data
-
-##############################################
-def op_apodize(data, verbose=True):
-    if verbose:
-        print('Apodizing data...')
-    # Apply a Hamming window to the data
-    nframes = np.shape(data['INTERF']['data'])[0]
-    nreg    = len(data['PHOT'])
-    
-    intf  = stats.trim_mean(data['INTERF']['data'],axis=0, proportiontocut=0.05)
-    n     = np.shape(intf)[1]
-    win   = signal.get_window(('kaiser', 14), n)
-    argmx = np.argmax(np.mean(intf, axis=0))
-    print('argmx', argmx)
-    centered_win_intf = np.roll(win, argmx - n//2)
-    
-    # Plot the Hanning window used for apodization
-    plt.figure()
-    plt.plot(centered_win_intf)
-    plt.title('Window for Apodization')
-    plt.xlabel('Pixel Index')
-    plt.ylabel('Window Value')
-    plt.grid(True)
-    plt.show()
-    
-    for i in np.arange(nframes):
-        data['INTERF']['data'][i] *= centered_win_intf
-        
-    for key in data['PHOT']:
-        pht   = stats.trim_mean(data['PHOT'][key]['data'],axis=0, proportiontocut=0.05)
-        n     = np.shape(pht)[1]
-        win   = signal.get_window(('kaiser', 14), n)
-        argmx = np.argmax(np.mean(pht, axis=0))
-        centered_win_pht = np.roll(win, argmx - n//2)
-        for i in np.arange(nframes):
-            data['PHOT'][key]['data'][i] *= centered_win_pht
-            
-    return data
-
-
