@@ -1,6 +1,7 @@
 ##############################################
 # Correlated flux computation
 ##############################################
+from os import error
 from astropy.io import fits
 import numpy as np
 import astropy.constants as const
@@ -11,16 +12,27 @@ from scipy import *
 def op_apodize(data, verbose=True,plot=False):
     if verbose:
         print('Apodizing data...')
-    # Apply a Hamming window to the data
+    # Apply an apodizing window to the data
     nframes = np.shape(data['INTERF']['data'])[0]
+    nwlen   = np.shape(data['INTERF']['data'])[1]
     nreg    = len(data['PHOT'])
     
+    if verbose:
+        print('computing apodizing window...')
     intf  = stats.trim_mean(data['INTERF']['data'],axis=0, proportiontocut=0.05)
+    argmx = np.argmax(stats.trim_mean(intf, axis=0, proportiontocut=0.05))
+    if verbose:
+        print('argmx', argmx)
     n     = np.shape(intf)[1]
-    win   = signal.get_window(('kaiser', 14), n)
-    argmx = np.argmax(np.mean(intf, axis=0))
-    print('argmx', argmx)
-    centered_win_intf = np.roll(win, argmx - n//2)
+    if verbose:
+        print('n', n)
+    dx = int(n - 2*np.abs(n/2 - argmx))
+    if verbose:
+        print('dx', dx)
+    wn   = signal.get_window(('kaiser', 14), dx)
+    zewin = np.zeros(n)
+    zewin[argmx-dx//2:argmx+dx//2] = wn
+    centered_win_intf = zewin
     
     if plot:
         # Plot the Hanning window used for apodization
@@ -32,15 +44,22 @@ def op_apodize(data, verbose=True,plot=False):
         plt.grid(True)
         plt.show()
     
+    data['INTERF']['center'] = argmx
     for i in np.arange(nframes):
         data['INTERF']['data'][i] *= centered_win_intf
         
     for key in data['PHOT']:
         pht   = stats.trim_mean(data['PHOT'][key]['data'],axis=0, proportiontocut=0.05)
+        argmx = np.argmax(stats.trim_mean(pht, axis=0, proportiontocut=0.05))
         n     = np.shape(pht)[1]
-        win   = signal.get_window(('kaiser', 14), n)
-        argmx = np.argmax(np.mean(pht, axis=0))
-        centered_win_pht = np.roll(win, argmx - n//2)
+        dx = int(n - 2*np.abs(n/2 - argmx))
+        if verbose:
+            print('dx', dx)
+        wn   = signal.get_window(('kaiser', 14), dx)
+        zewin = np.zeros(n)
+        zewin[argmx-dx//2:argmx+dx//2] = wn
+        centered_win_pht = zewin
+        data['PHOT'][key]['center'] = argmx
         for i in np.arange(nframes):
             data['PHOT'][key]['data'][i] *= centered_win_pht
             
@@ -53,11 +72,16 @@ def op_calc_fft(data, verbose=True):
         print('Computing FFT of interferograms...')
     intf = data['INTERF']['data']
     nframe = np.shape(intf)[0]
-    nwlen = np.shape(intf)[1]
-    npix = np.shape(intf)[2]
+    nwlen  = np.shape(intf)[1]
+    npix   = np.shape(intf)[2]
     
     # Compute FFT 1D of intf along the pixels axis
     fft_intf = np.fft.fft(intf, axis=2)
+    # Compute the phasor corresponding to the shift of the center of the window
+    center_shift = data['INTERF']['center']
+    phasor = np.exp(2j * np.pi * center_shift * (np.arange(npix)) / npix)
+    fft_intf *= phasor[None,None,:]
+    
     fft_intf_magnitude = np.abs(fft_intf)
     dsp_intf = fft_intf_magnitude**2
     sum_dsp_intf = np.sum(dsp_intf, axis=0)
@@ -105,10 +129,12 @@ def op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
     if instrument == 'MATISSE':
         peaks = np.arange(7)
         interfringe = 17.88*2.75*2*0.85 # in D/lambda
-        peakswd = 4.
+        peakswd = 0.7
         pkwds = np.ones_like(peaks) * peakswd
         peak = peaks[:,None] * interfringe / wlen[None,:]
         peakwd = pkwds[:,None] * interfringe / wlen[None,:]
+    else:
+        error('Instrument not recognized')
     
     if verbose:
         print('Shape of peak:', np.shape(peak))
@@ -118,19 +144,55 @@ def op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
 
 ##############################################
 # Function to extract the correlated flux
-def op_extract_CF(fftdata, wlen, baselines, baselwd=1, verbose=True):
+def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=True):
     if verbose:
         print('Extracting correlated flux...')
-    bck = fftdata['FFT']['data']
+    bck = np.copy(fftdata['FFT']['data'])
+    nfreq = np.shape(bck)[2]
+    nfreq2 = int(nfreq/2)
+    bck = bck[:,:,0:nfreq2]
+    if verbose:
+        print('Shape of bck:', np.shape(bck))
+        print('nfreq:', nfreq)
+    ifreq = np.arange(nfreq2)
+    npeaks = np.shape(peaks)[0]
+    ibase = np.arange(npeaks)
     FT = []
-    for i in baselines:
-        FT.append(fftdata['FFT']['data'][:,i-baselwd:i+baselwd+1,:])
-        bck[:,i-baselwd:i+baselwd+1,:] = 0
+    CF = []
+    NIZ = []
+    for i in ibase:
+        fti = fftdata['FFT']['data'][:,:,0:nfreq2]
+        zone = np.logical_and(ifreq[None,:] >= peaks[i,:][:,None]-peakswd[i,:][:,None]/2, ifreq[None,:] <= peaks[i,:][:,None]+peakswd[i,:][:,None]/2)
+        NIZ.append(np.sum(zone, axis=0))
+        FT.append(fti*zone)
+        CF.append(np.sum(fti*zone, axis=2))
+        bck *= (1-zone)
     FT = np.array(FT)
-    print('Shape of FT:', np.shape(FT))
+    CF = np.array(CF)
+    NIZ = np.array(NIZ)
     
-    
+    if verbose:
+        print('Shape of FT:', np.shape(FT))
         
+    if plot:
+        fig, axes = plt.subplots(1, 8, figsize=(16, 8))
+        fig.tight_layout()
+        FTavg = np.mean(FT, axis=1)
+        for i, ax in enumerate(axes.flat):
+            if i < npeaks:
+                epsilon = 0#1e-6
+                #ax.imshow(np.log(np.abs(FTavg[i,...])+epsilon), cmap='gray')
+                ax.imshow((np.abs(FTavg[i,...])+epsilon), cmap='gray')
+                ax.set_title('Peak {}'.format(i))
+            else:
+                #ax.imshow(np.log(np.abs(bck[0,...]+epsilon)), cmap='gray')
+                ax.imshow((np.abs(bck[0,...]+epsilon)), cmap='gray')
+                ax.set_title('Background')
+        plt.show()
+    
+    print('Shape of FT:', np.shape(FT))
+    fftdata['CF'] = {'data': FT, 'CF': CF, 'CF_nbpx': NIZ, 'bck': bck}
+    return fftdata
 
 ##############################################
 # Function to sort out peaks

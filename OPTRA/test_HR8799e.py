@@ -11,12 +11,13 @@ from scipy import stats
 
 
 plot = False
-plotdsp = True
+plotdsp = False
+verb = False
 
 bbasedir = '~/Documents/G+/'
 bbasedir = '~/SynologyDrive/driveFlorentin/GRAVITY+/HR8799e/'
 basedir  = bbasedir+'GPAO_HR8799e/'
-starfile = 'MATISSE_OBS_SIPHOT_LM_OBJECT_272_0001.fits'
+starfile = 'MATISSE_OBS_SIPHOT_LM_OBJECT_272_0005.fits'
 skyfile  = 'MATISSE_OBS_SIPHOT_LM_SKY_272_0001.fits'
 
 caldir    = bbasedir+'CALIB2024/'
@@ -40,8 +41,8 @@ stardata = op_subtract_sky(tardata, skydata)
 bpm = op_load_bpm(caldir+badfile)
 ffm = op_load_ffm(caldir+flatfile)
 
-fdata = op_apply_ffm(stardata, ffm, verbose=True)
-bdata = op_apply_bpm(fdata, bpm, verbose=True)
+fdata = op_apply_ffm(stardata, ffm, verbose=verb)
+bdata = op_apply_bpm(fdata, bpm, verbose=verb)
 
 print('Shape of bdata:', bdata['INTERF']['data'].shape)
 
@@ -54,7 +55,7 @@ if plot:
     plt.show()
 
 # Apodization
-adata = op_apodize(bdata, verbose=True, plot=False)
+adata = op_apodize(bdata, verbose=verb, plot=plot)
 
 if plot:
     # Compute the average of intf after apodization
@@ -90,15 +91,31 @@ if plotdsp:
     #plt.show()
 
 # Get the wavelength
-wlen = op_get_wlen(caldir+shiftfile, fdata, verbose=True)
+wlen = op_get_wlen(caldir+shiftfile, fdata, verbose=verb)
+
+colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+
+peaks, peakswd = op_get_peaks_position(fdata, wlen, 'MATISSE', verbose=verb)
+
+if plot:
+    for i in range(np.shape(peaks)[0]):
+        plt.plot(peaks[i,:], np.arange(np.shape(peaks)[1]),color=colors[i])
+        plt.plot(peaks[i,:]+peakswd[i,:]/2, np.arange(np.shape(peaks)[1]),color=colors[i])
+        plt.plot(peaks[i,:]-peakswd[i,:]/2, np.arange(np.shape(peaks)[1]),color=colors[i])
+    plt.show()
 
 
-peaks, peakswd = op_get_peaks_position(fdata, wlen, 'MATISSE', verbose=True)
+cfdata = op_extract_CF(fdata, wlen, peaks, peakswd, verbose=verb)
 
-for i in range(np.shape(peaks)[0]):
-    plt.plot(peaks[i,:], np.arange(np.shape(peaks)[1]), 'o')
-
+plt.figure(1)
+plt.imshow(np.angle(cfdata['CF']['data'][1,0,:,:]), cmap='gray')
+plt.figure(2)
+for i in np.arange(7):
+    plt.plot(np.angle(cfdata['CF']['data'][i,0,100,:]))
+plt.figure(3)
+for i in np.arange(7):
+    plt.plot(np.angle(cfdata['CF']['CF'][i,0,:]))
+plt.figure(4)
+for i in np.arange(6)+1:
+    plt.plot(np.abs(cfdata['CF']['CF'][i,0,:]) / np.abs(cfdata['CF']['CF'][0,0,:])*3)
 plt.show()
-
-
-op_extract_CF(fdata, wlen, peaks, verbose=True)
