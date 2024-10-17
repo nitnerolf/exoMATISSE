@@ -20,7 +20,6 @@ def op_interpolate_bad_pixels(data, bad_pixel_map, verbose=False):
     data[bad_pixel_map] = filtered_data[bad_pixel_map]
     return data, filtered_data
 
-
 ##############################################
 def op_load_bpm(filename, verbose=True):
     if verbose:
@@ -74,7 +73,6 @@ def op_apply_bpm(rawdata, bpmap, verbose=True):
             other[i],filtdata = op_interpolate_bad_pixels(other[i], wbpm)
             fdata.append(filtdata)
         rawdata['OTHER'][key]['data'] = other
-        
     return rawdata
 
 ##############################################
@@ -127,7 +125,6 @@ def op_apply_ffm(rawdata, ffmap, verbose=True):
         for i in range(nframe):
             other[i] /= wffm
         rawdata['OTHER'][key]['data'] = other
-        
     return rawdata
 
 ##############################################
@@ -145,7 +142,6 @@ def op_subtract_sky(rawdata, skydata, verbose=True):
     rawdata['INTERF']['data'] -= skydata['INTERF']['data']
     for key in skydata['PHOT']:
         rawdata['PHOT'][key]['data'] -= skydata['PHOT'][key]['data']
-        
     return rawdata
     
 ##############################################
@@ -176,6 +172,12 @@ def op_load_rawdata(filename, verbose=True):
     data['INTERF'] = {}
     data['OTHER'] = {}
     
+    localopd = []
+    for i in np.arange(nframes):
+        localopd.append(fh['IMAGING_DATA'].data[i]['LOCALOPD'].astype(float))
+    localopd = np.array(localopd) 
+    print('Localopd:', localopd)
+    
     for j in np.arange(nreg):
         corner = fh['IMAGING_DETECTOR'].data[j]['CORNER']
         naxis  = fh['IMAGING_DETECTOR'].data[j]['NAXIS']
@@ -187,6 +189,7 @@ def op_load_rawdata(filename, verbose=True):
             data['INTERF']['data'] = datarray
             data['INTERF']['corner'] = corner
             data['INTERF']['naxis'] = naxis
+            data['INTERF']['localopd'] = localopd
         elif fnmatch.fnmatch(fh['IMAGING_DETECTOR'].data['REGNAME'][j], 'PHOT*'):
             key = fh['IMAGING_DETECTOR'].data['REGNAME'][j]
             data['PHOT'][key]={}

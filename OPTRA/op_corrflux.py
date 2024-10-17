@@ -130,9 +130,9 @@ def op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
         peaks = np.arange(7)
         interfringe = 17.88*2.75*2*0.85 # in D/lambda
         peakswd = 0.7
-        pkwds = np.ones_like(peaks) * peakswd
-        peak = peaks[:,None] * interfringe / wlen[None,:]
-        peakwd = pkwds[:,None] * interfringe / wlen[None,:]
+        pkwds   = np.ones_like(peaks) * peakswd
+        peak    = peaks[:,None] * interfringe / wlen[None,:]
+        peakwd  = pkwds[:,None] * interfringe / wlen[None,:]
     else:
         error('Instrument not recognized')
     
@@ -140,11 +140,10 @@ def op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
         print('Shape of peak:', np.shape(peak))
         print('Peak:', peak)
     return peak, peakwd
-    
 
 ##############################################
 # Function to extract the correlated flux
-def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=True):
+def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=False):
     if verbose:
         print('Extracting correlated flux...')
     bck = np.copy(fftdata['FFT']['data'])
@@ -173,6 +172,7 @@ def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=True):
     
     if verbose:
         print('Shape of FT:', np.shape(FT))
+        print('NIZ:', NIZ)
         
     if plot:
         fig, axes = plt.subplots(1, 8, figsize=(16, 8))
@@ -195,18 +195,89 @@ def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=True):
     return fftdata
 
 ##############################################
+# Function
+def op_demodulate(CFdata, wlen, verbose=True, plot=False):
+    if verbose:
+        print('Demodulating correlated flux...')
+    npeaks  = np.shape(CFdata['CF']['data'])[0]
+    nframes = np.shape(CFdata['CF']['data'])[1]
+    nwlen   = np.shape(CFdata['CF']['data'])[2]
+    npix    = np.shape(CFdata['CF']['data'])[3]
+    if verbose:
+        print('npeaks:', npeaks)
+        print('nframes:', nframes)
+        print('nwlen:', nwlen)
+        print('npix:', npix)
+        
+    localopd = CFdata['INTERF']['localopd']
+    if verbose:
+        print('Shape of localopd:', np.shape(localopd))
+    
+    ntel = 4
+    # Compute baseline OPD from local OPD
+    localopdij = []
+    for itel in np.arange(ntel-1):
+        for jtel in np.arange(ntel - itel - 1) + itel + 1:
+            if verbose:
+                print('Computing baseline OPD between telescopes {} and {}'.format(itel+1, jtel+1))
+                loij = localopd[:,itel] - localopd[:,jtel]
+            localopdij.append(loij)
+            print('ij:',itel,jtel, 'localopdij:', loij)
+    localopdij = np.array(localopdij)
+    # Compute the phasor from localopd
+    phasor = np.exp(2j * np.pi * localopdij[:,:,None] / wlen[None,None,:] )
+    
+    CFdata['CF']['mod_phasor'] = phasor
+    CFdata['CF']['CF_demod']   = np.zeros_like(CFdata['CF']['CF'])
+    CFdata['CF']['CF_demod'][1:,...]   = CFdata['CF']['CF'][1:,...] * np.conjugate(phasor)
+    CFdata['CF']['data_demod']   = np.zeros_like(CFdata['CF']['data'])
+    CFdata['CF']['data_demod'][1:,...] = CFdata['CF']['data'][1:,...] * np.conjugate(phasor[...,None])
+    
+    print('wlen:', wlen)
+    
+    if plot:
+        iframe = 0
+        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+        plt.figure(4)
+        for i in np.arange(6):
+            plt.plot(np.angle(phasor[i,iframe,:]),color=colors[i])
+        plt.show()
+    
+    if verbose:
+        print('Shape of phasor:', np.shape(phasor))
+        print('Shape of CF:', np.shape(CFdata['CF']['CF']))
+    
+    
+
+##############################################
 # Function to sort out peaks
-def op_sortout_peaks(peaksin, peaksout, verbose=True):
+def op_sortout_peaks(peaksin, instrument, bcd1, bcd2, peaksout, verbose=True):
     tel    = (1,2,3,4)
-    telname= ("U1","U2","U3","U4")
-    telscr = (3,4,2,1)
+    telname= peaksin['IMAGING']("T1","T2","T3","T4")
+    
+    #########################################
+    # Internal beams scrambling
+    IP = (1,3,5,7)
+    if instrument   == 'MATISSE_L':
+        beamscr  = (3,4,2,1)
+    elif instrument == 'MATISSE_N':
+        beamscr  = (1,2,4,3)
+    else:
+        error('Instrument not recognized')
     
     bcdin_  = (2,1,0,0)
     bcdout_ = (1,2,0,0)
     bcd_in  = (0,0,4,3)
     bcd_out = (0,0,3,4)
-    
-    bcd = bcdin_ + bcd_in
+    bcdscr  = (0,0,0,0)
+    if bcd1 == "IN":
+        bcdscr += bcdin_
+    else:
+        bcdscr += bcdout_
+    if bcd2 == "IN":
+        bcdscr += bcd_in
+    else:
+        bcdscr += bcd_out
     
     coding = (1,3,6,7)
     
