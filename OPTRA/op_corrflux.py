@@ -3,12 +3,13 @@
 ##############################################
 from os import error
 from astropy.io import fits
+from scipy import *
 import numpy as np
 import astropy.constants as const
 import matplotlib.pyplot as plt
-from scipy import *
 
 ##############################################
+# Apodization function
 def op_apodize(data, verbose=True,plot=False):
     if verbose:
         print('Apodizing data...')
@@ -123,7 +124,7 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
     return wlen
 
 ##############################################
-
+# Function to get the peaks position
 def op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
     npix = np.shape(fftdata['FFT']['data'])[2]
     if instrument == 'MATISSE':
@@ -195,7 +196,7 @@ def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=False):
     return fftdata
 
 ##############################################
-# Function
+# Function to demodulate MATISSE fringes
 def op_demodulate(CFdata, wlen, verbose=True, plot=False):
     if verbose:
         print('Demodulating correlated flux...')
@@ -215,14 +216,18 @@ def op_demodulate(CFdata, wlen, verbose=True, plot=False):
     
     ntel = 4
     # Compute baseline OPD from local OPD
+    teli = (3,1,2,2,1,1)
+    telj = (4,2,3,4,3,4)
     localopdij = []
+    ibase=0
     for itel in np.arange(ntel-1):
         for jtel in np.arange(ntel - itel - 1) + itel + 1:
+            print('ij:',itel,jtel)
             if verbose:
-                print('Computing baseline OPD between telescopes {} and {}'.format(itel+1, jtel+1))
-                loij = localopd[:,itel] - localopd[:,jtel]
+                loij = localopd[:,teli[ibase]-1] - localopd[:,telj[ibase]-1]
             localopdij.append(loij)
             print('ij:',itel,jtel, 'localopdij:', loij)
+            ibase+=1
     localopdij = np.array(localopdij)
     # Compute the phasor from localopd
     phasor = np.exp(2j * np.pi * localopdij[:,:,None] / wlen[None,None,:] )
@@ -246,30 +251,72 @@ def op_demodulate(CFdata, wlen, verbose=True, plot=False):
     if verbose:
         print('Shape of phasor:', np.shape(phasor))
         print('Shape of CF:', np.shape(CFdata['CF']['CF']))
-    
-    
+        
+    return CFdata
+
+##############################################
+# Function to sort out beams    
+def op_sortout_beams(beamsin, verbose=True):
+    here_do_something = 0
 
 ##############################################
 # Function to sort out peaks
-def op_sortout_peaks(peaksin, instrument, bcd1, bcd2, peaksout, verbose=True):
-    tel    = (1,2,3,4)
-    telname= peaksin['IMAGING']("T1","T2","T3","T4")
+# The combiner entrance MATISSE pupil looks
+# like that in L band (BCD out)
+#  S1       S2          S3    S4
+#      2        3          1
+#  _        _           _     _
+# / \      / \         / \   / \
+# \_/      \_/         \_/   \_/
+# and like this in N band (BCD out)
+#  S4   S3           S2       S1
+#     1        3          2
+#  _     _           _        _
+# / \   / \         / \      / \
+# \_/   \_/         \_/      \_/
+#
+# The BCD inverts S1 <-> S2 and S3 <-> S4
+# 
+def op_sortout_peaks(peaksin, verbose=True):
+    if verbose:
+        print('Sorting out peaks...')
+        
+    bcd1 = peaksin['hdr']['HIERARCH ESO INS BCD1 ID']
+    bcd2 = peaksin['hdr']['HIERARCH ESO INS BCD2 ID']
+    det = peaksin['hdr']['HIERARCH ESO DET CHIP NAME']
+    
+    if verbose:
+        print('BCD1:', bcd1)
+        print('BCD2:', bcd2)
+    
+    tel= peaksin['OPTICAL_TRAIN']['INDEX']
+    ntel = len(tel)
+    nbases = ntel*(ntel-1)//2
+    telname = peaksin['OPTICAL_TRAIN']['TEL_NAME']
+    if verbose:
+        print('Telescope names:', telname)
+    DL_number = peaksin['OPTICAL_TRAIN']['VALUE1']
+    IP_number = peaksin['OPTICAL_TRAIN']['VALUE2']
     
     #########################################
     # Internal beams scrambling
-    IP = (1,3,5,7)
-    if instrument   == 'MATISSE_L':
-        beamscr  = (3,4,2,1)
-    elif instrument == 'MATISSE_N':
-        beamscr  = (1,2,4,3)
+    # See MATISSE document: MATISSE-TP-TN-003
+    if det   == 'HAWAII-2RG': #  MATISSE_L
+        beamscr  = (4,3,2,1)
+        band="L"
+    elif det == 'AQUARIUS': #  MATISSE_N
+        beamscr  = (1,2,3,4)
+        band="N"
     else:
         error('Instrument not recognized')
+        
     
-    bcdin_  = (2,1,0,0)
-    bcdout_ = (1,2,0,0)
-    bcd_in  = (0,0,4,3)
-    bcd_out = (0,0,3,4)
-    bcdscr  = (0,0,0,0)
+    bcdin_  = np.array((2,1,0,0))
+    bcdout_ = np.array((1,2,0,0))
+    bcd_in  = np.array((0,0,4,3))
+    bcd_out = np.array((0,0,3,4))
+    
+    bcdscr  = np.array((0,0,0,0))
     if bcd1 == "IN":
         bcdscr += bcdin_
     else:
@@ -279,18 +326,41 @@ def op_sortout_peaks(peaksin, instrument, bcd1, bcd2, peaksout, verbose=True):
     else:
         bcdscr += bcd_out
     
+    if verbose:
+        for i in range(4):
+            print("tel",tel[i], telname[i], "DL",DL_number[i], "IP", IP_number[i], "beamscr", beamscr[i], "bcdscr", bcdscr[i], "beam", tel[bcdscr[beamscr[i]-1]-1])
+    
     coding = (1,3,6,7)
     
-    ntel = len(coding)
-    for i in np.arange(ntel):
-        for j in np.arange(ntel-i-1)+i+1:
-            print(i,j)
-            telnamei = telname[telscr[bcd[tel[i]-1]-1]-1]
-            telnamej = telname[telscr[bcd[tel[j]-1]-1]-1]
-            teli = coding[i]
-            telj = coding[j]
+    ibase=0
+    peakscr = np.zeros(nbases)
+    for itel in np.arange(ntel-1):
+        for jtel in np.arange(ntel - itel - 1) + itel + 1:
+            telnamei = telname[tel[bcdscr[beamscr[itel]-1]-1]-1]
+            telnamej = telname[tel[bcdscr[beamscr[jtel]-1]-1]-1]
+            teli = coding[bcdscr[beamscr[itel]-1]-1]
+            telj = coding[bcdscr[beamscr[jtel]-1]-1]
             lng = telj-teli
-            print(telnamei, telnamej, lng)
+            print("base",ibase+1, "telescopes", itel, "and", jtel, "tel1",telnamei,"tel2",telnamej, "peak",lng)
+            peakscr[ibase] = -lng
+            ibase+=1
+            
+    peakunscr_tmp = np.arange(nbases)
+    peakunscr = np.zeros(nbases)
+    for i in np.arange(nbases):
+        for j in np.arange(nbases):
+            if int(np.abs(peakscr[j])-1) == i:
+                peakunscr[i] = np.sign(peakscr[j]) * (j+1)
+    print("peakscr",peakscr)
+    print("peakunscr",peakunscr)
+    for i in np.arange(nbases):
+        if peakunscr[i] > 0:
+            peaksin['CF']['CF'][i+1,...] = peaksin['CF']['CF'][int(peakunscr[i]),...]
+        else:
+            peaksin['CF']['CF'][i+1,...] = -peaksin['CF']['CF'][int(-peakunscr[i]),...]
+            
+            
+    return peaksin
 
 ##############################################
 # Function to compute the air refractive index

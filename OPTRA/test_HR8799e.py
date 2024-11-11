@@ -1,18 +1,18 @@
-from op_corrflux import *
-from OPTRA.op_rawdata import *
-from op_flux import *
+from op_corrflux   import *
+from op_rawdata    import *
+from op_flux       import *
 import numpy as np
 import matplotlib.pyplot as plt
-from astropy.io import fits
+from astropy.io    import fits
 import os
 from scipy.ndimage import median_filter
-from scipy import *
-from scipy import stats
+from scipy         import *
+from scipy         import stats
 
 #plt.ion()
 
 plot    = False
-plotdsp = False
+plotdsp = True
 verb    = False
 
 bbasedir = '~/Documents/G+/'
@@ -133,7 +133,12 @@ if plotdsp:
     plt.title('Modulus of Complex Values for CF Data and Background')
 
 #########################################################
+
+
 op_demodulate(cfdata, wlen, verbose=True, plot=False)
+
+scfdata = op_sortout_peaks(cfdata, verbose=True)
+#scfdata = cfdata
 
 
 
@@ -152,9 +157,17 @@ def init():
     return lines
 def update(frame):
     for i, line in enumerate(lines):
-        if i == 1:
-            #line.set_data(wlen, np.angle(cfdata['CF']['CF'][i, frame, :] * np.conjugate(cfdata['CF']['mod_phasor'][5, frame, :])))
+        if i == 5:
+            #line.set_data(wlen, np.angle(cfdata['CF']['CF'][i, frame, :] * np.conjugate(cfdata['CF']['mod_phasor'][2, frame, :])))
+            
+            # CF 1 phi 5 -> 6
+            # CF 2 phi 0 -> 1
+            # CF 3 phi 3 -> 4
+            # CF 4 phi 4 -> 5
+            # CF 5 phi 1 -> 2
+            # CF 6 phi 2 -> 3
             line.set_data(wlen, np.angle(cfdata['CF']['CF_demod'][i, frame, :]))
+            
             #lines2[i].set_data(wlen, np.angle(cfdata['CF']['mod_phasor'][i-1, frame, :]))
             
     return lines
