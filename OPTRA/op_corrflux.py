@@ -80,14 +80,14 @@ def op_calc_fft(data, verbose=True):
     fft_intf = np.fft.fft(intf, axis=2)
     # Compute the phasor corresponding to the shift of the center of the window
     center_shift = data['INTERF']['center']
-    phasor = np.exp(2j * np.pi * center_shift * (np.arange(npix)) / npix)
+    phasor    = np.exp(2j * np.pi * center_shift * (np.arange(npix)) / npix)
     fft_intf *= phasor[None,None,:]
     
     fft_intf_magnitude = np.abs(fft_intf)
-    dsp_intf = fft_intf_magnitude**2
+    dsp_intf     = fft_intf_magnitude**2
     sum_dsp_intf = np.sum(dsp_intf, axis=0)
-    sdi_resh = np.fft.fftshift(sum_dsp_intf, axes=1)
-    freqs = np.fft.fftfreq(npix)
+    sdi_resh     = np.fft.fftshift(sum_dsp_intf, axes=1)
+    freqs        = np.fft.fftfreq(npix)
     print('Shape of sum_dsp_intf:', sum_dsp_intf.shape)
     
     data['FFT'] = {'data': fft_intf, 'magnitude': fft_intf_magnitude, 'dsp': dsp_intf, 'sum_dsp': sum_dsp_intf, 'sdi': sdi_resh, 'freqs': freqs}
@@ -109,8 +109,8 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
         print('disp1:', disp[1])
     
     corner = rawdata['INTERF']['corner']
-    px = corner[1]+np.arange(np.shape(rawdata['INTERF']['data'])[1])
-    wlen = disp[0][0] + disp[0][1]*px + disp[0][2]*px**2
+    px     = corner[1]+np.arange(np.shape(rawdata['INTERF']['data'])[1])
+    wlen   = disp[0][0] + disp[0][1]*px + disp[0][2]*px**2
     
     if verbose:
         print(disp)
@@ -120,6 +120,8 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
         plt.figure()
         plt.plot(wlen)
         plt.show()
+    
+    rawdata['wlen'] = wlen
     
     return wlen
 
@@ -147,8 +149,8 @@ def op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
 def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=False):
     if verbose:
         print('Extracting correlated flux...')
-    bck = np.copy(fftdata['FFT']['data'])
-    nfreq = np.shape(bck)[2]
+    bck    = np.copy(fftdata['FFT']['data'])
+    nfreq  = np.shape(bck)[2]
     nfreq2 = int(nfreq/2)
     bck = bck[:,:,0:nfreq2]
     if verbose:
@@ -163,12 +165,14 @@ def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=False):
     for i in ibase:
         fti = fftdata['FFT']['data'][:,:,0:nfreq2]
         zone = np.logical_and(ifreq[None,:] >= peaks[i,:][:,None]-peakswd[i,:][:,None]/2, ifreq[None,:] <= peaks[i,:][:,None]+peakswd[i,:][:,None]/2)
+        weight = np.exp(-0.5 * ((ifreq[None,:] - peaks[i,:][:,None]) / (2*peakswd[i,:][:,None] / 2.355))**2)
+        
         NIZ.append(np.sum(zone, axis=0))
         FT.append(fti*zone)
-        CF.append(np.sum(fti*zone, axis=2))
+        CF.append(np.sum(weight * fti * zone, axis=2))
         bck *= (1-zone)
-    FT = np.array(FT)
-    CF = np.array(CF)
+    FT  = np.array(FT)
+    CF  = np.array(CF)
     NIZ = np.array(NIZ)
     
     if verbose:
@@ -222,11 +226,12 @@ def op_demodulate(CFdata, wlen, verbose=True, plot=False):
     ibase=0
     for itel in np.arange(ntel-1):
         for jtel in np.arange(ntel - itel - 1) + itel + 1:
-            print('ij:',itel,jtel)
             if verbose:
-                loij = localopd[:,teli[ibase]-1] - localopd[:,telj[ibase]-1]
+                print('ij:',itel,jtel)
+            loij = 1 * (localopd[:,teli[ibase]-1] - localopd[:,telj[ibase]-1])
             localopdij.append(loij)
-            print('ij:',itel,jtel, 'localopdij:', loij)
+            if verbose:
+                print('ij:',itel,jtel, 'localopdij:', loij)
             ibase+=1
     localopdij = np.array(localopdij)
     # Compute the phasor from localopd
@@ -361,6 +366,94 @@ def op_sortout_peaks(peaksin, verbose=True):
             
             
     return peaksin
+
+##############################################
+# Function to compute the air refractive index
+def op_get_corrflux(bdata):
+    #########################################################
+    # Apodization
+    adata = op_apodize(bdata, verbose=verb, plot=plot)
+        
+    if plot:
+        # Compute the average of intf after apodization
+        avg_intf = np.mean(adata['INTERF']['data'], axis=0)
+        vmn = 1e-9
+        vmx = np.max(avg_intf)
+        fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+        fig.tight_layout()
+        split_images = np.array_split(avg_intf, 3, axis=0)
+        for ax, img in zip(axes, split_images):
+            ax.imshow(img, cmap='gray')
+        plt.title('Average of intf after Apodization')
+        plt.show()
+        
+        
+
+#########################################################
+#compute fft
+fdata = op_calc_fft(adata)
+
+if plotdsp:
+    # Compute the average of intf after apodization
+    sum_dsp = np.log(fdata['FFT']['sum_dsp'])
+    #fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    fig, axes = plt.subplots(1, 1, figsize=(6, 10))
+    fig.tight_layout()
+    
+    axes.imshow(sum_dsp, cmap='gray')
+    '''
+    split_images = np.array_split(sum_dsp, 3, axis=0)
+    for ax, img in zip(axes, split_images):
+        ax.imshow(img, cmap='gray')
+        '''
+    plt.title('Sum of dsp after Apodization')
+
+    #plt.show()
+
+    #########################################################
+    # Get the wavelength
+    wlen = op_get_wlen(shiftfile, fdata, verbose=verb)
+
+
+    #########################################################
+    peaks, peakswd = op_get_peaks_position(fdata, wlen, 'MATISSE', verbose=verb)
+
+    colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+
+    if plotdsp:
+        for i in range(np.shape(peaks)[0]):
+            plt.plot(peaks[i,:], np.arange(np.shape(peaks)[1]),color=colors[i])
+            plt.plot(peaks[i,:]+peakswd[i,:]/2, np.arange(np.shape(peaks)[1]),color=colors[i])
+            plt.plot(peaks[i,:]-peakswd[i,:]/2, np.arange(np.shape(peaks)[1]),color=colors[i])
+        plt.show()
+
+    #########################################################
+    cfdata = op_extract_CF(fdata, wlen, peaks, peakswd, verbose=verb)
+
+    iframe = 0
+    iwlen = 1400
+        
+    if plotdsp:
+        plt.figure(1)
+        plt.imshow(np.angle(cfdata['CF']['data'][1,iframe,:,:]), cmap='gray')
+        plt.title('2D phase map for one peak')
+
+        plt.figure(2)
+        for i in np.arange(7):
+            plt.plot(np.angle(cfdata['CF']['data'][i,iframe,iwlen,:]),color=colors[i])
+        plt.title('Cut of the phase of CF Data')
+
+        plt.figure(3)
+        for i in np.arange(7):
+            plt.plot(np.abs(cfdata['CF']['data'][i,iframe,iwlen,:]),color=colors[i])
+        plt.plot(np.abs(cfdata['CF']['bck'][iframe,iwlen,:]))
+        plt.title('Modulus of Complex Values for CF Data and Background')
+
+
+##############################################
+# Function to compute the air refractive index
+def op_compute_air_index(fh):
+    toto
 
 ##############################################
 # Function to compute the air refractive index

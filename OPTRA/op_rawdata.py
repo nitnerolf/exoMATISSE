@@ -1,4 +1,4 @@
-##############################################
+#####################################################
 # Cosmetics for data
 ##############################################
 from   astropy.io import fits
@@ -215,3 +215,34 @@ def op_load_rawdata(filename, verbose=True):
             data['OTHER'][key]['naxis']  = naxis
     fh.close()
     return data
+
+##############################################
+# Load and calibrate raw data
+def op_loadAndCal_rawdata(sciencefile, skyfile, shiftfile, bpm, ffm, verbose=True):
+
+    # Load the star and sky data
+    tardata  = op_load_rawdata(sciencefile)
+    starname = tardata['hdr']['OBJECT']
+    if verbose:
+        print(starname)
+
+    bcd1 = tardata['hdr']['HIERARCH ESO INS BCD1 ID']
+    bcd2 = tardata['hdr']['HIERARCH ESO INS BCD2 ID']
+    det  = tardata['hdr']['HIERARCH ESO DET CHIP NAME']
+    if verbose:
+        print('BCD1:', bcd1, 'BCD2:', bcd2, 'DET:', det)
+
+    # Load the sky data
+    skydata  = op_load_rawdata(skyfile)
+
+    # Subtract the sky from the star data
+    stardata = op_subtract_sky(tardata, skydata)
+    
+    # Load the calibration data
+    bpm = op_load_bpm(bpm)
+    ffm = op_load_ffm(ffm)
+
+    fdata = op_apply_ffm(stardata, ffm, verbose=verbose)
+    bdata = op_apply_bpm(fdata, bpm, verbose=verbose)
+    
+    return bdata
