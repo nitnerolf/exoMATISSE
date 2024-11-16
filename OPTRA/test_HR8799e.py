@@ -29,7 +29,7 @@ badfile   = caldir+'BADPIX_L_SLOW.fits'
 
 ##########################################################
 
-bdata = op_loadAndCal_rawdata(starfile, skyfile, shiftfile, badfile, flatfile, verbose=True)
+bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=True)
 
 ##########################################################
 
@@ -43,8 +43,9 @@ if plot:
 
     plt.show()
     
-op_get_corrflux(bdata)
+cfdata, wlen = op_get_corrflux(bdata, shiftfile)
 
+print(wlen)
 
 #########################################################
 
@@ -56,6 +57,7 @@ op_demodulate(cfdata, wlen, verbose=True, plot=False)
 
 
 
+colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
 import matplotlib.animation as animation
 fig, ax = plt.subplots()
 #lines = [ax.plot([], [], color=colors[i])[0] for i in range(1)]
@@ -72,7 +74,7 @@ def init():
 def update(frame):
     for i, line in enumerate(lines):
         if i == 5:
-            #line.set_data(wlen, np.angle(cfdata['CF']['CF'][i, frame, :] * np.conjugate(cfdata['CF']['mod_phasor'][2, frame, :])))
+            #line.set_data(wlen, np.angle(cfdata['CF']['CF'][i, frame, :]  * np.conjugate(cfdata['CF']['mod_phasor'][2, frame, :])))
             
             # CF 1 phi 5 -> 6
             # CF 2 phi 0 -> 1
