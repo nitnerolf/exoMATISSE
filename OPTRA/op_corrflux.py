@@ -387,7 +387,67 @@ def op_get_corrflux(bdata):
         plt.title('Average of intf after Apodization')
         plt.show()
         
+    #########################################################
+    #compute fft
+    fdata = op_calc_fft(adata)
+
+    if plotdsp:
+        # Compute the average of intf after apodization
+        sum_dsp = np.log(fdata['FFT']['sum_dsp'])
+        #fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+        fig, axes = plt.subplots(1, 1, figsize=(6, 10))
+        fig.tight_layout()
         
+        axes.imshow(sum_dsp, cmap='gray')
+        '''
+        split_images = np.array_split(sum_dsp, 3, axis=0)
+        for ax, img in zip(axes, split_images):
+            ax.imshow(img, cmap='gray')
+            '''
+        plt.title('Sum of dsp after Apodization')
+
+        #plt.show()
+
+    #########################################################
+    # Get the wavelength
+    wlen = op_get_wlen(shiftfile, fdata, verbose=verb)
+
+
+    #########################################################
+    peaks, peakswd = op_get_peaks_position(fdata, wlen, 'MATISSE', verbose=verb)
+
+    colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+
+    if plotdsp:
+        for i in range(np.shape(peaks)[0]):
+            plt.plot(peaks[i,:], np.arange(np.shape(peaks)[1]),color=colors[i])
+            plt.plot(peaks[i,:]+peakswd[i,:]/2, np.arange(np.shape(peaks)[1]),color=colors[i])
+            plt.plot(peaks[i,:]-peakswd[i,:]/2, np.arange(np.shape(peaks)[1]),color=colors[i])
+        plt.show()
+
+    #########################################################
+    cfdata = op_extract_CF(fdata, wlen, peaks, peakswd, verbose=verb)
+
+    iframe = 0
+    iwlen = 1400
+        
+    if plotdsp:
+        plt.figure(1)
+        plt.imshow(np.angle(cfdata['CF']['data'][1,iframe,:,:]), cmap='gray')
+        plt.title('2D phase map for one peak')
+
+        plt.figure(2)
+        for i in np.arange(7):
+            plt.plot(np.angle(cfdata['CF']['data'][i,iframe,iwlen,:]),color=colors[i])
+        plt.title('Cut of the phase of CF Data')
+
+        plt.figure(3)
+        for i in np.arange(7):
+            plt.plot(np.abs(cfdata['CF']['data'][i,iframe,iwlen,:]),color=colors[i])
+        plt.plot(np.abs(cfdata['CF']['bck'][iframe,iwlen,:]))
+        plt.title('Modulus of Complex Values for CF Data and Background')
+
+    return cfdata
 
 #########################################################
 #compute fft
