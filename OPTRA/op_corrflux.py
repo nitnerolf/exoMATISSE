@@ -99,12 +99,13 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
     return wlen
 
 ##############################################
-
+# Function to get the peaks position
 def op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
     npix = np.shape(fftdata['FFT']['data'])[2]
     if instrument == 'MATISSE':
         peaks = np.arange(7)
         interfringe = 17.88*2.75*2*0.85 # in D/lambda
+        print('interfringe:', interfringe)
         peakswd = 4.
         pkwds = np.ones_like(peaks) * peakswd
         peak = peaks[:,None] * interfringe / wlen[None,:]
@@ -115,7 +116,6 @@ def op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
         print('Peak:', peak)
     return peak, peakwd
     
-
 ##############################################
 # Function to extract the correlated flux
 def op_extract_CF(fftdata, wlen, baselines, baselwd=1, verbose=True):
@@ -128,9 +128,6 @@ def op_extract_CF(fftdata, wlen, baselines, baselwd=1, verbose=True):
         bck[:,i-baselwd:i+baselwd+1,:] = 0
     FT = np.array(FT)
     print('Shape of FT:', np.shape(FT))
-    
-    
-        
 
 ##############################################
 # Function to sort out peaks
@@ -243,6 +240,3 @@ def op_air_index(wl, T=15, P=1013.25, h=0.1, N_CO2=423, bands='all'):
         n_air += dn_air1 + dn_air2
     
     return n_air
-   
-    
-   

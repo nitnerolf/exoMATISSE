@@ -14,7 +14,8 @@ plot = False
 plotdsp = True
 
 bbasedir = '~/Documents/G+/'
-bbasedir = '~/SynologyDrive/driveFlorentin/GRAVITY+/HR8799e/'
+#bbasedir = '~/SynologyDrive/driveFlorentin/GRAVITY+/HR8799e/'
+bbasedir = '~/Documents/G+/'
 basedir  = bbasedir+'GPAO_HR8799e/'
 starfile = 'MATISSE_OBS_SIPHOT_LM_OBJECT_272_0001.fits'
 skyfile  = 'MATISSE_OBS_SIPHOT_LM_SKY_272_0001.fits'
@@ -25,6 +26,7 @@ shiftfile = 'SHIFT_L_MED.fits'
 flatfile  = 'FLATFIELD_L_SLOW.fits'
 badfile   = 'BADPIX_L_SLOW.fits'
 
+##############################################
 # Load the star and sky data
 tardata  = op_load_rawdata(basedir+starfile)
 starname = tardata['hdr']['OBJECT']
@@ -33,9 +35,11 @@ print(starname)
 # Load the sky data
 skydata  = op_load_rawdata(basedir+skyfile)
 
+##############################################
 # Subtract the sky from the star data
 stardata = op_subtract_sky(tardata, skydata)
 
+##############################################
 # Load the calibration data
 bpm = op_load_bpm(caldir+badfile)
 ffm = op_load_ffm(caldir+flatfile)
@@ -48,11 +52,12 @@ print('Shape of bdata:', bdata['INTERF']['data'].shape)
 if plot:
     fig, ax1 = plt.subplots(1, 1, figsize=(8, 4), sharex=True, sharey=True)
     # Plot the first frame of intf
-    ax1.imshow(np.mean(bdata['INTERF']['data'],axis=0), cmap='gray')
+    ax1.imshow(np.mean(bdata['INTERF']['data'], axis=0), cmap='viridis')
     ax1.set_title('average intf')
 
     plt.show()
 
+##############################################
 # Apodization
 adata = op_apodize(bdata, verbose=True, plot=False)
 
@@ -65,10 +70,11 @@ if plot:
     fig.tight_layout()
     split_images = np.array_split(avg_intf, 3, axis=0)
     for ax, img in zip(axes, split_images):
-        ax.imshow(img, cmap='gray')
+        ax.imshow(img, cmap='viridis')
     plt.title('Average of intf after Apodization')
     plt.show()
 
+##############################################
 #compute fft
 fdata = op_calc_fft(adata)
 
@@ -89,16 +95,23 @@ if plotdsp:
 
     #plt.show()
 
+##############################################
 # Get the wavelength
 wlen = op_get_wlen(caldir+shiftfile, fdata, verbose=True)
 
-
+##############################################
+# Get the peaks
 peaks, peakswd = op_get_peaks_position(fdata, wlen, 'MATISSE', verbose=True)
 
+colors = ['#377eb8', '#ff7f00', '#4daf4a', '#f781bf', '#a65628', '#984ea3', '#e41a1c']
+
 for i in range(np.shape(peaks)[0]):
-    plt.plot(peaks[i,:], np.arange(np.shape(peaks)[1]), 'o')
+    plt.plot(peaks[i,:], np.arange(np.shape(peaks)[1]), color=colors[i])
+    plt.plot(peaks[i,:]+peakswd[i,:], np.arange(np.shape(peaks)[1]),':')
+    plt.plot(peaks[i,:]+peakswd[i,:], np.arange(np.shape(peaks)[1]),'--')
 
 plt.show()
 
-
+##############################################
+# Extract the correlated flux
 op_extract_CF(fdata, wlen, peaks, verbose=True)
