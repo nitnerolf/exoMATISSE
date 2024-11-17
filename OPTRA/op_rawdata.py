@@ -1,11 +1,11 @@
-##############################################
+#####################################################
 # Cosmetics for data
 ##############################################
-from astropy.io import fits
+from   astropy.io import fits
+from   scipy.ndimage import median_filter
+from   scipy import *
 import numpy as np
 import fnmatch
-from scipy.ndimage import median_filter
-from scipy import *
 import matplotlib.pyplot as plt
 
 ##############################################
@@ -20,8 +20,8 @@ def op_interpolate_bad_pixels(data, bad_pixel_map, verbose=False):
     data[bad_pixel_map] = filtered_data[bad_pixel_map]
     return data, filtered_data
 
-
 ##############################################
+# Load bad pixel map
 def op_load_bpm(filename, verbose=True):
     if verbose:
         print('Loading bad pixel map...')
@@ -74,10 +74,10 @@ def op_apply_bpm(rawdata, bpmap, verbose=True):
             other[i],filtdata = op_interpolate_bad_pixels(other[i], wbpm)
             fdata.append(filtdata)
         rawdata['OTHER'][key]['data'] = other
-        
     return rawdata
 
 ##############################################
+# Load flat field map
 def op_load_ffm(filename, verbose=True):
     if verbose:
         print('Loading flat field...')
@@ -87,6 +87,7 @@ def op_load_ffm(filename, verbose=True):
     return ffm
 
 ##############################################
+# Apply flat field map
 def op_apply_ffm(rawdata, ffmap, verbose=True):
     if verbose:
         print('Applying flat field map...')
@@ -127,10 +128,10 @@ def op_apply_ffm(rawdata, ffmap, verbose=True):
         for i in range(nframe):
             other[i] /= wffm
         rawdata['OTHER'][key]['data'] = other
-        
     return rawdata
 
 ##############################################
+# Subtract sky
 def op_subtract_sky(rawdata, skydata, verbose=True):
     if verbose:
         print('Subtracting sky...')
@@ -145,10 +146,10 @@ def op_subtract_sky(rawdata, skydata, verbose=True):
     rawdata['INTERF']['data'] -= skydata['INTERF']['data']
     for key in skydata['PHOT']:
         rawdata['PHOT'][key]['data'] -= skydata['PHOT'][key]['data']
-        
     return rawdata
     
 ##############################################
+# Display the structure of a FITS file
 def op_print_fits_structure(fits_data):
     for hdu in fits_data:
         print(f'-------\nHDU: {hdu.name}')
@@ -164,6 +165,7 @@ def op_print_fits_structure(fits_data):
         #print('\n')
 
 ##############################################
+# Load raw data
 def op_load_rawdata(filename, verbose=True):
     if verbose:
         print('Loading raw data...')
@@ -176,6 +178,17 @@ def op_load_rawdata(filename, verbose=True):
     data['INTERF'] = {}
     data['OTHER'] = {}
     
+    data['ARRAY_DESCRIPTION'] = fh['ARRAY_DESCRIPTION'].data
+    data['ARRAY_GEOMETRY']    = fh['ARRAY_GEOMETRY'].data
+    data['OPTICAL_TRAIN']     = fh['OPTICAL_TRAIN'].data
+    
+    # Load the local OPD table that contains the modulation information
+    localopd = []
+    for i in np.arange(nframes):
+        localopd.append(fh['IMAGING_DATA'].data[i]['LOCALOPD'].astype(float))
+    localopd = np.array(localopd) 
+    print('Localopd:', localopd)
+    
     for j in np.arange(nreg):
         corner = fh['IMAGING_DETECTOR'].data[j]['CORNER']
         naxis  = fh['IMAGING_DETECTOR'].data[j]['NAXIS']
@@ -184,20 +197,52 @@ def op_load_rawdata(filename, verbose=True):
         for i in np.arange(nframes):
             datarray.append(fh['IMAGING_DATA'].data[i][j+1].astype(float))
         if fnmatch.fnmatch(fh['IMAGING_DETECTOR'].data['REGNAME'][j], 'INTERF*'):
-            data['INTERF']['data'] = datarray
-            data['INTERF']['corner'] = corner
-            data['INTERF']['naxis'] = naxis
+            data['INTERF']['data']     = datarray
+            data['INTERF']['corner']   = corner
+            data['INTERF']['naxis']    = naxis
+            data['INTERF']['localopd'] = localopd
         elif fnmatch.fnmatch(fh['IMAGING_DETECTOR'].data['REGNAME'][j], 'PHOT*'):
             key = fh['IMAGING_DETECTOR'].data['REGNAME'][j]
             data['PHOT'][key]={}
-            data['PHOT'][key]['data'] = datarray
+            data['PHOT'][key]['data']   = datarray
             data['PHOT'][key]['corner'] = corner
-            data['PHOT'][key]['naxis'] = naxis
+            data['PHOT'][key]['naxis']  = naxis
         else:
             key = fh['IMAGING_DETECTOR'].data['REGNAME'][j].strip('\x001')
             data['OTHER'][key]={}
-            data['OTHER'][key]['data'] = datarray
+            data['OTHER'][key]['data']   = datarray
             data['OTHER'][key]['corner'] = corner
-            data['OTHER'][key]['naxis'] = naxis
+            data['OTHER'][key]['naxis']  = naxis
     fh.close()
     return data
+
+##############################################
+# Load and calibrate raw data
+def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, verbose=True):
+
+    # Load the star and sky data
+    tardata  = op_load_rawdata(sciencefile)
+    starname = tardata['hdr']['OBJECT']
+    if verbose:
+        print(starname)
+
+    bcd1 = tardata['hdr']['HIERARCH ESO INS BCD1 ID']
+    bcd2 = tardata['hdr']['HIERARCH ESO INS BCD2 ID']
+    det  = tardata['hdr']['HIERARCH ESO DET CHIP NAME']
+    if verbose:
+        print('BCD1:', bcd1, 'BCD2:', bcd2, 'DET:', det)
+
+    # Load the sky data
+    skydata  = op_load_rawdata(skyfile)
+
+    # Subtract the sky from the star data
+    stardata = op_subtract_sky(tardata, skydata)
+    
+    # Load the calibration data
+    bpm = op_load_bpm(bpm)
+    ffm = op_load_ffm(ffm)
+
+    fdata = op_apply_ffm(stardata, ffm, verbose=verbose)
+    bdata = op_apply_bpm(fdata, bpm, verbose=verbose)
+    
+    return bdata
