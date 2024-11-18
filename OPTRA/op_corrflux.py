@@ -143,6 +143,7 @@ def op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
         print('Shape of peak:', np.shape(peak))
         print('Peak:', peak)
     return peak, peakwd
+
 ##############################################
 # Function to extract the correlated flux
 def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=False):

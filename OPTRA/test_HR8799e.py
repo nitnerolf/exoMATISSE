@@ -11,14 +11,15 @@ from scipy         import stats
 
 #plt.ion()
 
-plot    = True
-plotdsp = True
-verb    = True
+plotFringes   = False
+plotPhi       = True
+plotDsp       = False
 
-bbasedir = '~/Documents/G+/'
 #bbasedir = '~/SynologyDrive/driveFlorentin/GRAVITY+/HR8799e/'
 bbasedir = '~/Documents/G+/'
+
 basedir  = bbasedir+'GPAO_HR8799e/'
+
 starfile = basedir + 'MATISSE_OBS_SIPHOT_LM_OBJECT_272_0001.fits'
 skyfile  = basedir + 'MATISSE_OBS_SIPHOT_LM_SKY_272_0001.fits'
 
@@ -36,7 +37,7 @@ bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=True
 
 print('Shape of bdata:', bdata['INTERF']['data'].shape)
 
-if plot:
+if plotFringes:
     fig, ax1 = plt.subplots(1, 1, figsize=(8, 4), sharex=True, sharey=True)
     # Plot the first frame of intf
     ax1.imshow(np.mean(bdata['INTERF']['data'], axis=0), cmap='viridis')
@@ -50,15 +51,40 @@ print(wlen)
 
 #########################################################
 
+cfdem = op_demodulate(cfdata, wlen, verbose=True, plot=False)
 
-op_demodulate(cfdata, wlen, verbose=True, plot=False)
+print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
+cf = cfdem['CF']['CF_demod']
+sumcf = np.sum(cf, axis=1)
+print('Shape of sumcf:', sumcf.shape)
 
+fig1, ax1 = plt.subplots(6, 2, figsize=(8, 8))
+print('Shape of ax1:', ax1.shape)
+colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+for i in np.arange(6):
+    print('i:', i)
+    ax1[i  ].plot(wlen,   np.abs(sumcf[i+1,:]), color=colors[i])
+    #ax1[2*i+1].plot(wlen, np.angle(sumcf[i+1,:]), color=colors[i])
+plt.title('Sum of the CF data')
+#plt.show()
+
+iframe = 0
+fig2, ax2 = plt.subplots(6, 2, figsize=(8, 4))
+for i in np.arange(6)+1:
+    ax2[2*i-1].plot(wlen, np.abs(cf[i,iframe,:]), color=colors[i])
+    ax2[2*i].plot(wlen, np.angle(cf[i,iframe,:]), color=colors[i])
+plt.title(f'frame {iframe} of CF data')
+plt.show()
+
+
+            #line.set_data(wlen, np.angle(cfdata['CF']['CF'][i, frame, :]  * np.conjugate(cfdata['CF']['mod_phasor'][2, frame, :])))
+            
+
+'''
 #scfdata = op_sortout_peaks(cfdata, verbose=True)
 #scfdata = cfdata
 
-
-
-colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+iframe = 0
 import matplotlib.animation as animation
 fig, ax = plt.subplots()
 #lines = [ax.plot([], [], color=colors[i])[0] for i in range(1)]
@@ -90,9 +116,8 @@ def update(frame):
     return lines
 ani = animation.FuncAnimation(fig, update, frames=cfdata['CF']['CF'].shape[1], init_func=init, blit=True)
 plt.show()
-
     
-if plotdsp:
+if plotDsp:
     plt.figure(5)
     for i in np.arange(6)+1:
         if i == 5:
@@ -104,3 +129,4 @@ if plotdsp:
 
 
 plt.show()
+'''
