@@ -217,7 +217,7 @@ def op_load_rawdata(filename, verbose=True):
 
 ##############################################
 # Load and calibrate raw data
-def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, verbose=True):
+def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, verbose=True, plot=False):
     print('loading and calibrating raw data...')
     # Load the star and sky data
     tardata  = op_load_rawdata(sciencefile)
