@@ -368,6 +368,35 @@ def op_sortout_peaks(peaksin, verbose=True):
     return peaksin
 
 ##############################################
+# 
+def reorder_baselines(hdu):
+    """
+    Reorder the OI_VIS and OI_VIS2 tables according to baselines in order (12, 13, 14, 23, 24, 34)
+    and the OI_T3 table in order (123, 124, 134, 234).
+    """
+    # Baseline & triangle definitions
+    base_idx     = [set([32, 33]), set([32, 34]), set([32, 35]), set([33, 34]), set([33, 35]), set([34, 35])]
+    triangle_idx = [set([32, 33, 34]), set([32, 33, 35]), set([32, 34, 35]), set([33, 34, 35])]
+    base_dict    = {'OI_VIS': base_idx, 'OI_VIS2': base_idx, 'OI_T3': triangle_idx}
+    # Reorder
+    hdu_reorder = hdu.copy()
+    n_exp = hdu['OI_VIS'].data.size // 6 # Number of exposures in the OIFITS
+    for table in ['OI_VIS', 'OI_VIS2', 'OI_T3']:
+        if table in hdu:
+            n_base = len(base_dict[table]) # Number of baselines or triangles per exposure (6 or 4)
+        # Initialize
+        table_reorder = hdu[table].copy()
+        # Reorder
+        for i_exp in range(n_exp):
+            for i_base in range(n_base):
+                i_base_new = base_dict[table].index(set(hdu[table].data['STA_INDEX'][i_exp*n_base + i_base]))
+                table_reorder.data[i_exp*n_base + i_base_new] = hdu[table].data[i_exp*n_base + i_base]
+    
+    # Save in new HDU
+    hdu_reorder[table] = table_reorder
+    return hdu_reorder
+
+##############################################
 # Function to compute correlated flux
 def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
     #########################################################
