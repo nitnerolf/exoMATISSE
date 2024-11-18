@@ -167,8 +167,7 @@ def op_print_fits_structure(fits_data):
 ##############################################
 # Load raw data
 def op_load_rawdata(filename, verbose=True):
-    if verbose:
-        print('Loading raw data...')
+    print('Loading raw data...')
     fh      =  fits.open(filename)
     data    = {'hdr': fh[0].header}
     nframes = len(fh['IMAGING_DATA'].data)
@@ -219,7 +218,7 @@ def op_load_rawdata(filename, verbose=True):
 ##############################################
 # Load and calibrate raw data
 def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, verbose=True):
-
+    print('loading and calibrating raw data...')
     # Load the star and sky data
     tardata  = op_load_rawdata(sciencefile)
     starname = tardata['hdr']['OBJECT']

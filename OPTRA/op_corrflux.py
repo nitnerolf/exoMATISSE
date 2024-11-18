@@ -573,6 +573,3 @@ def op_air_index(wl, T=15, P=1013.25, h=0.1, N_CO2=423, bands='all'):
         n_air += dn_air1 + dn_air2
     
     return n_air
-   
-    
-   
