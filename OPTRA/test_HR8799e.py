@@ -15,9 +15,8 @@ plotFringes   = False
 plotPhi       = True
 plotDsp       = False
 
-#bbasedir = '~/SynologyDrive/driveFlorentin/GRAVITY+/HR8799e/'
-bbasedir = '~/Documents/G+/'
-
+#basedir = '~/Documents/G+/'
+bbasedir = '~/SynologyDrive/driveFlorentin/GRAVITY+/HR8799e/'
 basedir  = bbasedir+'GPAO_HR8799e/'
 
 starfile = basedir + 'MATISSE_OBS_SIPHOT_LM_OBJECT_272_0001.fits'
