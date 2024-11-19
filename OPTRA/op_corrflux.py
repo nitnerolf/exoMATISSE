@@ -295,8 +295,8 @@ def op_sortout_peaks(peaksin, verbose=True):
         print('BCD2:', bcd2)
     
     tel= peaksin['OPTICAL_TRAIN']['INDEX']
-    ntel = len(tel)
-    nbases = ntel*(ntel-1)//2
+    ntel    = len(tel)
+    nbases  = ntel*(ntel-1)//2
     telname = peaksin['OPTICAL_TRAIN']['TEL_NAME']
     if verbose:
         print('Telescope names:', telname)
@@ -315,7 +315,6 @@ def op_sortout_peaks(peaksin, verbose=True):
     else:
         error('Instrument not recognized')
         
-    
     bcdin_  = np.array((2,1,0,0))
     bcdout_ = np.array((1,2,0,0))
     bcd_in  = np.array((0,0,4,3))

@@ -18,14 +18,14 @@ plotRaw       = plot
 plotCorr      = plot
 
 #bbasedir = '~/SynologyDrive/driveFlorentin/GRAVITY+/HR8799e/'
-bbasedir = '~/Downloads/'
+bbasedir = '~/Documents/ExoMATISSE/beta_Pic_b/'
 
 basedir  = bbasedir+'2024-11-07_MATISSE/'
 
 starfile = basedir + 'MATISSE_OBS_SIPHOT_LM_OBJECT_323_0003.fits'
 skyfile  = basedir + 'MATISSE_OBS_SIPHOT_LM_SKY_323_0001.fits'
 
-caldir    = '~/Documents/G+/CALIB2024/'
+caldir    = '~/Documents/ExoMATISSE/CALIB2024/'
 kappafile = caldir+'KAPPA_MATRIX_L_MED.fits'
 shiftfile = caldir+'SHIFT_L_MED.fits'
 flatfile  = caldir+'FLATFIELD_L_SLOW.fits'
@@ -69,16 +69,19 @@ for i in np.arange(6):
     ax1[i,0].set_ylabel(f'corr. flux {i+1}')
     ax1[i,1].plot(wlen, np.angle(sumcf[i+1,:]), color=colors[i])
     ax1[i,1].set_ylabel(f'phase {i+1}')
-plt.title('Sum of the CF data')
+plt.suptitle('Sum CF data (1 exposure)')
 plt.tight_layout()
 plt.show()
 
 iframe = 0
-fig2, ax2 = plt.subplots(6, 2, figsize=(8, 4))
+fig2, ax2 = plt.subplots(6, 2, figsize=(8, 8), sharex=1, sharey=0)
 for i in np.arange(6):
-    ax2[i,0].plot(wlen, np.abs(cf[i,iframe,:]), color=colors[i])
-    ax2[i,1].plot(wlen, np.angle(cf[i,iframe,:]), color=colors[i])
-plt.title(f'frame {iframe} of CF data')
+    ax2[i,0].plot(wlen, np.abs(cf[i+1,iframe,:]), color=colors[i])
+    ax1[i,0].set_ylabel(f'corr. flux {i+1}')
+    ax2[i,1].plot(wlen, np.angle(cf[i+1,iframe,:]), color=colors[i])
+    ax1[i,1].set_ylabel(f'phase {i+1}')
+plt.suptitle(f'frame {iframe} of CF data')
+plt.tight_layout()
 plt.show()
 
 

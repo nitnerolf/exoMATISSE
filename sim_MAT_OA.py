@@ -5,7 +5,6 @@
 # 
 # 
 
-
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
@@ -186,7 +185,6 @@ if plotquisertarien:
     plt.figure()
     plt.imshow(otf_abs)
 
-
 ##### Cut de l'OTF 
 # plt.figure()
 # plt.plot(x, otf_pup[n_pix//2])
@@ -231,7 +229,6 @@ plt.rcParams['legend.fontsize'] = 15
 plt.rcParams['xtick.labelsize'] = 15
 plt.rcParams['ytick.labelsize'] = 15
 
-
 ##### Plots finals 
 fig, ax1 = plt.subplots(figsize=(8,5))
 
@@ -269,11 +266,7 @@ plt.savefig('figbetapic1.pdf', format='pdf')
 plt.savefig('figbetapic1.png', format='png')
 #plt.show()
 
-
-
 ##############################################################
-
-
 
 fig, ax3 = plt.subplots(figsize=(8,5))
 
@@ -292,12 +285,10 @@ ax3.set_ylabel('Normalized intensity', fontsize=15)
 ax3.set_ylim(1e-12,2)
 ax3.legend(title="MATISSE flux",loc='upper right', title_fontproperties={'weight':'bold'})
 
-
 ax3.set_facecolor('lightgrey')
 ax3.get_xaxis().set_visible(False)
 
 ax4 = ax3.twiny()
-
 
 ax4.set_xlim(-2.5*(sep/sep_lam), a*(sep/sep_lam))
 ax4.set_xlabel('Separation (mas)', fontsize=15)
