@@ -1,6 +1,7 @@
 from op_corrflux   import *
 from op_rawdata    import *
 from op_flux       import *
+from op_vis        import *
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io    import fits
@@ -30,7 +31,7 @@ badfile   = caldir+'BADPIX_L_SLOW.fits'
 
 ##########################################################
 
-bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=True)
+bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=False)
 
 ##########################################################
 
@@ -44,34 +45,47 @@ if plotFringes:
 
     plt.show()
     
-cfdata, wlen = op_get_corrflux(bdata, shiftfile)
+cfdata, wlen = op_get_corrflux(bdata, shiftfile, verbose=False)
 
 print(wlen)
 
 #########################################################
 
-cfdem = op_demodulate(cfdata, wlen, verbose=True, plot=False)
+vis2 = op_extract_simplevis2(cfdata, verbose=False, plot=False)
+
+fig0, ax0 = plt.subplots(7, 1, figsize=(8, 8), sharex=1, sharey=1)
+print('Shape of ax1:', ax0.shape)
+colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+for i in np.arange(7):
+    print('i:', i)
+    ax0[i].plot(wlen,   vis2[i,:], color=colors[i])
+plt.title('Visibility as a function of the wavelength')
+plt.xlim(np.min(wlen), np.max(wlen))
+plt.ylim(-0.1, 1.1)
+plt.show()
+
+cfdem = op_demodulate(cfdata, wlen, verbose=False, plot=False)
 
 print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
 cf = cfdem['CF']['CF_demod']
 sumcf = np.sum(cf, axis=1)
 print('Shape of sumcf:', sumcf.shape)
 
-fig1, ax1 = plt.subplots(6, 2, figsize=(8, 8))
+fig1, ax1 = plt.subplots(2, 6, figsize=(8, 8))
 print('Shape of ax1:', ax1.shape)
 colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
 for i in np.arange(6):
     print('i:', i)
-    ax1[i  ].plot(wlen,   np.abs(sumcf[i+1,:]), color=colors[i])
-    #ax1[2*i+1].plot(wlen, np.angle(sumcf[i+1,:]), color=colors[i])
+    ax1[0,i].plot(wlen,   np.abs(sumcf[i+1,:]), color=colors[i])
+    ax1[1,i].plot(wlen, np.angle(sumcf[i+1,:]), color=colors[i])
 plt.title('Sum of the CF data')
 #plt.show()
 
 iframe = 0
-fig2, ax2 = plt.subplots(6, 2, figsize=(8, 4))
+fig2, ax2 = plt.subplots(2, 6, figsize=(8, 4))
 for i in np.arange(6)+1:
-    ax2[2*i-1].plot(wlen, np.abs(cf[i,iframe,:]), color=colors[i])
-    ax2[2*i].plot(wlen, np.angle(cf[i,iframe,:]), color=colors[i])
+    ax2[0,i].plot(wlen, np.abs(cf[i,iframe,:]), color=colors[i])
+    ax2[1,i].plot(wlen, np.angle(cf[i,iframe,:]), color=colors[i])
 plt.title(f'frame {iframe} of CF data')
 plt.show()
 
