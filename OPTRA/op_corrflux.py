@@ -196,7 +196,7 @@ def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=False):
         plt.show()
     
     print('Shape of FT:', np.shape(FT))
-    fftdata['CF'] = {'data': FT, 'CF': CF, 'CF_nbpx': NIZ, 'bck': bck}
+    fftdata['CF'] = {'data': FT, 'CF': CF, 'CF_nbpx': NIZ, 'bckg': bck}
     return fftdata
 
 ##############################################
@@ -237,10 +237,12 @@ def op_demodulate(CFdata, wlen, verbose=True, plot=False):
     # Compute the phasor from localopd
     phasor = np.exp(2j * np.pi * localopdij[:,:,None] / wlen[None,None,:] )
     
-    CFdata['CF']['mod_phasor'] = phasor
-    CFdata['CF']['CF_demod']   = np.zeros_like(CFdata['CF']['CF'])
-    CFdata['CF']['CF_demod'][1:,...]   = CFdata['CF']['CF'][1:,...] * np.conjugate(phasor)
-    CFdata['CF']['data_demod']   = np.zeros_like(CFdata['CF']['data'])
+    CFdata['CF']['mod_phasor']         = phasor
+    CFdata['CF']['CF_demod']           = np.zeros_like(CFdata['CF']['CF'])
+    CFdata['CF']['CF_demod'][0,...]    = CFdata['CF']['CF'][0,...]
+    CFdata['CF']['CF_demod'][1:,...]   = CFdata['CF']['CF'][1:,...]   * np.conjugate(phasor)
+    CFdata['CF']['data_demod']         = np.zeros_like(CFdata['CF']['data'])
+    CFdata['CF']['data_demod'][0,...]  = CFdata['CF']['data'][0,...]
     CFdata['CF']['data_demod'][1:,...] = CFdata['CF']['data'][1:,...] * np.conjugate(phasor[...,None])
     
     print('wlen:', wlen)
@@ -399,6 +401,7 @@ def reorder_baselines(hdu):
 ##############################################
 # Function to compute correlated flux
 def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
+    print('Computing correlated flux...')
     #########################################################
     # Apodization
     adata = op_apodize(bdata, verbose=verbose, plot=plot)
