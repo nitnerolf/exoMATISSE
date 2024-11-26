@@ -1,8 +1,8 @@
 """
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Example script to process MATISSE data of beta Pic b
+Example of OPTRA pipeline for the beta Pic c data
 Author: fmillour
-Date: 18/11/2024
+Date: 19/11/2024
 Project: OPTRA
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
@@ -11,7 +11,6 @@ from op_corrflux   import *
 from op_rawdata    import *
 from op_flux       import *
 from op_vis        import *
-from op_oifits     import *
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io    import fits
@@ -21,89 +20,37 @@ from scipy         import *
 from scipy         import stats
 
 #plt.ion()
-plot = False
+plot = True
 plotFringes   = plot
 plotPhi       = plot
 plotDsp       = plot
 plotRaw       = plot
 plotCorr      = plot
 
-def do_nothing():
-    pass
-
 #bbasedir = '~/SynologyDrive/driveFlorentin/GRAVITY+/HR8799e/'
-bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
-basedir  = bbasedir+'2024-11-17_MATISSE/'
+bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_c/')
+
+basedir  = bbasedir+'2023-11-27/'
 
 starfiles = os.listdir(basedir)
 fitsfiles = [f for f in starfiles if ".fits" in f]
 
-# select only fits files that correspond to observations
-obsfilesL = []
-obsfilesN = []
-skyfilesL = []
-darkfiles = []
 for fi in fitsfiles:
-    #print(fi)
     fh = fits.open(basedir+fi)
-    #op_print_fits_header(fh)
+    op_print_fits_header(fh)
     hdr = fh[0].header
-    inst = hdr['INSTRUME']
-    catg = hdr['ESO DPR CATG']
-    type = hdr['ESO DPR TYPE']
-    try:
-        chip = hdr['ESO DET CHIP NAME']
-    except:
-        do_nothing()
-    try:
-        dit  = hdr['ESO DET SEQ1 DIT']
-    except:
-        do_nothing()
-        #print('No DIT in header')
-    try:
-        ndit = hdr['ESO DET NDIT']
-    except:
-        do_nothing()
-    print(fi, inst, catg, type, chip, dit, ndit)
-    if catg == 'SCIENCE' and type == 'OBJECT' and chip == 'HAWAII-2RG' :
-        print("science file!")
-        obsfilesL.append(fi)
-    if catg == 'CALIB' and type == 'STD' and chip == 'HAWAII-2RG':
-        print("calibrator file!")
-        obsfilesL.append(fi)
-    if catg == 'CALIB' and type == 'SKY' and chip == 'HAWAII-2RG' :
-        print("sky file!")
-        skyfilesL.append(fi)
+    #print(fi, hdr['ESO'])
 
-starfiles = obsfilesL
+
 print('Starfiles:', starfiles)
-
+#starfiles = [f for f in starfiles if "LM_OBJECT" in f]
+starfiles = [f for f in starfiles if "LM_STD" in f]
+print('Filtered Starfiles:', starfiles)
 
 for ifile in starfiles:
     starfile = basedir + ifile
 #starfile = basedir + 'MATISSE_OBS_SIPHOT_LM_OBJECT_323_0003.fits'
-
-    fh = fits.open(starfile)
-    hdr = fh[0].header
-    fh.close()
-    
-    # associate sky file matching properties of the star file
-    for isky in skyfilesL:
-        skyfile = basedir + isky
-        fh = fits.open(skyfile)
-        hdrsky = fh[0].header
-        fh.close()
-        keys_to_match = ['INSTRUME','ESO DET CHIP NAME','ESO DET SEQ1 DIT']
-        imatch = 0
-        for key in keys_to_match:
-            if hdr[key] == hdrsky[key]:
-                print('Matching key:', key)
-                imatch += 1
-        if imatch == len(keys_to_match):
-            print('Matching sky file:', skyfile)
-            break
-        
-    #skyfile  = basedir + 'MATISSE_OBS_SIPHOT_LM_SKY_323_0003.fits'
+    skyfile  = basedir + 'MATISSE_OBS_SIPHOT_LM_SKY_323_0003.fits'
 
     caldir    = '~/Documents/ExoMATISSE/CALIB2024/'
     kappafile = caldir+'KAPPA_MATRIX_L_MED.fits'
@@ -127,7 +74,7 @@ for ifile in starfiles:
 
         plt.show()
         
-    cfdata, wlen = op_get_corrflux(bdata, shiftfile, plot=plotCorr, verbose=True)
+    cfdata, wlen = op_get_corrflux(bdata, shiftfile, plot=plotCorr)
 
     print(wlen)
 
@@ -152,20 +99,19 @@ for ifile in starfiles:
         ax0[i].set_ylabel(f'vis2 {i}')
 
     basename = os.path.basename(starfile)
-    basen = os.path.splitext(basename)[0]
-    print('Basename of starfile:', basen)
-    plt.suptitle(f'Visibility as a function of $\lambda$, {basen}')
+    base = os.path.splitext(basename)[0]
+    print('Basename of starfile:', base)
+    plt.suptitle(f'Visibility as a function of $\lambda$, {base}')
     plt.xlim(np.min(wlen), np.max(wlen))
     plt.ylim(-0.1, 1.1)
-    print(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
-    plt.savefig(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
-    #plt.show()
+    print(os.path.expanduser(bbasedir+f'{base}_vis2.png'))
+    plt.savefig(os.path.expanduser(bbasedir+f'{base}_vis2.png'))
+    plt.show()
 
     #########################################################
 
+    '''
     cfdem = op_demodulate(cfdata, wlen, verbose=True, plot=False)
-
-
 
     print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
     cf = cfdem['CF']['CF_demod']
@@ -183,18 +129,22 @@ for ifile in starfiles:
         ax1[i,1].set_ylabel(f'phase {i+1}')
     plt.suptitle('Sum CF data (1 exposure)')
     plt.tight_layout()
-    plt.savefig(os.path.expanduser(bbasedir+f'{basen}_corrflux.png'))
-    #plt.show()
+    plt.show()
 
-    #########################################################
-    outfilename = os.path.expanduser(bbasedir+f'{basen}_corrflux.oifits')
-    hdr = cfdem['hdr']
-    oiwavelength = op_gen_oiwavelength(cfdem, verbose=True)
-    oirray = None
-    oitarget = None
-    oivis = op_gen_oivis(cfdem, verbose=True, plot=False)
-    op_write_oifits(outfilename, hdr, oiwavelength, oirray=None, oitarget=None, oivis=oivis, oivis2=None, oit3=None)
+    iframe = 0
+    fig2, ax2 = plt.subplots(6, 2, figsize=(8, 8), sharex=1, sharey=0)
+    for i in np.arange(6):
+        ax2[i,0].plot(wlen, np.abs(cf[i+1,iframe,:]), color=colors[i])
+        ax1[i,0].set_ylabel(f'corr. flux {i+1}')
+        ax2[i,1].plot(wlen, np.angle(cf[i+1,iframe,:]), color=colors[i])
+        ax1[i,1].set_ylabel(f'phase {i+1}')
+    plt.suptitle(f'frame {iframe} of CF data')
+    plt.tight_layout()
+    plt.show()
 
+
+                #line.set_data(wlen, np.angle(cfdata['CF']['CF'][i, frame, :]  * np.conjugate(cfdata['CF']['mod_phasor'][2, frame, :])))
+                '''
 
     '''
     #scfdata = op_sortout_peaks(cfdata, verbose=True)

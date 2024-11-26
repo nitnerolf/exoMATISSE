@@ -1,3 +1,13 @@
+"""
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Example script to process the data of HR8799e with OPTRA
+Author: fmillour
+Date: 29/09/2024
+Project: OPTRA
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""
+
+
 from op_corrflux   import *
 from op_rawdata    import *
 from op_flux       import *
@@ -12,26 +22,29 @@ from scipy         import stats
 
 #plt.ion()
 
-plotFringes   = False
-plotPhi       = True
-plotDsp       = False
+plot = True
+plotFringes   = plot
+plotPhi       = plot
+plotVis       = plot
+plotDsp       = plot
+plotRaw       = plot
+plotCorr      = plot
 
 #basedir = '~/Documents/G+/'
-bbasedir = '~/SynologyDrive/driveFlorentin/GRAVITY+/HR8799e/'
+bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/')
 basedir  = bbasedir+'GPAO_HR8799e/'
-
 starfile = basedir + 'MATISSE_OBS_SIPHOT_LM_OBJECT_272_0001.fits'
 skyfile  = basedir + 'MATISSE_OBS_SIPHOT_LM_SKY_272_0001.fits'
 
-caldir    = bbasedir+'CALIB2024/'
-kappafile = caldir+'KAPPA_MATRIX_L_MED.fits'
-shiftfile = caldir+'SHIFT_L_MED.fits'
-flatfile  = caldir+'FLATFIELD_L_SLOW.fits'
-badfile   = caldir+'BADPIX_L_SLOW.fits'
+caldir    = bbasedir + 'CALIB2024/'
+kappafile = caldir + 'KAPPA_MATRIX_L_MED.fits'
+shiftfile = caldir + 'SHIFT_L_MED.fits'
+flatfile  = caldir + 'FLATFIELD_L_SLOW.fits'
+badfile   = caldir + 'BADPIX_L_SLOW.fits'
 
 ##########################################################
 
-bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=False)
+bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=False, plot=plotFringes)
 
 ##########################################################
 
@@ -42,27 +55,37 @@ if plotFringes:
     # Plot the first frame of intf
     ax1.imshow(np.mean(bdata['INTERF']['data'], axis=0), cmap='viridis')
     ax1.set_title('average intf')
-
     plt.show()
-    
-cfdata, wlen = op_get_corrflux(bdata, shiftfile, verbose=False)
+
+cfdata, wlen = op_get_corrflux(bdata, shiftfile, verbose=False, plot=plotCorr)
 
 print(wlen)
 
 #########################################################
 
-vis2 = op_extract_simplevis2(cfdata, verbose=False, plot=False)
+vis2, mask = op_extract_simplevis2(cfdata, verbose=False, plot=plotVis)
+allvis2 = np.ma.getdata(vis2)
 
 fig0, ax0 = plt.subplots(7, 1, figsize=(8, 8), sharex=1, sharey=1)
 print('Shape of ax1:', ax0.shape)
 colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
 for i in np.arange(7):
     print('i:', i)
+    ax0[i].plot(wlen, allvis2[i,:], color='lightgray')
     ax0[i].plot(wlen,   vis2[i,:], color=colors[i])
-plt.title('Visibility as a function of the wavelength')
+basename = os.path.basename(starfile)
+base = os.path.splitext(basename)[0]
+print('Basename of starfile:', base)
+plt.suptitle(f'Visibility as a function of $\lambda$, {base}')
 plt.xlim(np.min(wlen), np.max(wlen))
 plt.ylim(-0.1, 1.1)
+print(os.path.expanduser(bbasedir+f'{base}_vis2.png'))
+plt.savefig(os.path.expanduser(bbasedir+f'{base}_vis2.png'))
+plt.autoscale()
+plt.savefig(os.path.expanduser(bbasedir+f'{base}_vis2all.png'))
 plt.show()
+
+#########################################################
 
 cfdem = op_demodulate(cfdata, wlen, verbose=False, plot=False)
 

@@ -1,6 +1,40 @@
-##############################################
-# Correlated flux computation
-##############################################
+'''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Correlated flux computation
+Author: fmillour
+Date: 01/07/2024
+Project: OPTRA
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This module contains functions for computing correlated flux, apodizing data, computing FFT of interferograms,
+extracting correlated flux, demodulating MATISSE fringes, sorting out beams and peaks, and computing the air refractive index.
+Functions:
+    op_apodize(data, verbose=True, plot=False):
+        Apply an apodizing window to the data.
+    op_calc_fft(data, verbose=True):
+        Compute the FFT of interferograms.
+    op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
+        Compute the wavelength map from the shift map.
+    op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
+        Get the peaks position for the given instrument.
+    op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=False):
+        Extract the correlated flux from the FFT data.
+    op_demodulate(CFdata, wlen, verbose=True, plot=False):
+        Demodulate the correlated flux for MATISSE fringes.
+    op_sortout_beams(beamsin, verbose=True):
+        Sort out beams (currently not implemented).
+    op_sortout_peaks(peaksin, verbose=True):
+        Sort out peaks based on the instrument configuration.
+    reorder_baselines(hdu):
+        Reorder the OI_VIS and OI_VIS2 tables according to baselines in order and the OI_T3 table in order.
+    op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
+        Compute the correlated flux from the given data and shift file.
+    op_compute_air_index(fh):
+        Compute the air refractive index (currently not implemented).
+    op_air_index(wl, T=15, P=1013.25, h=0.1, N_CO2=423, bands='all'):
+        Compute the refractive index as a function of wavelength at a given temperature, pressure, relative humidity, and CO2 concentration.
+'''
+
 from os import error
 from astropy.io import fits
 from scipy import *
@@ -167,7 +201,7 @@ def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=False):
         zone = np.logical_and(ifreq[None,:] >= peaks[i,:][:,None]-peakswd[i,:][:,None]/2, ifreq[None,:] <= peaks[i,:][:,None]+peakswd[i,:][:,None]/2)
         weight = np.exp(-0.5 * ((ifreq[None,:] - peaks[i,:][:,None]) / (2*peakswd[i,:][:,None] / 2.355))**2)
         
-        NIZ.append(np.sum(zone, axis=0))
+        NIZ.append(np.sum(weight * zone, axis=1))
         FT.append(fti*zone)
         CF.append(np.sum(weight * fti * zone, axis=2))
         bck *= (1-zone)
@@ -177,7 +211,8 @@ def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=False):
     
     if verbose:
         print('Shape of FT:', np.shape(FT))
-        print('NIZ:', NIZ)
+        print('Shape of CF:', np.shape(CF))
+        print('shape of NIZ:', np.shape(NIZ))
         
     if plot:
         fig, axes = plt.subplots(1, 8, figsize=(16, 8))
@@ -480,7 +515,7 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
         plt.figure(3)
         for i in np.arange(7):
             plt.plot(np.abs(cfdata['CF']['data'][i,iframe,iwlen,:]),color=colors[i])
-        plt.plot(np.abs(cfdata['CF']['bck'][iframe,iwlen,:]))
+        plt.plot(np.abs(cfdata['CF']['bckg'][iframe,iwlen,:]))
         plt.title('Modulus of Complex Values for CF Data and Background')
 
     return cfdata, wlen
