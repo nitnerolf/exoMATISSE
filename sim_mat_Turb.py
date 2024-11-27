@@ -84,14 +84,14 @@ def generate_phase_screen(dim, length, L0, r0, plot=False, seed="seed", filter_n
     phase = np.random.uniform(low=-np.pi, high=np.pi, size=(dim, dim))
     rr, x_ps, y_ps, x_p, y_p = dist(dim)
     
-    print(x_ps, x_ps.shape)
+    #print(x_ps, x_ps.shape)
     modul = (rr**2 + (length / L0)**2)**(-11./12.)
     
     if filter_nmodes > 0:
         nmradius = np.sqrt(np.pi * filter_nmodes)
         nmr_int = int(np.ceil(nmradius))
         # Modes antialiasing
-        camembert_smooth = twoDtukey(nmr_int, 4./nmradius)
+        camembert_smooth = twoDtukey(nmr_int, 5./nmradius)
         if plot:
             plt.imshow(camembert_smooth)
             plt.show()
@@ -102,11 +102,11 @@ def generate_phase_screen(dim, length, L0, r0, plot=False, seed="seed", filter_n
         else:
             pcs = np.pad(camembert_smooth, ((dim//2 - camembert_smooth.shape[0]//2, dim//2 - camembert_smooth.shape[0]//2-1),
                                             (dim//2 - camembert_smooth.shape[1]//2, dim//2 - camembert_smooth.shape[1]//2-1)), mode='constant')
-        print('shape of pcs', np.shape(pcs))
+        #print('shape of pcs', np.shape(pcs))
         
         imod = np.where(rr > nmradius)
         modval = np.max(modul[imod])
-        print('modval',modval)
+        #print('modval',modval)
         #modul = np.where(rr > nmradius, modul, 0.1 * modval)
         modul = modul * (1-pcs) + modval * pcs * modul / rejection
     
@@ -133,16 +133,18 @@ def generate_phase_screen(dim, length, L0, r0, plot=False, seed="seed", filter_n
         plt.show()
     
     screen0 = np.fft.fftshift(modul) * np.exp(1j * phase)
-    print(screen0)
+    #print(screen0)
     screen  = np.fft.fft2(screen0).real
     screen2 = np.fft.fftshift(screen)
     fact    = np.sqrt(2)*np.sqrt(.0228)*(length/r0)**(5./6.)# * (2*np.pi) / wl 
-    print('fact',fact)
+    #print('fact',fact)
     screen3 = fact * screen2
     screen3 -= np.mean(screen3)
+    screen3 *= 1# 2.2 / 3.5
+    screen3 *= 1 / 3.5
 
     scaling = length/dim
-    print('scaling',scaling)
+    #print('scaling',scaling)
 
     if plot:
         xm = np.linspace(0, dim, dim) * scaling #1pix = 9.7mm
@@ -153,6 +155,36 @@ def generate_phase_screen(dim, length, L0, r0, plot=False, seed="seed", filter_n
         plt.show()
 
     return screen3, scaling, x_ps
+
+################################################
+
+def generate_pupil_obstr(dim, D, D_obstr, plot=False):
+    """
+    Generates the pupil of the VLT.
+
+    Parameters:
+    - dim (int): Dimension of the wavefront screen.
+    - D (float): Diameter of the pupil (in meters).
+    - D_obstr (float): Diameter of the central obscuration (in meters).
+
+    Returns:
+    - pupil (ndarray): Pupil of the VLT.
+    """
+    x = np.linspace(-D / 2, D / 2, dim)
+    xp, yp = np.meshgrid(x, x)
+    rp = np.sqrt(xp**2 + yp**2)
+    
+    pupil = (rp < D / 2) * (rp > D_obstr / 2)
+    #pupil = twoDtukey(dim, 2./dim) * (1-twoDtukey(dim*D_obstr/D, 2./(dim/2)))
+    
+    if plot:
+        plt.imshow(pupil, origin='lower', extent=(-D / 2, D / 2, -D / 2, D / 2))
+        plt.title('Pupil of the VLT')
+        plt.xlabel('X')
+        plt.ylabel('Y')
+        plt.show()
+    
+    return pupil
 
 ################################################
 
@@ -175,20 +207,17 @@ def generate_turbulent_psf(D, sz, phase_screen, plot=False, n_pad=2):
     xmin = np.min(x)
     xmax = np.max(x)
     step = x[1] - x[0]
-    xp, yp = np.meshgrid(x, x)
-    rp = np.sqrt(xp**2 + yp**2)
     
-    pupil = (rp < D / 2)
-    pupil = pupil.astype(np.complex128)
+    pupil = generate_pupil_obstr(dim, D, 1.2, plot=plot)
     
     pscreen = pupil * np.exp(1j * phase_screen)
     wp = np.where(pscreen == 0)
     pscreen[wp] = 0;
     
     paddim = 2**int(np.ceil(np.log2(dim * n_pad)))
-    print('paddim',paddim)
+    #print('paddim',paddim)
     padfact2 = int(paddim // 2 - dim/2)
-    print('padfact2',padfact2)
+    #print('padfact2',padfact2)
     ppscreen = np.pad(pscreen, ((padfact2, padfact2), (padfact2, padfact2)), mode='constant')
     x_pad = np.arange(-paddim/2*step, paddim/2*step, step)
     min_xp = np.min(x_pad)
@@ -197,7 +226,7 @@ def generate_turbulent_psf(D, sz, phase_screen, plot=False, n_pad=2):
     E_img = np.fft.fftshift(np.fft.fft2(np.fft.fftshift(ppscreen)))
     psf = np.abs(E_img)**2
 
-    print(E_img.shape)
+    #print(E_img.shape)
 
     if plot:
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 8))
@@ -228,7 +257,7 @@ def generate_turbulent_psf(D, sz, phase_screen, plot=False, n_pad=2):
     return E_img, psf, x_pad
 
 
-
+################################################
 
 def MATISSE(E_img, dim, ps_dim, holediam, wl, sep, x_ps, plot):
     '''
@@ -367,9 +396,10 @@ def MATISSE(E_img, dim, ps_dim, holediam, wl, sep, x_ps, plot):
     return E_onstar, E_offstar, Eplan_off, Eplan_on, x_f
 
 dim  = 100 #pix -> 1024pix = 10m -> 1pix = 9.7mm
-phsz = 8.5 #m physical size of the phase screen (in meters)
+phsz = 8.0 #m physical size of the phase screen (in meters)
 L0   = 30.0 # outer scale m
 D    = 8.0 # telescope diameter m
+D_obs = 1.2 # central obscuration m
 r0   = 0.2 # Fried diameter m
 lamb = 0.5e-6 #m
 lam  = 3.5e-6 #m 
@@ -388,20 +418,42 @@ plot = False
 
 #screenM = screen / 2 / np.pi * lam
 
-PSF = []
-for i in range(100):
+PSF50 = []
+for i in range(200):
+    print(i)
+    screen, scaling, x_ps = generate_phase_screen(dim, phsz, L0, r0, plot=plot, seed="random", filter_nmodes=50)
+    E_img, psf, ps_dim = generate_turbulent_psf(D, phsz, screen, plot=plot, n_pad=6)
+    PSF50.append(psf)
+average_PSF50 = np.mean(PSF50, axis=0)
+
+PSF500 = []
+for i in range(200):
+    print(i)
     screen, scaling, x_ps = generate_phase_screen(dim, phsz, L0, r0, plot=plot, seed="random", filter_nmodes=500)
-    E_img, psf, ps_dim = generate_turbulent_psf(D, phsz, screen, plot=plot, n_pad=5)
-    PSF.append(psf)
+    E_img, psf, ps_dim = generate_turbulent_psf(D, phsz, screen, plot=plot, n_pad=6)
+    PSF500.append(psf)
+average_PSF500 = np.mean(PSF500, axis=0)
 
-#E_onstar, E_offstar, Eplan_off, Eplan_on, x_f = MATISSE(E_img, dim, ps_dim, holediam, lam, sep, x_ps, plot)
 
-print('PSF shape', np.array(PSF).shape)
+dim = average_PSF500.shape[0]
+#print('dim',dim)
 
-average_PSF = np.mean(PSF, axis=0)
+fig0, ax0 = plt.subplots(2, 2, figsize=(15, 8))
 
-plt.imshow(np.log(average_PSF))
-plt.colorbar()
+ax0[0,0].imshow(np.log(average_PSF50))
+ax0[1,0].imshow(np.log(average_PSF500))
+
+slice50   = average_PSF50[dim//2,dim//2:]
+#slice50  /= np.max(slice50)
+slice500  = average_PSF500[dim//2,dim//2:]
+#slice500 /= np.max(slice500)
+ax0[0,1].plot(slice50)
+ax0[0,1].plot(slice500)
+ax0[0,1].set_yscale('log')
+ax0[1,1].plot(slice500/slice50)
+ax0[1,1].set_yscale('log')
+
+plt.tight_layout()
 plt.show()
 
 stop()
