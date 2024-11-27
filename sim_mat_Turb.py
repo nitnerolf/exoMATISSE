@@ -1,14 +1,35 @@
-# ###############################################
+################################################
 # 
-# Jules Scigliuto
+# Jules Scigliuto, Florentin Millour
 # 
 # 
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-################################
-#Functions
+################################################
+# Functions
+
+def twoDtukey(NAXIS, alpha):
+    '''
+    Create a 2D Tukey window
+
+    Parameters:
+    NAXIS (int): The size of the array
+    alpha (float): The alpha parameter of the Tukey window
+
+    Returns:
+    ndarray: A 2D Tukey window
+    '''
+    axis = np.linspace(-NAXIS/2, NAXIS/2-1, NAXIS)
+    x, y = np.meshgrid(axis, axis)
+    r = np.sqrt(x**2 + y**2)
+    tukey = np.zeros((NAXIS, NAXIS))
+    tukey = np.where((r >= (1 - alpha) * NAXIS/2) & (r < NAXIS/2), 0.5 * (1 + np.cos(np.pi * (r - (1 - alpha) * NAXIS/2) / (alpha * NAXIS/2))), tukey)
+    tukey = np.where(r < (1 - alpha) * NAXIS/2, 1, tukey)
+    return np.double(tukey)
+
+################################################
 
 def dist(NAXIS):
     '''
@@ -21,17 +42,15 @@ def dist(NAXIS):
     tuple: A tuple containing the 2D array with distances, and the x and y coordinates of the array
     '''
     axis = np.linspace(-NAXIS/2, NAXIS/2-1, NAXIS)
-    
-    print(axis)
-    
-    
-    result = np.sqrt(axis**2 + axis[:,np.newaxis]**2)
     x, y = np.meshgrid(axis, axis)
+    r = np.sqrt(x**2 + y**2)
     xnorm = 2 * x / NAXIS
     ynorm = 2 * y / NAXIS
-    return np.roll(result, int(NAXIS/2+1), axis=(0,1)), x, y, xnorm, ynorm
+    return r, x, y, xnorm, ynorm
 
-def wfgeneration(dim, dimm, length, L0, r0, wl, plot, seed="seed"):
+################################################
+
+def generate_phase_screen(dim, length, L0, r0, plot=False, seed="seed", filter_nmodes=0, rejection=100.):
     """
     Generates a wavefront screen using the specified parameters.
 
@@ -62,12 +81,36 @@ def wfgeneration(dim, dimm, length, L0, r0, wl, plot, seed="seed"):
     elif seed in ["random", "Random", "RANDOM"]: 
         np.random.seed()
     
-    phase = np.random.uniform(-np.pi, np.pi, (dim, dim))
+    phase = np.random.uniform(low=-np.pi, high=np.pi, size=(dim, dim))
     rr, x_ps, y_ps, x_p, y_p = dist(dim)
     
     print(x_ps, x_ps.shape)
-    #modul = (rr**2+(length/L0)**2)**(-11/12)
-    modul = (x_ps**2 + y_ps**2 + (length / L0)**2)**(-11./12.)
+    modul = (rr**2 + (length / L0)**2)**(-11./12.)
+    
+    if filter_nmodes > 0:
+        nmradius = np.sqrt(np.pi * filter_nmodes)
+        nmr_int = int(np.ceil(nmradius))
+        # Modes antialiasing
+        camembert_smooth = twoDtukey(nmr_int, 4./nmradius)
+        if plot:
+            plt.imshow(camembert_smooth)
+            plt.show()
+        
+        if nmr_int % 2 == 0:
+            pcs = np.pad(camembert_smooth, ((dim//2 - camembert_smooth.shape[0]//2, dim//2 - camembert_smooth.shape[0]//2),
+                                            (dim//2 - camembert_smooth.shape[1]//2, dim//2 - camembert_smooth.shape[1]//2)), mode='constant')
+        else:
+            pcs = np.pad(camembert_smooth, ((dim//2 - camembert_smooth.shape[0]//2, dim//2 - camembert_smooth.shape[0]//2-1),
+                                            (dim//2 - camembert_smooth.shape[1]//2, dim//2 - camembert_smooth.shape[1]//2-1)), mode='constant')
+        print('shape of pcs', np.shape(pcs))
+        
+        imod = np.where(rr > nmradius)
+        modval = np.max(modul[imod])
+        print('modval',modval)
+        #modul = np.where(rr > nmradius, modul, 0.1 * modval)
+        modul = modul * (1-pcs) + modval * pcs * modul / rejection
+    
+    #modul = (x_ps**2 + y_ps**2 + (length / L0)**2)**(-11./12.)
     
     if plot:
         plt.plot(np.sqrt(x_ps**2 + y_ps**2), modul)
@@ -83,82 +126,109 @@ def wfgeneration(dim, dimm, length, L0, r0, wl, plot, seed="seed"):
         plt.title('amplitude of FFT of phase screen')
         plt.show()
     
-    screen = np.fft.ifft2(np.fft.fftshift(modul)*np.exp(1j*phase))
+        plt.imshow(phase)
+        plt.imshow(np.fft.fftshift(phase))
+        plt.colorbar().set_label('energy')
+        plt.title('phase of FFT of phase screen')
+        plt.show()
+    
+    screen0 = np.fft.fftshift(modul) * np.exp(1j * phase)
+    print(screen0)
+    screen  = np.fft.fft2(screen0).real
     screen2 = np.fft.fftshift(screen)
-    fact   = np.sqrt(2)*np.sqrt(.0228)*(length/r0)**(5./6.)# * (2*np.pi) / wl 
+    fact    = np.sqrt(2)*np.sqrt(.0228)*(length/r0)**(5./6.)# * (2*np.pi) / wl 
     print('fact',fact)
     screen3 = fact * screen2
-    # screen -= np.mean(screen)
+    screen3 -= np.mean(screen3)
 
-    scaling = dimm/dim
-    print(scaling)
+    scaling = length/dim
+    print('scaling',scaling)
 
     if plot:
         xm = np.linspace(0, dim, dim) * scaling #1pix = 9.7mm
         #plt.imshow(screen.real * 1e6, origin='lower', extent=(np.min(xm), np.max(xm), np.min(xm), np.max(xm))) #phase screen on a 10-meter square
-        plt.imshow(screen3.real) #phase screen on a 10-meter square
-        plt.colorbar().set_label('Astmospheric piston [µm]')
+        plt.imshow(screen3) #phase screen on a 10-meter square
+        plt.colorbar().set_label('Astmospheric phase (radians)')
         plt.title('Real part of phase screen')
         plt.show()
 
-    return screen, scaling, x_ps
+    return screen3, scaling, x_ps
 
-def generate_electric_field(D, wl, phase_screen, plot):
+################################################
+
+def generate_turbulent_psf(D, sz, phase_screen, plot=False, n_pad=2):
     """
     Generates the electric field and point spread function (PSF) for a given phase screen.
 
     Parameters:
-    - D (float): Diameter of the pupil.
-    - wl (float): Wavelength of the light.
+    - D (float): Diameter of the pupil (in meters).
+    - Physical size of the phase screen (in meters).
     - phase_screen (ndarray): Phase screen representing the wavefront distortion.
-    - x_ps (ndarray): x-coordinates of the points on the phase screen.
 
     Returns:
     - E_img (ndarray): Electric field in the image plane.
     - psf (ndarray): Point spread function.
     - x_f (ndarray): x-coordinates of the points in the Fourier plane.
     """
-    # phase_screen *= 2*np.pi/wl 
-    # ones_array = np.ones_like(phase_screen)
-    # phase_screen = ones_array
-
-    ps_dim = phase_screen.shape[0] * dimm / dim #phase screen dimension in meters
-    n_pad = 8
-
-    x = np.linspace(-n_pad * ps_dim / 2, n_pad * ps_dim / 2, x_ps.shape[0])
+    dim = phase_screen.shape[0]
+    x = np.linspace(-sz / 2, sz / 2, dim)
+    xmin = np.min(x)
+    xmax = np.max(x)
+    step = x[1] - x[0]
     xp, yp = np.meshgrid(x, x)
     rp = np.sqrt(xp**2 + yp**2)
+    
     pupil = (rp < D / 2)
     pupil = pupil.astype(np.complex128)
     
-    pscreen = pupil * phase_screen
-    # pupil *= np.exp(1j * phase_screen) 
+    pscreen = pupil * np.exp(1j * phase_screen)
+    wp = np.where(pscreen == 0)
+    pscreen[wp] = 0;
     
-    E_img = np.fft.fftshift(np.fft.fft2(pscreen))
+    paddim = 2**int(np.ceil(np.log2(dim * n_pad)))
+    print('paddim',paddim)
+    padfact2 = int(paddim // 2 - dim/2)
+    print('padfact2',padfact2)
+    ppscreen = np.pad(pscreen, ((padfact2, padfact2), (padfact2, padfact2)), mode='constant')
+    x_pad = np.arange(-paddim/2*step, paddim/2*step, step)
+    min_xp = np.min(x_pad)
+    max_xp = np.max(x_pad)
+    
+    E_img = np.fft.fftshift(np.fft.fft2(np.fft.fftshift(ppscreen)))
     psf = np.abs(E_img)**2
 
-    print(E_img.shape, ps_dim)
+    print(E_img.shape)
 
     if plot:
-        fig, (ax1, ax2,) = plt.subplots(1, 2, figsize=(15, 15))
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 8))
+        
+        ax1.imshow(np.angle(pscreen), origin='lower', extent=(xmin, xmax, xmin, xmax))
+        ax1.set_title('Turbulence on the Pupil')
+        #ax1.set_xlim(-8, 8)
+        #ax1.set_ylim(-8, 8)
+        ax1.set_xlabel('X')
+        ax1.set_ylabel('Y')
 
-        ax2.imshow(np.log(psf))
-        ax2.imshow(psf)
-        ax2.set_title('PSF')
+        ax2.imshow(np.angle(ppscreen), origin='lower', extent=(min_xp, max_xp, min_xp, max_xp))
+        ax2.set_title('Turbulence on the Pupil (zero padded)')
+        #ax1.set_xlim(-8, 8)
+        #ax1.set_ylim(-8, 8)
         ax2.set_xlabel('X')
         ax2.set_ylabel('Y')
 
-        ax1.imshow(pscreen.real, origin='lower', extent=(np.min(x), np.max(x), np.min(x), np.max(x)))
-        ax1.set_title('Turbulence on the Pupil')
-        ax1.set_xlim(-8, 8)
-        ax1.set_ylim(-8, 8)
-        ax1.set_xlabel('X')
-        ax1.set_ylabel('Y')
+        ax3.imshow(np.log(psf))
+        #ax3.imshow(psf)
+        ax3.set_title('PSF')
+        ax3.set_xlabel('X')
+        ax3.set_ylabel('Y')
 
         plt.tight_layout()
         plt.show()
     
-    return E_img, psf, ps_dim
+    return E_img, psf, x_pad
+
+
+
 
 def MATISSE(E_img, dim, ps_dim, holediam, wl, sep, x_ps, plot):
     '''
@@ -296,11 +366,11 @@ def MATISSE(E_img, dim, ps_dim, holediam, wl, sep, x_ps, plot):
     
     return E_onstar, E_offstar, Eplan_off, Eplan_on, x_f
 
-dim  = 1024 #pix -> 1024pix = 10m -> 1pix = 9.7mm
-dimm = 16. #m physical size of the phase screen
-L0   = 30.0 #m
-D    = 8.0 #m
-r0   = 0.1 #m
+dim  = 100 #pix -> 1024pix = 10m -> 1pix = 9.7mm
+phsz = 8.5 #m physical size of the phase screen (in meters)
+L0   = 30.0 # outer scale m
+D    = 8.0 # telescope diameter m
+r0   = 0.2 # Fried diameter m
 lamb = 0.5e-6 #m
 lam  = 3.5e-6 #m 
 sep  = 534 #mas
@@ -311,21 +381,35 @@ pl_flx = 8e-3 #Jy
 st_flx = 10 #Jy
 rt_flx = pl_flx / st_flx #unitless
 
-plot = True
+plot = False
 
 # Generate phase screen
-screen, scaling, x_ps = wfgeneration(dim, dimm, D, L0, r0, lamb, plot, seed="seed")
+#screen, scaling, x_ps = generate_phase_screen(dim, phsz, L0, r0, plot, seed="seed", filter_nmodes=800)
 
-#E_img, psf, ps_dim = generate_electric_field(D, lamb, screen, plot)
+#screenM = screen / 2 / np.pi * lam
+
+PSF = []
+for i in range(100):
+    screen, scaling, x_ps = generate_phase_screen(dim, phsz, L0, r0, plot=plot, seed="random", filter_nmodes=500)
+    E_img, psf, ps_dim = generate_turbulent_psf(D, phsz, screen, plot=plot, n_pad=5)
+    PSF.append(psf)
 
 #E_onstar, E_offstar, Eplan_off, Eplan_on, x_f = MATISSE(E_img, dim, ps_dim, holediam, lam, sep, x_ps, plot)
 
+print('PSF shape', np.array(PSF).shape)
+
+average_PSF = np.mean(PSF, axis=0)
+
+plt.imshow(np.log(average_PSF))
+plt.colorbar()
+plt.show()
+
 stop()
 
-psf_on      = np.abs(E_onstar)**2
+psf_on      = np.abs(E_onstar )**2
 psf_off     = np.abs(E_offstar)**2
 psf_offplan = np.abs(Eplan_off)**2
-psf_onplan  = np.abs(Eplan_on)**2
+psf_onplan  = np.abs(Eplan_on )**2
 
 fig, ax = plt.subplots(figsize=(10, 10))
 
