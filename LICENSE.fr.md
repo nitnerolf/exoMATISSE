@@ -1,10 +1,10 @@
 
-  CONTRAT DE LICENCE DE LOGICIEL LIBRE CeCILL
+#  CONTRAT DE LICENCE DE LOGICIEL LIBRE CeCILL
 
 Version 2.1 du 2013-06-21
 
 
-    Avertissement
+##    Avertissement
 
 Ce contrat est une licence de logiciel libre issue d'une concertation
 entre ses auteurs afin que le respect de deux grands principes préside à
@@ -36,7 +36,7 @@ dont le siège est situé Domaine de Voluceau, Rocquencourt, BP 105, 78153
 Le Chesnay cedex.
 
 
-    Préambule
+##    Préambule
 
 Ce contrat est une licence de logiciel libre dont l'objectif est de
 conférer aux utilisateurs la liberté de modification et de
@@ -76,7 +76,7 @@ officiel de la famille des licences CeCILL
 serait nécessaire.
 
 
-    Article 1 - DEFINITIONS
+##    Article 1 - DEFINITIONS
 
 Dans ce contrat, les termes suivants, lorsqu'ils seront écrits avec une
 lettre capitale, auront la signification suivante:
@@ -145,7 +145,7 @@ Parties: désigne collectivement le Licencié et le Concédant.
 Ces termes s'entendent au singulier comme au pluriel.
 
 
-    Article 2 - OBJET
+##    Article 2 - OBJET
 
 Le Contrat a pour objet la concession par le Concédant au Licencié d'une
 licence non exclusive, cessible et mondiale du Logiciel telle que
@@ -153,7 +153,7 @@ définie ci-après à l'article 5 <#etendue> pour toute la durée de
 protection des droits portant sur ce Logiciel.
 
 
-    Article 3 - ACCEPTATION
+##    Article 3 - ACCEPTATION
 
 3.1 L'acceptation par le Licencié des termes du Contrat est réputée
 acquise du fait du premier des faits suivants:
@@ -172,22 +172,22 @@ définie à l'article 3.1 <#acceptation-acquise> ci dessus et le Licencié
 reconnaît en avoir pris connaissance.
 
 
-    Article 4 - ENTREE EN VIGUEUR ET DUREE
+##    Article 4 - ENTREE EN VIGUEUR ET DUREE
 
 
-      4.1 ENTREE EN VIGUEUR
+###      4.1 ENTREE EN VIGUEUR
 
 Le Contrat entre en vigueur à la date de son acceptation par le Licencié
 telle que définie en 3.1 <#acceptation-acquise>.
 
 
-      4.2 DUREE
+###      4.2 DUREE
 
 Le Contrat produira ses effets pendant toute la durée légale de
 protection des droits patrimoniaux portant sur le Logiciel.
 
 
-    Article 5 - ETENDUE DES DROITS CONCEDES
+##    Article 5 - ETENDUE DES DROITS CONCEDES
 
 Le Concédant concède au Licencié, qui accepte, les droits suivants sur
 le Logiciel pour toutes destinations et pour la durée du Contrat dans
@@ -202,7 +202,7 @@ Logiciel. En cas de cession de ces brevets, le Concédant s'engage à
 faire reprendre les obligations du présent alinéa aux cessionnaires.
 
 
-      5.1 DROIT D'UTILISATION
+###      5.1 DROIT D'UTILISATION
 
 Le Licencié est autorisé à utiliser le Logiciel, sans restriction quant
 aux domaines d'application, étant ci-après précisé que cela comporte:
@@ -227,7 +227,7 @@ aux domaines d'application, étant ci-après précisé que cela comporte:
     droit d'effectuer en vertu du Contrat.
 
 
-      5.2 DROIT D'APPORTER DES CONTRIBUTIONS
+###      5.2 DROIT D'APPORTER DES CONTRIBUTIONS
 
 Le droit d'apporter des Contributions comporte le droit de traduire,
 d'adapter, d'arranger ou d'apporter toute autre modification au Logiciel
@@ -238,7 +238,7 @@ réserve de mentionner, de façon explicite, son nom en tant qu'auteur de
 cette Contribution et la date de création de celle-ci.
 
 
-      5.3 DROIT DE DISTRIBUTION
+###      5.3 DROIT DE DISTRIBUTION
 
 Le droit de distribution comporte notamment le droit de diffuser, de
 transmettre et de communiquer le Logiciel au public sur tout support et
@@ -249,7 +249,7 @@ Le Licencié est autorisé à distribuer des copies du Logiciel, modifié ou
 non, à des tiers dans les conditions ci-après détaillées.
 
 
-        5.3.1 DISTRIBUTION DU LOGICIEL SANS MODIFICATION
+####        5.3.1 DISTRIBUTION DU LOGICIEL SANS MODIFICATION
 
 Le Licencié est autorisé à distribuer des copies conformes du Logiciel,
 sous forme de Code Source ou de Code Objet, à condition que cette
@@ -273,7 +273,7 @@ logiciel, étant entendu que le coût additionnel d'acquisition du Code
 Source ne devra pas excéder le simple coût de transfert des données.
 
 
-        5.3.2 DISTRIBUTION DU LOGICIEL MODIFIE
+####        5.3.2 DISTRIBUTION DU LOGICIEL MODIFIE
 
 Lorsque le Licencié apporte une Contribution au Logiciel, les conditions
 de distribution du Logiciel Modifié en résultant sont alors soumises à
@@ -305,14 +305,14 @@ et, dans le cas où seul le code objet du Logiciel Modifié est redistribué,
     le simple coût de transfert des données.
 
 
-        5.3.3 DISTRIBUTION DES MODULES EXTERNES
+####        5.3.3 DISTRIBUTION DES MODULES EXTERNES
 
 Lorsque le Licencié a développé un Module Externe les conditions du
 Contrat ne s'appliquent pas à ce Module Externe, qui peut être distribué
 sous un contrat de licence différent.
 
 
-        5.3.4 COMPATIBILITE AVEC D'AUTRES LICENCES
+####        5.3.4 COMPATIBILITE AVEC D'AUTRES LICENCES
 
 Le Licencié peut inclure un code soumis aux dispositions d'une des
 versions de la licence GNU GPL, GNU Affero GPL et/ou EUPL dans le
@@ -325,10 +325,10 @@ GPL et/ou EUPL et distribuer l'ensemble sous les conditions de la même
 version de la licence GNU GPL, GNU Affero GPL et/ou EUPL.
 
 
-    Article 6 - PROPRIETE INTELLECTUELLE
+##    Article 6 - PROPRIETE INTELLECTUELLE
 
 
-      6.1 SUR LE LOGICIEL INITIAL
+###      6.1 SUR LE LOGICIEL INITIAL
 
 Le Titulaire est détenteur des droits patrimoniaux sur le Logiciel
 Initial. Toute utilisation du Logiciel Initial est soumise au respect
@@ -340,14 +340,14 @@ Le Titulaire s'engage à ce que le Logiciel Initial reste au moins régi
 par le Contrat et ce, pour la durée visée à l'article 4.2 <#duree>.
 
 
-      6.2 SUR LES CONTRIBUTIONS
+###      6.2 SUR LES CONTRIBUTIONS
 
 Le Licencié qui a développé une Contribution est titulaire sur celle-ci
 des droits de propriété intellectuelle dans les conditions définies par
 la législation applicable.
 
 
-      6.3 SUR LES MODULES EXTERNES
+###      6.3 SUR LES MODULES EXTERNES
 
 Le Licencié qui a développé un Module Externe est titulaire sur celui-ci
 des droits de propriété intellectuelle dans les conditions définies par
@@ -355,7 +355,7 @@ la législation applicable et reste libre du choix du contrat régissant
 sa diffusion.
 
 
-      6.4 DISPOSITIONS COMMUNES
+###      6.4 DISPOSITIONS COMMUNES
 
 Le Licencié s'engage expressément:
 
@@ -377,9 +377,9 @@ respect des dits droits de propriété intellectuelle du Titulaire et/ou
 des Contributeurs.
 
 
-    Article 7 - SERVICES ASSOCIES
+##    Article 7 - SERVICES ASSOCIES
 
-7.1 Le Contrat n'oblige en aucun cas le Concédant à la réalisation de
+### 7.1 Le Contrat n'oblige en aucun cas le Concédant à la réalisation de
 prestations d'assistance technique ou de maintenance du Logiciel.
 
 Cependant le Concédant reste libre de proposer ce type de services. Les
@@ -388,7 +388,7 @@ maintenance seront alors déterminés dans un acte séparé. Ces actes de
 maintenance et/ou assistance technique n'engageront que la seule
 responsabilité du Concédant qui les propose.
 
-7.2 De même, tout Concédant est libre de proposer, sous sa seule
+### 7.2 De même, tout Concédant est libre de proposer, sous sa seule
 responsabilité, à ses licenciés une garantie, qui n'engagera que lui,
 lors de la redistribution du Logiciel et/ou du Logiciel Modifié et ce,
 dans les conditions qu'il souhaite. Cette garantie et les modalités
@@ -396,15 +396,15 @@ financières de son application feront l'objet d'un acte séparé entre le
 Concédant et le Licencié.
 
 
-    Article 8 - RESPONSABILITE
+##    Article 8 - RESPONSABILITE
 
-8.1 Sous réserve des dispositions de l'article 8.2
+### 8.1 Sous réserve des dispositions de l'article 8.2
 <#limite-responsabilite>, le Licencié a la faculté, sous réserve de
 prouver la faute du Concédant concerné, de solliciter la réparation du
 préjudice direct qu'il subirait du fait du Logiciel et dont il apportera
 la preuve.
 
-8.2 La responsabilité du Concédant est limitée aux engagements pris en
+### 8.2 La responsabilité du Concédant est limitée aux engagements pris en
 application du Contrat et ne saurait être engagée en raison notamment:
 (i) des dommages dus à l'inexécution, totale ou partielle, de ses
 obligations par le Licencié, (ii) des dommages directs ou indirects
@@ -418,9 +418,9 @@ contre le Licencié par un tiers, constitue un dommage indirect et
 n'ouvre pas droit à réparation par le Concédant.
 
 
-    Article 9 - GARANTIE
+##    Article 9 - GARANTIE
 
-9.1 Le Licencié reconnaît que l'état actuel des connaissances
+### 9.1 Le Licencié reconnaît que l'état actuel des connaissances
 scientifiques et techniques au moment de la mise en circulation du
 Logiciel ne permet pas d'en tester et d'en vérifier toutes les
 utilisations ni de détecter l'existence d'éventuels défauts. L'attention
@@ -432,11 +432,11 @@ Il relève de la responsabilité du Licencié de contrôler, par tous
 moyens, l'adéquation du produit à ses besoins, son bon fonctionnement et
 de s'assurer qu'il ne causera pas de dommages aux personnes et aux biens.
 
-9.2 Le Concédant déclare de bonne foi être en droit de concéder
+### 9.2 Le Concédant déclare de bonne foi être en droit de concéder
 l'ensemble des droits attachés au Logiciel (comprenant notamment les
 droits visés à l'article 5 <#etendue>).
 
-9.3 Le Licencié reconnaît que le Logiciel est fourni "en l'état" par le
+### 9.3 Le Licencié reconnaît que le Logiciel est fourni "en l'état" par le
 Concédant sans autre garantie, expresse ou tacite, que celle prévue à
 l'article 9.2 <#bonne-foi> et notamment sans aucune garantie sur sa
 valeur commerciale, son caractère sécurisé, innovant ou pertinent.
@@ -446,7 +446,7 @@ d'erreur, qu'il fonctionnera sans interruption, qu'il sera compatible
 avec l'équipement du Licencié et sa configuration logicielle ni qu'il
 remplira les besoins du Licencié.
 
-9.4 Le Concédant ne garantit pas, de manière expresse ou tacite, que le
+### 9.4 Le Concédant ne garantit pas, de manière expresse ou tacite, que le
 Logiciel ne porte pas atteinte à un quelconque droit de propriété
 intellectuelle d'un tiers portant sur un brevet, un logiciel ou sur tout
 autre droit de propriété. Ainsi, le Concédant exclut toute garantie au
@@ -463,24 +463,24 @@ l'existence de droits antérieurs sur le nom du Logiciel et sur
 l'existence d'une marque.
 
 
-    Article 10 - RESILIATION
+##    Article 10 - RESILIATION
 
-10.1 En cas de manquement par le Licencié aux obligations mises à sa
+### 10.1 En cas de manquement par le Licencié aux obligations mises à sa
 charge par le Contrat, le Concédant pourra résilier de plein droit le
 Contrat trente (30) jours après notification adressée au Licencié et
 restée sans effet.
 
-10.2 Le Licencié dont le Contrat est résilié n'est plus autorisé à
+### 10.2 Le Licencié dont le Contrat est résilié n'est plus autorisé à
 utiliser, modifier ou distribuer le Logiciel. Cependant, toutes les
 licences qu'il aura concédées antérieurement à la résiliation du Contrat
 resteront valides sous réserve qu'elles aient été effectuées en
 conformité avec le Contrat.
 
 
-    Article 11 - DISPOSITIONS DIVERSES
+##    Article 11 - DISPOSITIONS DIVERSES
 
 
-      11.1 CAUSE EXTERIEURE
+###      11.1 CAUSE EXTERIEURE
 
 Aucune des Parties ne sera responsable d'un retard ou d'une défaillance
 d'exécution du Contrat qui serait dû à un cas de force majeure, un cas
@@ -492,18 +492,18 @@ catastrophes naturelles, les dégâts des eaux, les tremblements de terre,
 le feu, les explosions, les grèves et les conflits sociaux, l'état de
 guerre...
 
-11.2 Le fait, par l'une ou l'autre des Parties, d'omettre en une ou
+### 11.2 Le fait, par l'une ou l'autre des Parties, d'omettre en une ou
 plusieurs occasions de se prévaloir d'une ou plusieurs dispositions du
 Contrat, ne pourra en aucun cas impliquer renonciation par la Partie
 intéressée à s'en prévaloir ultérieurement.
 
-11.3 Le Contrat annule et remplace toute convention antérieure, écrite
+### 11.3 Le Contrat annule et remplace toute convention antérieure, écrite
 ou orale, entre les Parties sur le même objet et constitue l'accord
 entier entre les Parties sur cet objet. Aucune addition ou modification
 aux termes du Contrat n'aura d'effet à l'égard des Parties à moins
 d'être faite par écrit et signée par leurs représentants dûment habilités.
 
-11.4 Dans l'hypothèse où une ou plusieurs des dispositions du Contrat
+### 11.4 Dans l'hypothèse où une ou plusieurs des dispositions du Contrat
 s'avèrerait contraire à une loi ou à un texte applicable, existants ou
 futurs, cette loi ou ce texte prévaudrait, et les Parties feraient les
 amendements nécessaires pour se conformer à cette loi ou à ce texte.
@@ -512,37 +512,37 @@ nullité, pour quelque raison que ce soit, d'une des dispositions du
 Contrat ne saurait entraîner la nullité de l'ensemble du Contrat.
 
 
-      11.5 LANGUE
+###      11.5 LANGUE
 
 Le Contrat est rédigé en langue française et en langue anglaise, ces
 deux versions faisant également foi.
 
 
-    Article 12 - NOUVELLES VERSIONS DU CONTRAT
+##    Article 12 - NOUVELLES VERSIONS DU CONTRAT
 
-12.1 Toute personne est autorisée à copier et distribuer des copies de
+### 12.1 Toute personne est autorisée à copier et distribuer des copies de
 ce Contrat.
 
-12.2 Afin d'en préserver la cohérence, le texte du Contrat est protégé
+### 12.2 Afin d'en préserver la cohérence, le texte du Contrat est protégé
 et ne peut être modifié que par les auteurs de la licence, lesquels se
 réservent le droit de publier périodiquement des mises à jour ou de
 nouvelles versions du Contrat, qui posséderont chacune un numéro
 distinct. Ces versions ultérieures seront susceptibles de prendre en
 compte de nouvelles problématiques rencontrées par les logiciels libres.
 
-12.3 Tout Logiciel diffusé sous une version donnée du Contrat ne pourra
+### 12.3 Tout Logiciel diffusé sous une version donnée du Contrat ne pourra
 faire l'objet d'une diffusion ultérieure que sous la même version du
 Contrat ou une version postérieure, sous réserve des dispositions de
 l'article 5.3.4 <#compatibilite>.
 
 
-    Article 13 - LOI APPLICABLE ET COMPETENCE TERRITORIALE
+##    Article 13 - LOI APPLICABLE ET COMPETENCE TERRITORIALE
 
-13.1 Le Contrat est régi par la loi française. Les Parties conviennent
+### 13.1 Le Contrat est régi par la loi française. Les Parties conviennent
 de tenter de régler à l'amiable les différends ou litiges qui
 viendraient à se produire par suite ou à l'occasion du Contrat.
 
-13.2 A défaut d'accord amiable dans un délai de deux (2) mois à compter
+### 13.2 A défaut d'accord amiable dans un délai de deux (2) mois à compter
 de leur survenance et sauf situation relevant d'une procédure d'urgence,
 les différends ou litiges seront portés par la Partie la plus diligente
 devant les Tribunaux compétents de Paris.
