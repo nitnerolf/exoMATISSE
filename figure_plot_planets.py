@@ -1,6 +1,6 @@
 # ###############################################
 # 
-# Jules Scigliuto
+# Jules Scigliuto, Florentin Millour
 # 
 # 
 ########################################################
@@ -11,6 +11,7 @@
 # The separations are taken from the literature
 # The fluxes are in mJy
 # The separations are in mas
+
 
 import matplotlib.pyplot as plt
 import numpy as np
