@@ -404,35 +404,6 @@ def op_sortout_peaks(peaksin, verbose=True):
     return peaksin
 
 ##############################################
-# 
-def reorder_baselines(hdu):
-    """
-    Reorder the OI_VIS and OI_VIS2 tables according to baselines in order (12, 13, 14, 23, 24, 34)
-    and the OI_T3 table in order (123, 124, 134, 234).
-    """
-    # Baseline & triangle definitions
-    base_idx     = [set([32, 33]), set([32, 34]), set([32, 35]), set([33, 34]), set([33, 35]), set([34, 35])]
-    triangle_idx = [set([32, 33, 34]), set([32, 33, 35]), set([32, 34, 35]), set([33, 34, 35])]
-    base_dict    = {'OI_VIS': base_idx, 'OI_VIS2': base_idx, 'OI_T3': triangle_idx}
-    # Reorder
-    hdu_reorder = hdu.copy()
-    n_exp = hdu['OI_VIS'].data.size // 6 # Number of exposures in the OIFITS
-    for table in ['OI_VIS', 'OI_VIS2', 'OI_T3']:
-        if table in hdu:
-            n_base = len(base_dict[table]) # Number of baselines or triangles per exposure (6 or 4)
-        # Initialize
-        table_reorder = hdu[table].copy()
-        # Reorder
-        for i_exp in range(n_exp):
-            for i_base in range(n_base):
-                i_base_new = base_dict[table].index(set(hdu[table].data['STA_INDEX'][i_exp*n_base + i_base]))
-                table_reorder.data[i_exp*n_base + i_base_new] = hdu[table].data[i_exp*n_base + i_base]
-    
-    # Save in new HDU
-    hdu_reorder[table] = table_reorder
-    return hdu_reorder
-
-##############################################
 # Function to compute correlated flux
 def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
     print('Computing correlated flux...')
@@ -527,8 +498,103 @@ def op_compute_air_index(fh):
     toto
 
 ##############################################
+# Function to reorder baselines 
+def op_reorder_baselines(data):
+
+    cfdata = data['CF']['CF_demod']
+    # print(cfdata.shape) #base/frame/wl 7/6/1560
+    n_frames = np.shape(cfdata)[1]
+    n_exp = n_frames // 6  
+    bcd1 =[]
+    bcd2 =[]
+    bcd1.append(data['hdr']['ESO INS BCD1 NAME'])
+    bcd2.append(data['hdr']['ESO INS BCD2 NAME'])
+    bcd1 = np.array(bcd1)
+    bcd2 = np.array(bcd2)
+
+
+    # Reorder the data in cfdem
+    bcd_base_reorder = {'OUT-OUT': [0, 1, 2, 3, 4, 5, 6],  # phot+OUT-OUT, 
+                         'OUT-IN': [0, 1, 2, 5, 6, 3, 4],  # phot+OUT-IN,
+                         'IN-OUT': [0, 1, 2, 4, 3, 6, 5],  # phot+IN-OUT,
+                          'IN-IN': [0, 1, 2, 6, 5, 4, 3]}  # phot+IN-IN
+    bcd_sign = {'OUT-OUT': [0, 1, 1, 1, 1, 1, 1],   # phot+OUT-OUT,
+                 'OUT-IN': [0, 1, -1, 1, 1, 1, 1],  # phot+OUT-IN,
+                 'IN-OUT': [0, -1, 1, 1, 1, 1, 1],  # phot+IN-OUT,
+                  'IN-IN': [0, -1, -1, 1, 1, 1, 1]} # phot+IN-IN
+    
+    cfdata_reordered = np.zeros_like(cfdata)
+
+    for i_exp in range(n_exp):
+        bcd = f'{bcd1[i_exp]}-{bcd2[i_exp]}'
+        for i, new_idx in enumerate(bcd_base_reorder[bcd]):
+            cfdata_reordered[i] = cfdata[new_idx]
+
+    for i_exp in range(n_exp):
+        bcd = f'{bcd1[i_exp]}-{bcd2[i_exp]}'
+        cfdata_amp = np.abs(cfdata_reordered)
+        cfdata_phase = np.angle(cfdata_reordered)
+        for i, sign in enumerate(bcd_sign[bcd]):
+            cfdata_reordered[i] = cfdata_amp[i] * np.exp(1j * sign * cfdata_phase[i])
+
+    data['CF']['Reordered_baselines'] = cfdata_reordered
+
+    return data, cfdata_reordered
+
+##############################################
+# Function to get the ambient conditions
+def op_get_amb_conditions(data):
+
+    # Relative humidity
+    humidity = data['hdr']['ESO ISS AMBI RHUM'] / 100
+
+    # Temperature (°C)
+    T1 = data['hdr']['ESO ISS TEMP TUN1']
+    T2 = data['hdr']['ESO ISS TEMP TUN2']
+    T3 = data['hdr']['ESO ISS TEMP TUN3']
+    T4 = data['hdr']['ESO ISS TEMP TUN4']
+    temperature = (T1+T2+T3+T4)/4
+
+    # Pressure (hPa)
+    pressure = data['hdr']['ESO ISS AMBI PRES']
+
+    # Get the MJDs
+    mjds = data['INTERF']['mjds'] 
+    tartyp = data['INTERF']['tartyp']
+    mjds_valid = mjds[tartyp == 'T']
+    n_valid_frames = np.sum(tartyp == 'T')
+
+    ## Get the path lengths
+    static_lengths = np.zeros(4)
+    start_OPLs     = np.zeros(4)
+    end_OPLs       = np.zeros(4)
+    OPLs           = np.zeros(4,n_valid_frames)
+    dPaths         = np.zeros(6,n_valid_frames)
+    for i_tel in range(4):
+        # Static paths (m)
+        static_lengths[i_tel] = data['hdr'][f'ESO ISS CONF A{i_tel+1}L']
+        # Optical path lengths (m)
+        start_OPLs[i_tel] = data['hdr'][f'ESO DEL DLT{i_tel+1} OPL START']
+        end_OPLs[i_tel]   = data['hdr'][f'ESO DEL DLT{i_tel+1} OPL END']
+
+    # Compute optical path lengths of individual frames with linear interpolation
+    start_mjd, end_mjd = mjds[0], mjds[-1] + data['hdr']['EXPTIME']
+    relative_mjds = (mjds_valid - start_mjd) / (end_mjd - start_mjd)
+    OPLs = (np.outer(end_OPLs - start_OPLs, relative_mjds).T + start_OPLs).T
+
+
+    dPaths  = np.array([static_lengths[3] + OPLs[3] - static_lengths[2] - OPLs[2],
+                        static_lengths[1] + OPLs[1] - static_lengths[0] - OPLs[0],
+                        static_lengths[2] + OPLs[2] - static_lengths[1] - OPLs[1],
+                        static_lengths[3] + OPLs[3] - static_lengths[1] - OPLs[1],
+                        static_lengths[2] + OPLs[2] - static_lengths[0] - OPLs[0],
+                        static_lengths[3] + OPLs[3] - static_lengths[0] - OPLs[0]])
+
+    return temperature, pressure, humidity, dPaths
+
+##############################################
 # Function to compute the air refractive index
-def op_air_index(wl, T=15, P=1013.25, h=0.1, N_CO2=423, bands='all'):
+def op_air_index(wl, T, P, h, N_CO2=423, bands='all'):
     """ Compute the refractive index as a function of wavelength at a given temperature,
         pressure, relative humidity and CO2 concentration, using Equation (5) of Voronin & Zheltikov (2017).
         
@@ -546,6 +612,7 @@ def op_air_index(wl, T=15, P=1013.25, h=0.1, N_CO2=423, bands='all'):
         Output:
         - n_air: array of refractive indices at each wl value.
 """
+
     ## Characteristic wavelengths (microns)
     wl_abs1 = 1e-3 * np.array([15131, 4290.9, 2684.9, 2011.3, 47862, 6719.0, 2775.6, 1835.6,
                1417.6, 1145.3, 947.73, 85, 127, 87, 128])
@@ -610,3 +677,41 @@ def op_air_index(wl, T=15, P=1013.25, h=0.1, N_CO2=423, bands='all'):
         n_air += dn_air1 + dn_air2
     
     return n_air
+
+##############################################
+# Function to correct for the achromatic phase
+def op_corr_n_air(wlen, data, n_air, dPath, verbose=True, plot=True):
+    if verbose:
+        print('Correcting for the achromatic phase...')
+
+    data, cfdem = op_reorder_baselines(data)
+    cfdem = data['CF']['Reordered_baselines']
+
+    n_frames = np.shape(cfdem)[1]
+    n_wlen = len(wlen)
+
+    data['CF']['CF_achr_phase_corr'] = np.zeros((6, n_frames, n_wlen)) 
+    phase_layer_air = np.zeros((6, n_frames, n_wlen))
+    slope = np.zeros((6, n_frames))
+    phase_layer_air_slope = np.zeros((6, n_frames, n_wlen))
+    wlen *= 1e-6 #µm -> m
+
+    for i_base in np.arange(6):
+
+        for i_frame in range(n_frames):
+            # Model the phase introduced by the extra layer of air
+            phase_layer_air[i_base, i_frame] = 2 * np.pi * (n_air-1) * dPath[i_base, i_frame] / (wlen)
+            wl_mask_lin = (wlen > 3.3*1e-6) & (wlen < 3.8*1e-6)
+            wlm = wlen[wl_mask_lin]
+            phasem = phase_layer_air[i_base, i_frame, wl_mask_lin]
+            slope[i_base, i_frame] = np.sum((phasem-phasem.mean())*(1/wlm-np.mean(1/wlm))) / np.sum((1/wlm-np.mean(1/wlm))**2)
+            phase_layer_air_slope[i_base, i_frame] = phase_layer_air[i_base, i_frame] - slope[i_base, i_frame] / (wlen)
+
+            # Correct the achromatic phase
+            cfobs = cfdem[i_base+1,i_frame]
+            corr  = np.exp(1j*(phase_layer_air_slope[i_base, i_frame]))
+            corrPhase = np.angle(cfobs * np.conj(corr))
+
+            data['CF']['CF_achr_phase_corr'][i_base, i_frame] = corrPhase
+
+    return data, phase_layer_air_slope

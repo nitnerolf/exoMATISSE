@@ -221,11 +221,15 @@ def op_match_keys(fits_data, keys, values, hdu=0):
 
 ##############################################
 # Load raw data
+##############################################
+# Load raw data
 def op_load_rawdata(filename, verbose=True):
     print('Loading raw data...')
     fh      =  fits.open(filename)
     data    = {'hdr': fh[0].header}
     nframes = len(fh['IMAGING_DATA'].data)
+    nexp    = len(fh['IMAGING_DATA'].data)//6
+    print('nexp:',nexp)
     nreg    = len(fh['IMAGING_DETECTOR'].data)
     
     data['PHOT'] = {}
@@ -238,10 +242,20 @@ def op_load_rawdata(filename, verbose=True):
     
     # Load the local OPD table that contains the modulation information
     localopd = []
+    mjds = []
+    tartyp = []
+
     for i in np.arange(nframes):
         localopd.append(fh['IMAGING_DATA'].data[i]['LOCALOPD'].astype(float))
+        mjds.append(fh['IMAGING_DATA'].data[i]['TIME'].astype(float))
+        tartyp.append(fh['IMAGING_DATA'].data[i]['TARTYP'])
     localopd = np.array(localopd) 
+    mjds = np.array(mjds)
+    tartyp = np.array(tartyp)
+
     print('Localopd:', localopd)
+    print('MJDs:', mjds)
+    print('TARTYP:', tartyp)
     
     for j in np.arange(nreg):
         corner = fh['IMAGING_DETECTOR'].data[j]['CORNER']
@@ -255,6 +269,9 @@ def op_load_rawdata(filename, verbose=True):
             data['INTERF']['corner']   = corner
             data['INTERF']['naxis']    = naxis
             data['INTERF']['localopd'] = localopd
+            data['INTERF']['mjds']     = mjds
+            data['INTERF']['tartyp']   = tartyp
+
         elif fnmatch.fnmatch(fh['IMAGING_DETECTOR'].data['REGNAME'][j], 'PHOT*'):
             key = fh['IMAGING_DETECTOR'].data['REGNAME'][j]
             data['PHOT'][key]={}

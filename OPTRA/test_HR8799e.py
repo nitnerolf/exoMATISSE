@@ -31,16 +31,17 @@ plotRaw       = plot
 plotCorr      = plot
 
 #basedir = '~/Documents/G+/'
-bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/')
+bbasedir = '/Users/jscigliuto/Nextcloud/'
 basedir  = bbasedir+'GPAO_HR8799e/'
+
 starfile = basedir + 'MATISSE_OBS_SIPHOT_LM_OBJECT_272_0001.fits'
 skyfile  = basedir + 'MATISSE_OBS_SIPHOT_LM_SKY_272_0001.fits'
 
-caldir    = bbasedir + 'CALIB2024/'
-kappafile = caldir + 'KAPPA_MATRIX_L_MED.fits'
-shiftfile = caldir + 'SHIFT_L_MED.fits'
-flatfile  = caldir + 'FLATFIELD_L_SLOW.fits'
-badfile   = caldir + 'BADPIX_L_SLOW.fits'
+caldir    = '/Users/jscigliuto/Nextcloud/Py/exoMATISSE-main/CALIB/'
+kappafile = caldir+'KAPPA_MATRIX_L_MED.fits'
+shiftfile = caldir+'SHIFT_L_MED.fits'
+flatfile  = caldir+'FLATFIELD_L_SLOW.fits'
+badfile   = caldir+'BADPIX_L_SLOW.fits'
 
 ##########################################################
 
@@ -106,10 +107,31 @@ plt.title('Sum of the CF data')
 
 iframe = 0
 fig2, ax2 = plt.subplots(2, 6, figsize=(8, 4))
-for i in np.arange(6)+1:
+for i in np.arange(6): #+1 ????
     ax2[0,i].plot(wlen, np.abs(cf[i,iframe,:]), color=colors[i])
     ax2[1,i].plot(wlen, np.angle(cf[i,iframe,:]), color=colors[i])
 plt.title(f'frame {iframe} of CF data')
+plt.show()
+
+
+##### Index correction #####  /!\ Problème base 2: slope incerted /!\
+temperature, pressure, humidity, dPaths = op_get_amb_conditions(cfdem)
+n_air = op_air_index(wlen, temperature, pressure, humidity, N_CO2=423, bands='all')
+data, phase_layer_air = op_corr_n_air(wlen, cfdem, n_air, dPaths, verbose=True, plot=True)
+corrPhase = data['CF']['CF_achr_phase_corr']
+cfdem = data['CF']['CF_demod']
+n_frames = np.shape(cfdem)[1]
+
+for i_frame in range(n_frames):
+    fig3, (ax3, ax4) = plt.subplots(2, 6, figsize=(10, 5))
+    fig3.suptitle(f'frame {i_frame+1}')
+
+    for i_base in range(6):
+        ax3[i_base].plot(wlen*1e6, np.angle(np.exp(1j*phase_layer_air[i_base,i_frame])), color=colors[i_base], alpha=0.3)
+        ax3[i_base].plot(wlen*1e6, np.angle(cfdem[i_base+1,i_frame]), color=colors[i_base])
+        ax4[i_base].plot(wlen*1e6, corrPhase[i_base,i_frame], color=colors[i_base])
+    
+
 plt.show()
 
 
