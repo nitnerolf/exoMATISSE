@@ -155,7 +155,8 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
         plt.plot(wlen)
         plt.show()
     
-    rawdata['wlen'] = wlen
+    rawdata['OI_WAVELENGTH'] = {}
+    rawdata['OI_WAVELENGTH']['EFF_WAVE'] = wlen
 
     return wlen
 

@@ -28,11 +28,11 @@ def op_gen_oiarray(cfdata, verbose=True, plot=False):
     oiarray_table['STATION'] = np.array([''], dtype='S16')
     '''
     
-    oiarray_table['TEL_NAME'] = np.array([1, 2], dtype=np.int32)
-    oiarray_table['STA_NAME'] = np.array([1, 2], dtype=np.int32)
-    oiarray_table['STA_INDEX'] = np.array([1, 2], dtype=np.int32)
-    oiarray_table['DIAMETER'] = 0.0
-    oiarray_table['STAXYZ'] = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=np.float64)
+    oiarray_table['TEL_NAME']  = cfdata['OI_ARRAY']['TEL_NAME']
+    oiarray_table['STA_NAME']  = cfdata['OI_ARRAY']['STA_NAME']
+    oiarray_table['STA_INDEX'] = cfdata['OI_ARRAY']['STA_INDEX']
+    oiarray_table['DIAMETER']  = cfdata['OI_ARRAY']['DIAMETER']
+    oiarray_table['STAXYZ']    = cfdata['OI_ARRAY']['STAXYZ']
     oiarray_table['FOV'] = 1.0
     oiarray_table['FOVTYPE'] = 'RADIUS'
     
@@ -104,7 +104,7 @@ def op_gen_oiwavelength(cfdata, verbose=True, plot=False):
     """
     # Create the OI_WAVELENGTH table
     oiwavelength_table = Table()
-    oiwavelength_table['EFF_WAVE'] = cfdata['wlen']
+    oiwavelength_table['EFF_WAVE'] = cfdata['OI_WAVELENGTH']['EFF_WAVE']
     
     oiwavelength_table['EFF_BAND'] = 0.0
     oiwavelength_table['EFF_REF'] = 0.0
@@ -137,7 +137,7 @@ def op_gen_oivis(cfdata, verbose=True, plot=False):
     oivis_table['UCOORD']    = 0.0
     oivis_table['VCOORD']    = 0.0
     oivis_table['STA_INDEX'] = np.array([1, 2], dtype=np.int32)
-    oivis_table['FLAG']      = np.array([0], dtype=np.int32)
+    oivis_table['FLAG']      = 0
     
     return oivis_table
     

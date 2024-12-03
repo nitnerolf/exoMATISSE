@@ -31,9 +31,9 @@ plotCorr      = plot
 def do_nothing():
     pass
 
-bbasedir = '~/SynologyDrive/driveFlorentin/ExoMATISSE/beta_Pic_b/'
-#bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
-basedir  = bbasedir+'2024-11-17_MATISSE/'
+#bbasedir = '~/SynologyDrive/driveFlorentin/ExoMATISSE/beta_Pic_b/'
+bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
+basedir  = bbasedir+'Raw_MATISSE-LM_BetaPic_2022-11-08/'
 
 starfiles = os.listdir(basedir)
 fitsfiles = [f for f in starfiles if ".fits" in f]

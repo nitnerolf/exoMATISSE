@@ -240,6 +240,19 @@ def op_load_rawdata(filename, verbose=True):
     data['ARRAY_GEOMETRY']    = fh['ARRAY_GEOMETRY'].data
     data['OPTICAL_TRAIN']     = fh['OPTICAL_TRAIN'].data
     
+    # Fill in the OI_ARRAY table
+    data['OI_ARRAY'] = {}
+    data['OI_ARRAY']['TEL_NAME']  = data['ARRAY_GEOMETRY']['TEL_NAME']
+    data['OI_ARRAY']['STA_NAME']  = data['ARRAY_GEOMETRY']['STA_NAME']
+    data['OI_ARRAY']['STA_INDEX'] = data['ARRAY_GEOMETRY']['STA_INDEX']
+    data['OI_ARRAY']['DIAMETER']  = data['ARRAY_GEOMETRY']['DIAMETER']
+    data['OI_ARRAY']['STAXYZ']    = data['ARRAY_GEOMETRY']['STAXYZ']
+    
+    data['Tel2MATISSE'] = {}
+    data['Tel2MATISSE']['TELESCOPE'] = data['OPTICAL_TRAIN']['TEL_NAME']
+    data['Tel2MATISSE']['MATISSE_IP'] = data['OPTICAL_TRAIN']['value2']
+    
+    
     # Load the local OPD table that contains the modulation information
     localopd = []
     mjds = []

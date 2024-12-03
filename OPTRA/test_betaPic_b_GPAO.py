@@ -33,7 +33,7 @@ def do_nothing():
 
 #bbasedir = '~/SynologyDrive/driveFlorentin/GRAVITY+/HR8799e/'
 bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
-basedir  = bbasedir+'2024-11-17_MATISSE/'
+basedir  = bbasedir+'2024-11-17_MATISSE_betaPic_b/'
 
 starfiles = os.listdir(basedir)
 fitsfiles = [f for f in starfiles if ".fits" in f]
@@ -184,7 +184,7 @@ for ifile in starfiles:
     plt.suptitle('Sum CF data (1 exposure)')
     plt.tight_layout()
     plt.savefig(os.path.expanduser(bbasedir+f'{basen}_corrflux.png'))
-    #plt.show()
+    plt.show()
 
     #########################################################
     outfilename = os.path.expanduser(bbasedir+f'{basen}_corrflux.oifits')
