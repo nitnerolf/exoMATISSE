@@ -701,7 +701,7 @@ def op_corr_n_air(wlen, data, n_air, dPath, verbose=True, plot=True):
         for i_frame in range(n_frames):
             # Model the phase introduced by the extra layer of air
             phase_layer_air[i_base, i_frame] = 2 * np.pi * (n_air-1) * dPath[i_base, i_frame] / (wlen)
-            wl_mask_lin = (wlen > 3.3*1e-6) & (wlen < 3.8*1e-6)
+            wl_mask_lin = (wlen > 3.3*1e-6) & (wlen < 3.7*1e-6)
             wlm = wlen[wl_mask_lin]
             phasem = phase_layer_air[i_base, i_frame, wl_mask_lin]
             slope[i_base, i_frame] = np.sum((phasem-phasem.mean())*(1/wlm-np.mean(1/wlm))) / np.sum((1/wlm-np.mean(1/wlm))**2)
