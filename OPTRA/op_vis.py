@@ -18,7 +18,7 @@ def op_extract_simplevis2(cfdata, verbose=True, plot=False):
     niz     = cfdata['CF']['CF_nbpx']
     print('Shape of psd:', psd.shape)
     
-    sumPSD  = np.sum(psd, axis=1)
+    sumPSD     = np.sum(psd, axis=1)
     background = np.abs(cfdata['CF']['bckg'])**2
     print('Shape of sumPSD:', sumPSD.shape)
     print('Shape of background:', background.shape)
