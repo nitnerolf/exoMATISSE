@@ -42,6 +42,7 @@ from   scipy import *
 import numpy as np
 import fnmatch
 import matplotlib.pyplot as plt
+from op_instruments import *
 
 ##############################################
 # Function to interpolate bad pixels
@@ -248,23 +249,24 @@ def op_load_rawdata(filename, verbose=True):
     data['OI_ARRAY']['DIAMETER']  = data['ARRAY_GEOMETRY']['DIAMETER']
     data['OI_ARRAY']['STAXYZ']    = data['ARRAY_GEOMETRY']['STAXYZ']
     
-    data['Tel2MATISSE'] = {}
-    data['Tel2MATISSE']['TELESCOPE'] = data['OPTICAL_TRAIN']['TEL_NAME']
-    data['Tel2MATISSE']['MATISSE_IP'] = data['OPTICAL_TRAIN']['value2']
-    
-    
     # Load the local OPD table that contains the modulation information
     localopd = []
     mjds = []
     tartyp = []
+    exptime = []
+    target = []
 
     for i in np.arange(nframes):
         localopd.append(fh['IMAGING_DATA'].data[i]['LOCALOPD'].astype(float))
-        mjds.append(fh['IMAGING_DATA'].data[i]['TIME'].astype(float))
-        tartyp.append(fh['IMAGING_DATA'].data[i]['TARTYP'])
+        mjds.append(    fh['IMAGING_DATA'].data[i]['TIME'].astype(float))
+        exptime.append( fh['IMAGING_DATA'].data[i]['EXPTIME'])
+        target.append(  fh['IMAGING_DATA'].data[i]['TARGET'])
+        tartyp.append(  fh['IMAGING_DATA'].data[i]['TARTYP'])
     localopd = np.array(localopd) 
     mjds = np.array(mjds)
     tartyp = np.array(tartyp)
+    exptime = np.array(exptime)
+    target = np.array(target)
 
     #print('Localopd:', localopd)
     #print('MJDs:', mjds)
@@ -284,6 +286,8 @@ def op_load_rawdata(filename, verbose=True):
             data['INTERF']['localopd'] = localopd
             data['INTERF']['mjds']     = mjds
             data['INTERF']['tartyp']   = tartyp
+            data['INTERF']['exptime']  = exptime
+            data['INTERF']['target']   = target
 
         elif fnmatch.fnmatch(fh['IMAGING_DETECTOR'].data['REGNAME'][j], 'PHOT*'):
             key = fh['IMAGING_DETECTOR'].data['REGNAME'][j]
@@ -302,7 +306,7 @@ def op_load_rawdata(filename, verbose=True):
 
 ##############################################
 # Load and calibrate raw data
-def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, verbose=False, plot=False):
+def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, instrument=op_MATISSE_L, verbose=False, plot=False):
     print('loading and calibrating raw data...')
     # Load the star and sky data
     tardata  = op_load_rawdata(sciencefile)
@@ -328,5 +332,15 @@ def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, verbose=False, plot=Fa
 
     fdata = op_apply_ffm(stardata, ffm, verbose=verbose)
     bdata = op_apply_bpm(fdata, bpm, verbose=verbose)
+    
+    bdata['OI_BASELINES'] = {}
+    bdata['OI_BASELINES']['TARGET_ID'] = bdata['INTERF']['target']
+    bdata['OI_BASELINES']['TARGET']    = bdata['hdr']['ESO OBS TARG NAME']
+    bdata['OI_BASELINES']['TIME']      = 86400 * (bdata['INTERF']['mjds'] - bdata['INTERF']['mjds'][0])
+    bdata['OI_BASELINES']['MJD']       = bdata['INTERF']['mjds']
+    bdata['OI_BASELINES']['INT_TIME']  = bdata['INTERF']['exptime']
+    bdata['OI_BASELINES']['STA_INDEX'] = bdata['OI_ARRAY']['STA_INDEX'][instrument['scrB']]
+    #print('Scrambling of baselines:', bdata['OI_ARRAY']['STA_INDEX'][instrument['scrB']])
+    
     
     return bdata

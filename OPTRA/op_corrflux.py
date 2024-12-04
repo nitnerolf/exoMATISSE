@@ -539,10 +539,12 @@ def op_reorder_baselines(data):
 
 ##############################################
 # Function to get the ambient conditions
-def op_get_amb_conditions(data):
+def op_get_amb_conditions(data, verbose=False):
 
     # Relative humidity
     humidity = data['hdr']['ESO ISS AMBI RHUM'] / 100
+    if verbose:
+        print('Relative humidity:', humidity)
 
     # Temperature (°C)
     T1 = data['hdr']['ESO ISS TEMP TUN1']
@@ -550,12 +552,18 @@ def op_get_amb_conditions(data):
     T3 = data['hdr']['ESO ISS TEMP TUN3']
     T4 = data['hdr']['ESO ISS TEMP TUN4']
     temperature = (T1+T2+T3+T4)/4
+    if verbose:
+        print('Temperature:', temperature)
 
     # Pressure (hPa)
     pressure = data['hdr']['ESO ISS AMBI PRES']
+    if verbose:
+        print('Pressure:', pressure)
 
     # Get the MJDs
-    mjds = data['INTERF']['mjds'] 
+    mjds   = data['INTERF']['mjds'] 
+    if verbose:
+        print('MJDs:', mjds)
     tartyp = data['INTERF']['tartyp']
     mjds_valid = mjds[tartyp == 'T']
     n_valid_frames = np.sum(tartyp == 'T')
@@ -574,9 +582,15 @@ def op_get_amb_conditions(data):
         end_OPLs[i_tel]   = data['hdr'][f'ESO DEL DLT{i_tel+1} OPL END']
 
     # Compute optical path lengths of individual frames with linear interpolation
-    start_mjd, end_mjd = mjds[0], mjds[-1] + data['hdr']['EXPTIME']
+    start_mjd, end_mjd = mjds[0], mjds[-1] + data['hdr']['EXPTIME'] / 86400.
+    if verbose:
+        print('Start MJD:', start_mjd, 'End MJD:', end_mjd)
     relative_mjds      = (mjds_valid - start_mjd) / (end_mjd - start_mjd)
+    if verbose:
+        print('Relative MJDs:', relative_mjds)
     OPLs = (np.outer(end_OPLs - start_OPLs, relative_mjds).T + start_OPLs).T
+    if verbose:
+        print('OPLs inside function:', OPLs)
 
     # FIXME: attention, take into account baseline scrambling here
     dPaths  = np.array([static_lengths[3] + OPLs[3] - static_lengths[2] - OPLs[2],
@@ -585,6 +599,8 @@ def op_get_amb_conditions(data):
                         static_lengths[3] + OPLs[3] - static_lengths[1] - OPLs[1],
                         static_lengths[2] + OPLs[2] - static_lengths[0] - OPLs[0],
                         static_lengths[3] + OPLs[3] - static_lengths[0] - OPLs[0]])
+    print('dPaths inside function:', dPaths)
+    
 
     return temperature, pressure, humidity, dPaths
 

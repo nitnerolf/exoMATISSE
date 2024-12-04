@@ -22,11 +22,11 @@ from scipy         import stats
 
 #plt.ion()
 plot = False
-plotFringes   = plot
-plotPhi       = plot
-plotDsp       = plot
-plotRaw       = plot
-plotCorr      = plot
+plotFringes = plot
+plotPhi     = plot
+plotDsp     = plot
+plotRaw     = plot
+plotCorr    = plot
 
 verbose = False
 
@@ -66,15 +66,15 @@ for fi in fitsfiles:
         ndit = hdr['ESO DET NDIT']
     except:
         do_nothing()
-    print(fi, inst, catg, type, chip, dit, ndit)
+    #print(fi, inst, catg, type, chip, dit, ndit)
     if catg == 'SCIENCE' and type == 'OBJECT' and chip == 'HAWAII-2RG' :
-        print("science file!")
+        #print("science file!")
         obsfilesL.append(fi)
     if catg == 'CALIB' and type == 'STD' and chip == 'HAWAII-2RG':
-        print("calibrator file!")
+        #print("calibrator file!")
         obsfilesL.append(fi)
     if catg == 'CALIB' and type == 'SKY' and chip == 'HAWAII-2RG' :
-        print("sky file!")
+        #print("sky file!")
         skyfilesL.append(fi)
 
 starfiles = sorted(obsfilesL)
@@ -138,7 +138,7 @@ for ifile in starfiles:
     #########################################################
 
     basename = os.path.basename(starfile)
-    basen = os.path.splitext(basename)[0]
+    basen    = os.path.splitext(basename)[0]
         
     if 0:
         vis2, mask = op_extract_simplevis2(cfdata, verbose=verbose, plot=False)
