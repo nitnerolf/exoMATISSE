@@ -28,6 +28,8 @@ plotDsp       = plot
 plotRaw       = plot
 plotCorr      = plot
 
+verbose = False
+
 def do_nothing():
     pass
 
@@ -75,7 +77,8 @@ for fi in fitsfiles:
         print("sky file!")
         skyfilesL.append(fi)
 
-starfiles = obsfilesL
+starfiles = sorted(obsfilesL)
+starfiles = [f for f in starfiles if 'STD' in f]
 print('Starfiles:', starfiles)
 
 
@@ -113,7 +116,7 @@ for ifile in starfiles:
 
     ##########################################################
 
-    bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=True, plot=plotRaw)
+    bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=verbose, plot=plotRaw)
 
     ##########################################################
 
@@ -127,73 +130,83 @@ for ifile in starfiles:
 
         plt.show()
         
-    cfdata, wlen = op_get_corrflux(bdata, shiftfile, plot=plotCorr, verbose=True)
+    cfdata = op_get_corrflux(bdata, shiftfile, plot=plotCorr, verbose=verbose)
 
-    print(wlen)
+    wlen = cfdata['OI_WAVELENGTH']['EFF_WAVE']
+    #print(wlen)
 
     #########################################################
-
-    vis2, mask = op_extract_simplevis2(cfdata, verbose=False, plot=False)
-    print(mask)
-    print(~mask)
-    notvis2 = np.ma.masked_array(np.ma.getdata(vis2), ~mask)
-    allvis2 = np.ma.getdata(vis2)
-    
-    print('Shape of vis2:', vis2.shape)
-    print('Shape of notvis2:', notvis2.shape)
-
-    fig0, ax0 = plt.subplots(7, 1, figsize=(8, 8), sharex=1, sharey=1)
-    print('Shape of ax1:', ax0.shape)
-    colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
-    for i in np.arange(7):
-        print('i:', i)
-        ax0[i].plot(wlen, allvis2[i,:], color='lightgray')
-        ax0[i].plot(wlen, vis2[i,:], color=colors[i])
-        ax0[i].set_ylabel(f'vis2 {i}')
 
     basename = os.path.basename(starfile)
     basen = os.path.splitext(basename)[0]
-    print('Basename of starfile:', basen)
-    plt.suptitle(f'Visibility as a function of $\lambda$, {basen}')
-    plt.xlim(np.min(wlen), np.max(wlen))
-    plt.ylim(-0.1, 1.1)
-    print(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
-    plt.savefig(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
-    #plt.show()
+        
+    if 0:
+        vis2, mask = op_extract_simplevis2(cfdata, verbose=verbose, plot=False)
+        #print(mask)
+        #print(~mask)
+        notvis2 = np.ma.masked_array(np.ma.getdata(vis2), ~mask)
+        allvis2 = np.ma.getdata(vis2)
+        
+        #print('Shape of vis2:', vis2.shape)
+        #print('Shape of notvis2:', notvis2.shape)
+
+        fig0, ax0 = plt.subplots(7, 1, figsize=(8, 8), sharex=1, sharey=1)
+        #print('Shape of ax1:', ax0.shape)
+        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+        for i in np.arange(7):
+            #print('i:', i)
+            ax0[i].plot(wlen, allvis2[i,:], color='lightgray')
+            ax0[i].plot(wlen, vis2[i,:], color=colors[i])
+            ax0[i].set_ylabel(f'vis2 {i}')
+
+        #print('Basename of starfile:', basen)
+        plt.suptitle(f'Visibility as a function of $\lambda$, {basen}')
+        plt.xlim(np.min(wlen), np.max(wlen))
+        plt.ylim(-0.1, 1.1)
+        #print(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
+        plt.savefig(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
+        #plt.show()
 
     #########################################################
 
-    cfdem = op_demodulate(cfdata, wlen, verbose=True, plot=False)
+    #cfdem = op_demodulate(cfdata, wlen, verbose=True, plot=False)
+    cfdem = cfdata
 
 
 
-    print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
-    cf = cfdem['CF']['CF_demod']
+    #print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
+    cf = cfdem['CF']['CF_achr_phase_corr']
+    #cf = cfdem['CF']['CF_demod']
+    #cf = cfdem['CF']['CF_reord']
     sumcf = np.sum(cf, axis=1)
-    print('Shape of sumcf:', sumcf.shape)
-
-    fig1, ax1 = plt.subplots(6, 2, figsize=(8, 8), sharex=1, sharey=0)
-    print('Shape of ax1:', ax1.shape)
+    #print('Shape of sumcf:', sumcf.shape)
+    shp = sumcf.shape
+    nbs = shp[0]
+    fig1, ax1 = plt.subplots(nbs, 2, figsize=(8, 8), sharex=1, sharey=0)
+    #print('Shape of ax1:', ax1.shape)
     colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
-    for i in np.arange(6):
-        print('i:', i)
-        ax1[i,0].plot(wlen,   np.abs(sumcf[i+1,:]), color=colors[i])
-        ax1[i,0].set_ylabel(f'corr. flux {i+1}')
-        ax1[i,1].plot(wlen, np.angle(sumcf[i+1,:]), color=colors[i])
+    for i in np.arange(nbs):
+        #print('i:', i)
+        ax1[i,0].plot(wlen,   np.abs(sumcf[i,:]), color=colors[i])
+        if i == 0 and nbs == 7:
+            ax1[i,0].set_ylabel(f'flux {i+1}')
+        else:
+            ax1[i,0].set_ylabel(f'corr. flux {i+1}')
+        ax1[i,1].plot(wlen, np.angle(sumcf[i,:]), color=colors[i])
         ax1[i,1].set_ylabel(f'phase {i+1}')
     plt.suptitle('Sum CF data (1 exposure)')
     plt.tight_layout()
     plt.savefig(os.path.expanduser(bbasedir+f'{basen}_corrflux.png'))
-    plt.show()
+    #plt.show()
 
     #########################################################
-    outfilename = os.path.expanduser(bbasedir+f'{basen}_corrflux.oifits')
+    outfilename = os.path.expanduser(bbasedir+f'{basen}_corrflux_oi.fits')
     hdr = cfdem['hdr']
-    oiwavelength = op_gen_oiwavelength(cfdem, verbose=True)
-    oirray = None
-    oitarget = None
-    oivis = op_gen_oivis(cfdem, verbose=True, plot=False)
-    op_write_oifits(outfilename, hdr, oiwavelength, oirray=None, oitarget=None, oivis=oivis, oivis2=None, oit3=None)
+    oiwavelength = op_gen_oiwavelength(cfdem, verbose=verbose)
+    oitarget     = op_gen_oitarget(cfdem, verbose=True, plot=False)
+    oirray       = op_gen_oiarray(cfdem, verbose=True, plot=False)
+    oivis        = op_gen_oivis(cfdem, verbose=verbose, plot=False)
+    op_write_oifits(outfilename, hdr, oiwavelength, oirray, oitarget, oivis, oivis2=None, oit3=None)
 
 
     '''

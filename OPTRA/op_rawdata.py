@@ -57,7 +57,7 @@ def op_interpolate_bad_pixels(data, bad_pixel_map, verbose=False):
 
 ##############################################
 # Load bad pixel map
-def op_load_bpm(filename, verbose=True):
+def op_load_bpm(filename, verbose=False):
     if verbose:
         print('Loading bad pixel map...')
     fh = fits.open(filename)
@@ -67,14 +67,14 @@ def op_load_bpm(filename, verbose=True):
 
 ##############################################
 # Apply bpm
-def op_apply_bpm(rawdata, bpmap, verbose=True):
+def op_apply_bpm(rawdata, bpmap, verbose=False):
     if verbose:
         print('Applying bad pixel map...')
     # Subtract sky from rawdata
     
     corner = rawdata['INTERF']['corner']
     naxis  = rawdata['INTERF']['naxis']
-    intf  = rawdata['INTERF']['data']
+    intf   = rawdata['INTERF']['data']
     nframe = np.shape(intf)[0]
     if verbose:
         print(f'Processing {nframe} frames')
@@ -89,7 +89,7 @@ def op_apply_bpm(rawdata, bpmap, verbose=True):
     for key in rawdata['PHOT']:
         corner = rawdata['PHOT'][key]['corner']
         naxis  = rawdata['PHOT'][key]['naxis']
-        phot  = rawdata['PHOT'][key]['data']
+        phot   = rawdata['PHOT'][key]['data']
         wbpm = bpmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
         # Interpolate bad pixels in each frame
         fdata = []
@@ -113,7 +113,7 @@ def op_apply_bpm(rawdata, bpmap, verbose=True):
 
 ##############################################
 # Load flat field map
-def op_load_ffm(filename, verbose=True):
+def op_load_ffm(filename, verbose=False):
     if verbose:
         print('Loading flat field...')
     fh = fits.open(filename)
@@ -123,7 +123,7 @@ def op_load_ffm(filename, verbose=True):
 
 ##############################################
 # Apply flat field map
-def op_apply_ffm(rawdata, ffmap, verbose=True):
+def op_apply_ffm(rawdata, ffmap, verbose=False):
     if verbose:
         print('Applying flat field map...')
     # Subtract sky from rawdata
@@ -167,7 +167,7 @@ def op_apply_ffm(rawdata, ffmap, verbose=True):
 
 ##############################################
 # Subtract sky
-def op_subtract_sky(rawdata, skydata, verbose=True):
+def op_subtract_sky(rawdata, skydata, verbose=False):
     if verbose:
         print('Subtracting sky...')
     # Compute robust average of sky
@@ -229,7 +229,7 @@ def op_load_rawdata(filename, verbose=True):
     data    = {'hdr': fh[0].header}
     nframes = len(fh['IMAGING_DATA'].data)
     nexp    = len(fh['IMAGING_DATA'].data)//6
-    print('nexp:',nexp)
+    #print('nexp:',nexp)
     nreg    = len(fh['IMAGING_DETECTOR'].data)
     
     data['PHOT'] = {}
@@ -266,9 +266,9 @@ def op_load_rawdata(filename, verbose=True):
     mjds = np.array(mjds)
     tartyp = np.array(tartyp)
 
-    print('Localopd:', localopd)
-    print('MJDs:', mjds)
-    print('TARTYP:', tartyp)
+    #print('Localopd:', localopd)
+    #print('MJDs:', mjds)
+    #print('TARTYP:', tartyp)
     
     for j in np.arange(nreg):
         corner = fh['IMAGING_DETECTOR'].data[j]['CORNER']
@@ -302,7 +302,7 @@ def op_load_rawdata(filename, verbose=True):
 
 ##############################################
 # Load and calibrate raw data
-def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, verbose=True, plot=False):
+def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, verbose=False, plot=False):
     print('loading and calibrating raw data...')
     # Load the star and sky data
     tardata  = op_load_rawdata(sciencefile)

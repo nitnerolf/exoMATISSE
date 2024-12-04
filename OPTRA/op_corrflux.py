@@ -101,7 +101,7 @@ def op_apodize(data, verbose=True,plot=False):
     return data
 
 ##############################################
-# Function to compute the FFT of interferograms
+# compute the FFT of interferograms
 def op_calc_fft(data, verbose=True):
     if verbose:
         print('Computing FFT of interferograms...')
@@ -128,7 +128,7 @@ def op_calc_fft(data, verbose=True):
     return data
 
 ##############################################
-# Function to compute the wavelength 
+# compute the wavelength 
 def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
     if verbose:
         print('Computing wavelength map...')
@@ -161,7 +161,7 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
     return wlen
 
 ##############################################
-# Function to get the peaks position
+# get the peaks position
 def op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
     npix = np.shape(fftdata['FFT']['data'])[2]
     if instrument == 'MATISSE':
@@ -180,7 +180,7 @@ def op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
     return peak, peakwd
 
 ##############################################
-# Function to extract the correlated flux
+# extract the correlated flux
 def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=False):
     if verbose:
         print('Extracting correlated flux...')
@@ -236,8 +236,8 @@ def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=False):
     return fftdata
 
 ##############################################
-# Function to demodulate MATISSE fringes
-def op_demodulate(CFdata, wlen, verbose=True, plot=False):
+# demodulate MATISSE fringes
+def op_demodulate(CFdata, wlen, verbose=False, plot=False):
     if verbose:
         print('Demodulating correlated flux...')
     npeaks  = np.shape(CFdata['CF']['data'])[0]
@@ -297,112 +297,6 @@ def op_demodulate(CFdata, wlen, verbose=True, plot=False):
         
     return CFdata
 
-##############################################
-# Function to sort out beams    
-def op_sortout_beams(beamsin, verbose=True):
-    here_do_something = 0
-
-##############################################
-# Function to sort out peaks
-# The combiner entrance MATISSE pupil looks
-# like that in L band (BCD out)
-#  S1       S2          S3    S4
-#      2        3          1
-#  _        _           _     _
-# / \      / \         / \   / \
-# \_/      \_/         \_/   \_/
-# and like this in N band (BCD out)
-#  S4   S3           S2       S1
-#     1        3          2
-#  _     _           _        _
-# / \   / \         / \      / \
-# \_/   \_/         \_/      \_/
-#
-# The BCD inverts S1 <-> S2 and S3 <-> S4
-# 
-def op_sortout_peaks(peaksin, verbose=True):
-    if verbose:
-        print('Sorting out peaks...')
-        
-    bcd1 = peaksin['hdr']['HIERARCH ESO INS BCD1 ID']
-    bcd2 = peaksin['hdr']['HIERARCH ESO INS BCD2 ID']
-    det = peaksin['hdr']['HIERARCH ESO DET CHIP NAME']
-    
-    if verbose:
-        print('BCD1:', bcd1)
-        print('BCD2:', bcd2)
-    
-    tel= peaksin['OPTICAL_TRAIN']['INDEX']
-    ntel    = len(tel)
-    nbases  = ntel*(ntel-1)//2
-    telname = peaksin['OPTICAL_TRAIN']['TEL_NAME']
-    if verbose:
-        print('Telescope names:', telname)
-    DL_number = peaksin['OPTICAL_TRAIN']['VALUE1']
-    IP_number = peaksin['OPTICAL_TRAIN']['VALUE2']
-    
-    #########################################
-    # Internal beams scrambling
-    # See MATISSE document: MATISSE-TP-TN-003
-    if det   == 'HAWAII-2RG': #  MATISSE_L
-        beamscr  = (4,3,2,1)
-        band="L"
-    elif det == 'AQUARIUS': #  MATISSE_N
-        beamscr  = (1,2,3,4)
-        band="N"
-    else:
-        error('Instrument not recognized')
-        
-    bcdin_  = np.array((2,1,0,0))
-    bcdout_ = np.array((1,2,0,0))
-    bcd_in  = np.array((0,0,4,3))
-    bcd_out = np.array((0,0,3,4))
-    
-    bcdscr  = np.array((0,0,0,0))
-    if bcd1 == "IN":
-        bcdscr += bcdin_
-    else:
-        bcdscr += bcdout_
-    if bcd2 == "IN":
-        bcdscr += bcd_in
-    else:
-        bcdscr += bcd_out
-    
-    if verbose:
-        for i in range(4):
-            print("tel",tel[i], telname[i], "DL",DL_number[i], "IP", IP_number[i], "beamscr", beamscr[i], "bcdscr", bcdscr[i], "beam", tel[bcdscr[beamscr[i]-1]-1])
-    
-    coding = (1,3,6,7)
-    
-    ibase=0
-    peakscr = np.zeros(nbases)
-    for itel in np.arange(ntel-1):
-        for jtel in np.arange(ntel - itel - 1) + itel + 1:
-            telnamei = telname[tel[bcdscr[beamscr[itel]-1]-1]-1]
-            telnamej = telname[tel[bcdscr[beamscr[jtel]-1]-1]-1]
-            teli = coding[bcdscr[beamscr[itel]-1]-1]
-            telj = coding[bcdscr[beamscr[jtel]-1]-1]
-            lng = telj-teli
-            print("base",ibase+1, "telescopes", itel, "and", jtel, "tel1",telnamei,"tel2",telnamej, "peak",lng)
-            peakscr[ibase] = -lng
-            ibase+=1
-            
-    peakunscr_tmp = np.arange(nbases)
-    peakunscr = np.zeros(nbases)
-    for i in np.arange(nbases):
-        for j in np.arange(nbases):
-            if int(np.abs(peakscr[j])-1) == i:
-                peakunscr[i] = np.sign(peakscr[j]) * (j+1)
-    print("peakscr",peakscr)
-    print("peakunscr",peakunscr)
-    for i in np.arange(nbases):
-        if peakunscr[i] > 0:
-            peaksin['CF']['CF'][i+1,...] = peaksin['CF']['CF'][int(peakunscr[i]),...]
-        else:
-            peaksin['CF']['CF'][i+1,...] = -peaksin['CF']['CF'][int(-peakunscr[i]),...]
-            
-            
-    return peaksin
 
 ##############################################
 # Function to compute correlated flux
@@ -489,56 +383,157 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
             plt.plot(np.abs(cfdata['CF']['data'][i,iframe,iwlen,:]),color=colors[i])
         plt.plot(np.abs(cfdata['CF']['bckg'][iframe,iwlen,:]))
         plt.title('Modulus of Complex Values for CF Data and Background')
+        
+    cfdem = op_demodulate(cfdata, wlen, verbose=verbose, plot=plot)
+    cfreord, cfdata_reordered = op_reorder_baselines(cfdem)
+    Temp, Pres, hum, dPath = op_get_amb_conditions(cfreord)
+    print('Temp:', Temp, 'Pres:', Pres, 'hum:', hum, 'dPath:', dPath)
+    n_air = op_air_index(wlen, Temp, Pres, hum, N_CO2=423, bands='all')
+    print('n_air:', n_air)
+    cfclean, phase_layer_air_slope = op_corr_n_air(wlen, cfreord, n_air, dPath, wlmin=3.3e-6, wlmax=3.7e-6, verbose=verbose, plot=plot)
 
-    return cfdata, wlen
-
+    #return cfdem
+    #return cfreord
+    return cfclean
 
 ##############################################
-# Function to compute the air refractive index
-def op_compute_air_index(fh):
-    toto
+# Function to sort out peaks
+# The combiner entrance MATISSE pupil looks
+# like that in L band (BCD out)
+#  S1       S2          S3    S4
+#      2        3          1
+#  _        _           _     _
+# / \      / \         / \   / \
+# \_/      \_/         \_/   \_/
+# and like this in N band (BCD out)
+#  S4   S3           S2       S1
+#     1        3          2
+#  _     _           _        _
+# / \   / \         / \      / \
+# \_/   \_/         \_/      \_/
+#
+# The BCD inverts S1 <-> S2 and S3 <-> S4
+# 
+def op_sortout_peaks(peaksin, verbose=False):
+    if verbose:
+        print('Sorting out peaks...')
+        
+    bcd1 = peaksin['hdr']['HIERARCH ESO INS BCD1 ID']
+    bcd2 = peaksin['hdr']['HIERARCH ESO INS BCD2 ID']
+    det  = peaksin['hdr']['HIERARCH ESO DET CHIP NAME']
+    
+    if verbose:
+        print('BCD1:', bcd1)
+        print('BCD2:', bcd2)
+    
+    tel= peaksin['OPTICAL_TRAIN']['INDEX']
+    ntel    = len(tel)
+    nbases  = ntel*(ntel-1)//2
+    telname = peaksin['OPTICAL_TRAIN']['TEL_NAME']
+    if verbose:
+        print('Telescope names:', telname)
+    DL_number = peaksin['OPTICAL_TRAIN']['VALUE1']
+    IP_number = peaksin['OPTICAL_TRAIN']['VALUE2']
+    
+    #########################################
+    # Internal beams scrambling
+    # See MATISSE document: MATISSE-TP-TN-003
+    if det   == 'HAWAII-2RG': #  MATISSE_L
+        beamscr  = (4,3,2,1)
+        band="L"
+    elif det == 'AQUARIUS': #  MATISSE_N
+        beamscr  = (1,2,3,4)
+        band="N"
+    else:
+        error('Instrument not recognized')
+        
+    bcdin_  = np.array((2,1,0,0))
+    bcdout_ = np.array((1,2,0,0))
+    bcd_in  = np.array((0,0,4,3))
+    bcd_out = np.array((0,0,3,4))
+    
+    bcdscr  = np.array((0,0,0,0))
+    if bcd1 == "IN":
+        bcdscr += bcdin_
+    else:
+        bcdscr += bcdout_
+    if bcd2 == "IN":
+        bcdscr += bcd_in
+    else:
+        bcdscr += bcd_out
+    
+    if verbose:
+        for i in range(4):
+            print("tel",tel[i], telname[i], "DL",DL_number[i], "IP", IP_number[i], "beamscr", beamscr[i], "bcdscr", bcdscr[i], "beam", tel[bcdscr[beamscr[i]-1]-1])
+    
+    coding = (1,3,6,7)
+    
+    ibase=0
+    peakscr = np.zeros(nbases)
+    for itel in np.arange(ntel-1):
+        for jtel in np.arange(ntel - itel - 1) + itel + 1:
+            telnamei = telname[tel[bcdscr[beamscr[itel]-1]-1]-1]
+            telnamej = telname[tel[bcdscr[beamscr[jtel]-1]-1]-1]
+            teli = coding[bcdscr[beamscr[itel]-1]-1]
+            telj = coding[bcdscr[beamscr[jtel]-1]-1]
+            lng = telj-teli
+            print("base",ibase+1, "telescopes", itel, "and", jtel, "tel1",telnamei,"tel2",telnamej, "peak",lng)
+            peakscr[ibase] = -lng
+            ibase+=1
+            
+    peakunscr_tmp = np.arange(nbases)
+    peakunscr = np.zeros(nbases)
+    for i in np.arange(nbases):
+        for j in np.arange(nbases):
+            if int(np.abs(peakscr[j])-1) == i:
+                peakunscr[i] = np.sign(peakscr[j]) * (j+1)
+    print("peakscr",peakscr)
+    print("peakunscr",peakunscr)
+    for i in np.arange(nbases):
+        if peakunscr[i] > 0:
+            peaksin['CF']['CF'][i+1,...] = peaksin['CF']['CF'][int(peakunscr[i]),...]
+        else:
+            peaksin['CF']['CF'][i+1,...] = -peaksin['CF']['CF'][int(-peakunscr[i]),...]
+            
+            
+    return peaksin
 
 ##############################################
-# Function to reorder baselines 
+# reorder baselines 
 def op_reorder_baselines(data):
 
     cfdata = data['CF']['CF_demod']
     # print(cfdata.shape) #base/frame/wl 7/6/1560
     n_frames = np.shape(cfdata)[1]
-    n_exp = n_frames // 6  
-    bcd1 =[]
-    bcd2 =[]
-    bcd1.append(data['hdr']['ESO INS BCD1 NAME'])
-    bcd2.append(data['hdr']['ESO INS BCD2 NAME'])
-    bcd1 = np.array(bcd1)
-    bcd2 = np.array(bcd2)
-
+    n_exp = n_frames // 6
+    bcd1 = data['hdr']['ESO INS BCD1 NAME']
+    bcd2 = data['hdr']['ESO INS BCD2 NAME']
 
     # Reorder the data in cfdem
     bcd_base_reorder = {'OUT-OUT': [0, 1, 2, 3, 4, 5, 6],  # phot+OUT-OUT, 
                          'OUT-IN': [0, 1, 2, 5, 6, 3, 4],  # phot+OUT-IN,
                          'IN-OUT': [0, 1, 2, 4, 3, 6, 5],  # phot+IN-OUT,
                           'IN-IN': [0, 1, 2, 6, 5, 4, 3]}  # phot+IN-IN
-    bcd_sign = {'OUT-OUT': [0, 1, 1, 1, 1, 1, 1],   # phot+OUT-OUT,
-                 'OUT-IN': [0, 1, -1, 1, 1, 1, 1],  # phot+OUT-IN,
-                 'IN-OUT': [0, -1, 1, 1, 1, 1, 1],  # phot+IN-OUT,
-                  'IN-IN': [0, -1, -1, 1, 1, 1, 1]} # phot+IN-IN
+    bcd_sign = {'OUT-OUT': [1, 1, 1, 1, 1, 1, 1],   # phot+OUT-OUT,
+                 'OUT-IN': [1, 1, -1, 1, 1, 1, 1],  # phot+OUT-IN,
+                 'IN-OUT': [1, -1, 1, 1, 1, 1, 1],  # phot+IN-OUT,
+                  'IN-IN': [1, -1, -1, 1, 1, 1, 1]} # phot+IN-IN
     
     cfdata_reordered = np.zeros_like(cfdata)
 
-    for i_exp in range(n_exp):
-        bcd = f'{bcd1[i_exp]}-{bcd2[i_exp]}'
-        for i, new_idx in enumerate(bcd_base_reorder[bcd]):
-            cfdata_reordered[i] = cfdata[new_idx]
+    # Get the BCD positions
+    bcd = f'{bcd1}-{bcd2}'
+    # Reorder the baselines
+    for i, new_idx in enumerate(bcd_base_reorder[bcd]):
+        cfdata_reordered[i] = cfdata[new_idx]
 
-    for i_exp in range(n_exp):
-        bcd = f'{bcd1[i_exp]}-{bcd2[i_exp]}'
-        cfdata_amp = np.abs(cfdata_reordered)
-        cfdata_phase = np.angle(cfdata_reordered)
-        for i, sign in enumerate(bcd_sign[bcd]):
-            cfdata_reordered[i] = cfdata_amp[i] * np.exp(1j * sign * cfdata_phase[i])
+    # Apply sign phase change
+    cfdata_amp = np.abs(cfdata_reordered)
+    cfdata_phase = np.angle(cfdata_reordered)
+    for i, sign in enumerate(bcd_sign[bcd]):
+        cfdata_reordered[i] = cfdata_amp[i] * np.exp(1j * sign * cfdata_phase[i])
 
-    data['CF']['Reordered_baselines'] = cfdata_reordered
+    data['CF']['CF_reord'] = cfdata_reordered
 
     return data, cfdata_reordered
 
@@ -580,10 +575,10 @@ def op_get_amb_conditions(data):
 
     # Compute optical path lengths of individual frames with linear interpolation
     start_mjd, end_mjd = mjds[0], mjds[-1] + data['hdr']['EXPTIME']
-    relative_mjds = (mjds_valid - start_mjd) / (end_mjd - start_mjd)
+    relative_mjds      = (mjds_valid - start_mjd) / (end_mjd - start_mjd)
     OPLs = (np.outer(end_OPLs - start_OPLs, relative_mjds).T + start_OPLs).T
 
-
+    # FIXME: attention, take into account baseline scrambling here
     dPaths  = np.array([static_lengths[3] + OPLs[3] - static_lengths[2] - OPLs[2],
                         static_lengths[1] + OPLs[1] - static_lengths[0] - OPLs[0],
                         static_lengths[2] + OPLs[2] - static_lengths[1] - OPLs[1],
@@ -681,38 +676,56 @@ def op_air_index(wl, T, P, h, N_CO2=423, bands='all'):
 
 ##############################################
 # Function to correct for the achromatic phase
-def op_corr_n_air(wlen, data, n_air, dPath, verbose=True, plot=True):
+def op_corr_n_air(wlen, data, n_air, dPath, wlmin=3.3e-6, wlmax=3.7e-6, verbose=False, plot=True):
     if verbose:
         print('Correcting for the achromatic phase...')
 
-    data, cfdem = op_reorder_baselines(data)
-    cfdem = data['CF']['Reordered_baselines']
+    #data, cfdem = op_reorder_baselines(data)
+    cfdem = data['CF']['CF_reord']
 
     n_frames = np.shape(cfdem)[1]
     n_wlen = len(wlen)
 
-    data['CF']['CF_achr_phase_corr'] = np.zeros((6, n_frames, n_wlen)) 
+    data['CF']['CF_achr_phase_corr'] = np.copy(cfdem)
     phase_layer_air = np.zeros((6, n_frames, n_wlen))
     slope = np.zeros((6, n_frames))
     phase_layer_air_slope = np.zeros((6, n_frames, n_wlen))
     wlen *= 1e-6 #µm -> m
+    
+    if plot:
+        fig1, ax1 = plt.subplots(6, 2, figsize=(8, 8), sharex=1, sharey=0)
+    colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
 
     for i_base in np.arange(6):
 
         for i_frame in range(n_frames):
             # Model the phase introduced by the extra layer of air
             phase_layer_air[i_base, i_frame] = 2 * np.pi * (n_air-1) * dPath[i_base, i_frame] / (wlen)
-            wl_mask_lin = (wlen > 3.3*1e-6) & (wlen < 3.7*1e-6)
-            wlm = wlen[wl_mask_lin]
-            phasem = phase_layer_air[i_base, i_frame, wl_mask_lin]
+            wl_mask_lin = (wlen > wlmin) & (wlen < wlmax)
+            wlm         = wlen[wl_mask_lin]
+            phasem      = phase_layer_air[i_base, i_frame, wl_mask_lin]
             slope[i_base, i_frame] = np.sum((phasem-phasem.mean())*(1/wlm-np.mean(1/wlm))) / np.sum((1/wlm-np.mean(1/wlm))**2)
             phase_layer_air_slope[i_base, i_frame] = phase_layer_air[i_base, i_frame] - slope[i_base, i_frame] / (wlen)
 
             # Correct the achromatic phase
             cfobs = cfdem[i_base+1,i_frame]
-            corr  = np.exp(1j*(phase_layer_air_slope[i_base, i_frame]))
-            corrPhase = np.angle(cfobs * np.conj(corr))
+            corr  = np.exp(1j * phase_layer_air_slope[i_base, i_frame])
+            cfcorr = cfobs * np.conj(corr)
+            
+            if plot:
+                phiObs= np.angle(cfobs)
+                phi   = np.angle(corr)
+                corrphi = np.angle(cfcorr)
+                ax1[i_base,0].plot(wlen, corrphi, color=colors[i_base])\
+                    
+                ax1[i_base,1].plot(wlen, phi, color=colors[i_base])
+                ax1[i_base,1].plot(wlen, phiObs, color=colors[i_base])
+                ax1[i_base,1].set_ylabel(f'phase {i_base+1}')
+                ax1[i_base,1].set_ylim(-np.pi, np.pi)
 
-            data['CF']['CF_achr_phase_corr'][i_base, i_frame] = corrPhase
+            data['CF']['CF_achr_phase_corr'][i_base+1, i_frame] = cfcorr
 
+    if plot:
+        plt.show()
+        
     return data, phase_layer_air_slope

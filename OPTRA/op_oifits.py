@@ -17,7 +17,10 @@ from astropy.time import Time
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 
+##############################################
+# 
 def op_gen_oiarray(cfdata, verbose=True, plot=False):
+    print('Generating OI_ARRAY...')
     """
     Save the array information in OIFITS format
     """
@@ -62,14 +65,17 @@ def op_gen_oiarray(cfdata, verbose=True, plot=False):
     
     return oiarray_table
 
+##############################################
+# 
 def op_gen_oitarget(cfdata, verbose=True, plot=False):
+    print('Generating OI_TARGET...')
     """
     Save the target information in OIFITS format
     """
     # Create the OI_TARGET table
     oitarget_table = Table()
-    oitarget_table['TARGET_ID'] = 1
-    oitarget_table['TARGET'] = np.array(cfdata['hdr']['HIERARCH ESO TARG NAME'], dtype='S16')
+    oitarget_table['TARGET_ID'] = [1]
+    oitarget_table['TARGET'] = cfdata['hdr']['ESO OBS TARG NAME']
     oitarget_table['RAEP0']  = cfdata['hdr']['RA']
     oitarget_table['DECEP0'] = cfdata['hdr']['DEC']
     oitarget_table['EQUINOX'] = cfdata['hdr']['EQUINOX']
@@ -85,7 +91,7 @@ def op_gen_oitarget(cfdata, verbose=True, plot=False):
     oitarget_table['PARALLAX'] = 0.0
     oitarget_table['PARA_ERR'] = 0.0
     oitarget_table['SPECTYP']  = 'UNKNOWN'
-    oitarget_table['CATEGORY'] = cfdata['hdr']['HIERARCH ESO TARG TYPE']
+    oitarget_table['CATEGORY'] = cfdata['hdr']['ESO DPR CATG']
     '''
     oitarget_table['FLUX'] = cfdata['hdr']['HIERARCH ESO SEQ TARG FLUX L']
     oitarget_table['FLUXERR'] = 0.0
@@ -97,14 +103,18 @@ def op_gen_oitarget(cfdata, verbose=True, plot=False):
     '''
        
     return oitarget_table
-    
+
+##############################################
+# 
 def op_gen_oiwavelength(cfdata, verbose=True, plot=False):
+    print('Generating OI_WAVELENGTH...')
     """
     Save the wavelength information in OIFITS format
     """
     # Create the OI_WAVELENGTH table
     oiwavelength_table = Table()
     oiwavelength_table['EFF_WAVE'] = cfdata['OI_WAVELENGTH']['EFF_WAVE']
+    print('Shape of EFF_WAVE:', oiwavelength_table['EFF_WAVE'].shape)
     
     oiwavelength_table['EFF_BAND'] = 0.0
     oiwavelength_table['EFF_REF'] = 0.0
@@ -114,11 +124,15 @@ def op_gen_oiwavelength(cfdata, verbose=True, plot=False):
     
     return oiwavelength_table
 
-def op_gen_oivis(cfdata, verbose=True, plot=False):
+##############################################
+# 
+def op_gen_oivis(cfdata, dtype='CF_achr_phase_corr', verbose=True, plot=False):
+    print('Generating OI_VIS...')
     """
     Save the complex visibility in OIFITS format
     """
-    complexvis = cfdata['CF']['CF_demod'][1:,...]
+    complexvis = cfdata['CF'][dtype][1:,...]
+    print('Shape of complexvis:', complexvis.shape)
     complexvis = np.reshape(complexvis, (complexvis.shape[0]* complexvis.shape[1],complexvis.shape[2]))
     nblines   = complexvis.shape[0]
     # Create the OI_VIS table
@@ -136,12 +150,15 @@ def op_gen_oivis(cfdata, verbose=True, plot=False):
     oivis_table['VISPHIERR'] = 0.0
     oivis_table['UCOORD']    = 0.0
     oivis_table['VCOORD']    = 0.0
-    oivis_table['STA_INDEX'] = np.array([1, 2], dtype=np.int32)
+    oivis_table['STA_INDEX'] = 1
     oivis_table['FLAG']      = 0
     
     return oivis_table
-    
+
+##############################################
+# 
 def op_write_oifits(filename, hdr, oiwavelength, oirray=None, oitarget=None, oivis=None, oivis2=None, oit3=None):
+    print('Writing OI fits...')
     """
     Write the OIFITS file
     """

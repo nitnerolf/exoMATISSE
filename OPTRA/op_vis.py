@@ -16,14 +16,16 @@ def op_extract_simplevis2(cfdata, verbose=True, plot=False):
     # Put the sum of the PSD in the first row to the same scale as the other rows
     psd     = np.abs(cfdata['CF']['CF'])**2
     niz     = cfdata['CF']['CF_nbpx']
-    print('Shape of psd:', psd.shape)
+    if verbose:
+        print('Shape of psd:', psd.shape)
     
     sumPSD     = np.sum(psd, axis=1)
     background = np.abs(cfdata['CF']['bckg'])**2
-    print('Shape of sumPSD:', sumPSD.shape)
-    print('Shape of background:', background.shape)
+    if verbose:
+        print('Shape of sumPSD:', sumPSD.shape)
+        print('Shape of background:', background.shape)
     sumBkg  = np.sum(background, axis=0)
-    print('Shape of sumBkg:', sumBkg.shape)
+    #print('Shape of sumBkg:', sumBkg.shape)
     
     # plt.figure()
     # plt.imshow(sumBkg, cmap='viridis')
@@ -58,13 +60,15 @@ def op_extract_simplevis2(cfdata, verbose=True, plot=False):
     
     clipvis = sigma_clip(simplevis[0,:], sigma=3, maxiters=5)
     mask    = simplevis[0,:] < 0.99 * np.median(clipvis)
-    print('median of simplevis:', np.mean(clipvis))
-    print('mask:', mask)
+    if verbose:
+        print('median of simplevis:', np.mean(clipvis))
+        print('mask:', mask)
     mask2      = np.repeat(mask[None,:], 7, axis=0)
     simplevis2 = np.ma.array(simplevis, mask=mask2)
     
-    print('Shape of simplevis2:', simplevis2.shape)
-    print('Shape of mask:', mask2.shape)
+    if verbose:
+        print('Shape of simplevis2:', simplevis2.shape)
+        print('Shape of mask:', mask2.shape)
 
     # plt.figure()
     # plt.plot(mask)
