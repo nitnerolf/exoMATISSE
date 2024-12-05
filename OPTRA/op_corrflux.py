@@ -42,6 +42,9 @@ import numpy as np
 import astropy.constants as const
 import matplotlib.pyplot as plt
 from op_instruments import *
+from scipy import interpolate
+import math
+from scipy.optimize import minimize
 
 ##############################################
 # Apodization function
@@ -573,6 +576,18 @@ def op_get_amb_conditions(data, verbose=False):
     T3 = data['hdr']['ESO ISS TEMP TUN3']
     T4 = data['hdr']['ESO ISS TEMP TUN4']
     temperature = (T1+T2+T3+T4)/4
+
+    #Others temperatures (°C)
+    Tlab = data['hdr']['ESO ISS TEMP LAB1']
+    Tamb = data['hdr']['ESO ISS AMBI TEMP']
+    Tamb_dew = data['hdr']['ESO ISS AMBI TEMPDEW']
+    Tsky = data['hdr']['ESO ISS AMBI IRSKY TEMP']
+    # temperature = Tlab
+
+    # keys=[]
+    # for key in data['hdr']:
+    #     keys.append(key)
+    # print(keys)
     if verbose:
         print('Temperature:', temperature)
 
@@ -767,6 +782,185 @@ def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax
         
     return data, phase_layer_air_slope
 
+
+##############################################
+# Function to get the residual piston on the correlated flux phase, via a FFT's method
+def op_get_piston_fft(data, verbose=False, plot=True):
+    if verbose:
+        print('Calculating piston from FFT...')
+
+    wlen = data['OI_WAVELENGTH']['EFF_WAVE']
+    #Linear interpolation in wavenumber sigma
+    sigma     = 1.0/wlen
+    sigma     = sigma[::-1]
+    step      = np.min(np.abs(np.diff(sigma)))
+    sigma_lin = np.arange(min(sigma), max(sigma), step)
+
+    # cf = data['CF']['CF_achr_phase_corr']
+    cf = data['CF']['CF_Binned']
+
+    n_base = np.shape(cf)[0]
+    n_frame = np.shape(cf)[1]
+
+    data['CF']['CF_sigma'] = np.zeros((7,6,sigma_lin.shape[0]), dtype=complex)
+    OPD_lst = np.zeros((n_base,n_frame))
+    if plot:
+        fig, ax = plt.subplots(7, 1, figsize=(8, 8))
+        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+
+    for i_base in range(n_base):
+            
+        for i_frame in range(n_frame):
+
+            #Interpolation of correlated flux 
+            f = interpolate.interp1d(sigma, np.real(cf[i_base, i_frame]))
+            cf_real_interp = f(sigma_lin)
+            f = interpolate.interp1d(sigma, np.imag(cf[i_base, i_frame]))
+            cf_imag_interp = f(sigma_lin)
+            cf_interp = cf_real_interp + 1j * cf_imag_interp
+
+            data['CF']['CF_sigma'][i_base, i_frame] = cf_interp
+            
+            log_base_2 = int(math.log2(cf_interp.size)) 
+            new_size = int(2**(log_base_2+2))
+            cf_interp = np.pad(cf_interp, (new_size//2 - cf_interp.shape[0]//2), mode='constant', constant_values=0)
+
+            fft_cf = np.fft.fftshift(np.fft.fft(cf_interp))
+            OPDs = np.fft.fftshift(np.fft.fftfreq(cf_interp.shape[0], step)) * 1e6 
+
+            #OPD determination
+            OPD = OPDs[np.argmax(np.abs(fft_cf))]
+            OPD_lst[i_base, i_frame] = OPD
+        
+
+
+        if plot:
+            ax[i_base].plot(OPDs, np.sqrt(fft_cf.real**2 + fft_cf.imag**2), color=colors[i_base])
+            ax[i_base].set_xlabel('OPD [µm]')
+            ax[i_base].set_xlim(-600, 600)
+
+    data['CF']['piston_fft'] = OPD_lst
+    return data, OPD_lst
+
+#################################################
+# Function to get the piston slope on the correlated flux phase
+def op_get_piston_slope(data, wlenmin=3.5e-6, wlenmax=3.9e-6, verbose=False, plot=False):
+    if verbose:
+        print('Calculating piston slope...')
+    
+    wlen = data['OI_WAVELENGTH']['EFF_WAVE']
+    print('wlen:',wlen)
+    # cf = data['CF']['CF_achr_phase_corr']
+    cf = data['CF']['CF_Binned']
+    n_bases  = cf.shape[0]
+    n_frames = cf.shape[1]
+    slopes   = np.zeros((n_bases, n_frames))
+    ord_og   = np.zeros((n_bases, n_frames))
+    
+    for i_base in range(n_bases):
+        for i_frame in range(n_frames):
+            wl_mask = (wlen > wlenmin) & (wlen < wlenmax)
+            wlenm = wlen[wl_mask]
+            phasem = np.angle(cf[i_base, i_frame])[wl_mask]
+            slope = np.polyfit(wlenm, phasem, 1)[0]
+            ords_og = np.polyfit(wlenm, phasem, 1)[1]
+            slopes[i_base, i_frame] = slope
+            ord_og[i_base, i_frame] = ords_og
+            
+    if plot:
+        fig, ax = plt.subplots(7, 1, figsize=(8, 8))
+        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+        for i_base in range(n_bases):
+            ax[i_base].plot(wlen, ord_og[i_base,0]+slopes[i_base,0]*wlen, color=colors[i_base])
+            ax[i_base].plot(wlen, np.angle(cf[i_base, 0]), color=colors[i_base], linestyle='--', alpha=0.4)
+            ax[i_base].set_xlabel('Frame')
+            ax[i_base].set_ylabel('Piston slope')
+
+    wlenmm = np.mean(wlenm)
+    slopes *= 1e6 * (wlenmm**2) / (2 * np.pi) #rad/m -> µm
+    data['CF']['piston_slope'] = slopes
+
+    return data, slopes
+
+
+####################################################
+# Function to get the final piston using a chi2 minimization
+def op_get_piston_chi2(data, init_guess, verbose=False, plot=False):
+    if verbose:
+        print('Calculating piston using chi2 minimization...')
+
+    wlen         = data['OI_WAVELENGTH']['EFF_WAVE']
+    # cf           = data['CF']['CF_achr_phase_corr']
+    cf           = data['CF']['CF_Binned']
+    n_bases      = cf.shape[0]
+    n_frames     = cf.shape[1]
+    pistons      = np.zeros((n_bases, n_frames))
+
+    if init_guess in ['slope', 'Slope', 'SLOPE']:
+        slopes = data['CF']['piston_slope']
+        init_guess = slopes
+    elif init_guess in ['fft', 'FFT', 'Fft']:
+        OPDs = data['CF']['piston_fft']
+        init_guess = OPDs
+
+    def chi2(piston, cf, wlen):
+        phase_model = np.angle(np.exp(1j * 2 * np.pi * piston / wlen))
+        phase = np.angle(cf)
+        residual = (np.angle(np.exp(1j * phase)) - phase_model)**2 / np.std(phase)**2
+        chi2_val = np.sum(residual)
+        return chi2_val
+
+    for i_base in range(n_bases):
+        for i_frame in range(n_frames):
+            cf_frame = cf[i_base, i_frame]
+            initial_guess = init_guess[i_base, i_frame]  # Initial guess for the piston
+            result = minimize(chi2, initial_guess, args=(cf_frame, wlen))
+            pistons[i_base, i_frame] = result.x
+
+    if plot:
+        fig, ax = plt.subplots(7, 1, figsize=(8, 8))
+        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+        for i_base in range(n_bases):
+            ax[i_base].plot(pistons[i_base], color=colors[i_base], marker='*')
+            ax[i_base].set_xlabel('Frame')
+            ax[i_base].set_ylabel('Piston [µm]')
+
+    data['CF']['pistons'] = pistons
+    return data, pistons
+
+####################################################
+# Function to correct from the residual piston
+
+def op_corr_piston(data, verbose=False, plot=False):
+    if verbose:
+        print('Correcting for the residual piston...')
+
+    wlen     = data['OI_WAVELENGTH']['EFF_WAVE']
+    # cf = data['CF']['CF_achr_phase_corr']
+    cf       = data['CF']['CF_Binned']
+    pistons  = data['CF']['pistons']
+    n_bases  = cf.shape[0]
+    n_frames = cf.shape[1]
+
+    data['CF']['CF_piston_corr'] = np.copy(cf)
+
+    for i_base in np.arange(6):
+        for i_frame in range(n_frames):
+            cf_frame = cf[i_base+1, i_frame]
+            piston = pistons[i_base, i_frame]
+            # print('piston:', piston)   
+            corr =  np.exp(1j * 2 * np.pi * piston * 1e-6 / wlen)
+            cf_corr = cf_frame * np.conj(corr)
+            data['CF']['CF_piston_corr'][i_base+1, i_frame] = cf_corr
+    
+    if plot:
+        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+        fig, ax = plt.subplots(7, 1, figsize=(8, 8))
+        for i_base in range(n_bases):
+            ax[i_base].plot(np.angle(data['CF']['CF_piston_corr'][i_base, 0]), color=colors[i_base])
+    plt.show()
+ 
+    return data
 
 ##############################################
 # Bin data
