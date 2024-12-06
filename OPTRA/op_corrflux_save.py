@@ -949,7 +949,7 @@ def op_corr_piston(data, verbose=False, plot=False):
             cf_frame = cf[i_base+1, i_frame]
             piston = pistons[i_base, i_frame]
             # print('piston:', piston)   
-            corr =  np.exp(-1j * 2 * np.pi * piston * 1e-6 / wlen)
+            corr =  np.exp(1j * 2 * np.pi * piston * 1e-6 / wlen)
             cf_corr = cf_frame * np.conj(corr)
             data['CF']['CF_piston_corr'][i_base+1, i_frame] = cf_corr
     

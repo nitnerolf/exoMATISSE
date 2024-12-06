@@ -207,13 +207,12 @@ for ifile in starfiles:
     # plt.show()
 
     data, OPD_list = op_get_piston_fft(cfdem, verbose=True, plot=True)
-    # print('OPD:',OPD_list)
-    
+    print('OPD:',OPD_list)
 
     data, slopes = op_get_piston_slope(cfdem, verbose=True, plot=True)
     # print('Slopes:',slopes)
 
-    data, pistons = op_get_piston_chi2(data, 'fft', verbose=False, plot=True)
+    data, pistons = op_get_piston_chi2(data, 'slope', verbose=False, plot=True)
     # print('Pistons:',pistons)
 
     data = op_corr_piston(data, verbose=False, plot=False)
@@ -223,8 +222,8 @@ for ifile in starfiles:
     fig.suptitle('Piston corrected phase')
     for i_base in range(7):
         for i_frame in range(6):
-            ax[i_base,0].plot(wlen, np.angle(data['CF']['CF_piston_corr'][i_base, i_frame]), color=colors[i_base])
-            ax[i_base,1].plot(wlen, np.angle(data['CF']['CF_Binned'][i_base, i_frame]), color=colors[i_base])
+            ax[i_base,1].plot(wlen, np.angle(data['CF']['CF_piston_corr'][i_base, i_frame]), color=colors[i_base])
+            ax[i_base,0].plot(wlen, np.angle(data['CF']['CF_Binned'][i_base, i_frame]), color=colors[i_base])
     plt.show()
     
     #########################################################
