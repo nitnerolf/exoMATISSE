@@ -78,7 +78,7 @@ for fi in fitsfiles:
         skyfilesL.append(fi)
 
 starfiles = sorted(obsfilesL)
-starfiles = [f for f in starfiles if 'STD' in f]
+#starfiles = [f for f in starfiles if 'STD' in f]
 print('Starfiles:', starfiles)
 
 
@@ -175,7 +175,8 @@ for ifile in starfiles:
 
 
     #print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
-    cf = cfdem['CF']['CF_achr_phase_corr']
+    #cf = cfdem['CF']['CF_achr_phase_corr']
+    cf = cfdem['CF']['CF_Binned']
     #cf = cfdem['CF']['CF_demod']
     #cf = cfdem['CF']['CF_reord']
     sumcf = np.sum(cf, axis=1)
