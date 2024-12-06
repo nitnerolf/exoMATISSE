@@ -10,6 +10,7 @@ Project: OPTRA
 from   astropy.stats import sigma_clip
 import numpy as np
 import matplotlib.pyplot as plt
+from op_instruments import *
 
 def op_extract_simplevis2(cfdata, verbose=True, plot=False):
     print('Extracting visibility')
