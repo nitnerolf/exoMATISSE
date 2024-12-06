@@ -1,7 +1,7 @@
 '''
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Correlated flux computation
-Author: fmillour
+Author: fmillour, jscigliuto
 Date: 01/07/2024
 Project: OPTRA
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -567,8 +567,6 @@ def op_get_amb_conditions(data, verbose=False):
 
     # Relative humidity
     humidity = data['hdr']['ESO ISS AMBI RHUM'] / 100
-    if verbose:
-        print('Relative humidity:', humidity)
 
     # Temperature (°C)
     T1 = data['hdr']['ESO ISS TEMP TUN1']

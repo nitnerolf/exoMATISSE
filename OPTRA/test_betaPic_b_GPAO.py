@@ -33,12 +33,11 @@ verbose = False
 def do_nothing():
     pass
 
-#bbasedir = '~/SynologyDrive/driveFlorentin/GRAVITY+/HR8799e/'
-bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
-basedir  = bbasedir+'2024-11-17_MATISSE_betaPic_b/'
+bbasedir = '/Users/jscigliuto/Nextcloud/DATA/betaPicb/betaPicb_rawdata_2024-11-17/'
+basedir  = bbasedir
 
-starfiles = os.listdir(basedir)
-fitsfiles = [f for f in starfiles if ".fits" in f]
+starfiles = os.listdir(bbasedir)
+fitsfiles = [f for f in starfiles if ".fits" in f and not "M." in f]
 
 # select only fits files that correspond to observations
 obsfilesL = []
@@ -46,7 +45,7 @@ obsfilesN = []
 skyfilesL = []
 darkfiles = []
 for fi in fitsfiles:
-    #print(fi)
+    print(fi)
     fh = fits.open(basedir+fi)
     #op_print_fits_header(fh)
     hdr = fh[0].header
@@ -183,6 +182,7 @@ for ifile in starfiles:
     #print('Shape of sumcf:', sumcf.shape)
     shp = sumcf.shape
     nbs = shp[0]
+    
     fig1, ax1 = plt.subplots(nbs, 2, figsize=(8, 8), sharex=1, sharey=0)
     #print('Shape of ax1:', ax1.shape)
     colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
