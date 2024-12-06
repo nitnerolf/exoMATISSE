@@ -200,3 +200,7 @@ def op_write_oifits(filename, hdr, oiwavelength, oirray=None, oitarget=None, oiv
     oifits.writeto(filename, overwrite=True)
     
     return
+
+def op_read_oifits(filename):
+    fh = fits.open(filename)
+    return fh
