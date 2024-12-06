@@ -41,6 +41,7 @@ from scipy import *
 import numpy as np
 import astropy.constants as const
 import matplotlib.pyplot as plt
+from op_instruments import *
 
 ##############################################
 # Apodization function
@@ -122,7 +123,8 @@ def op_calc_fft(data, verbose=True):
     sum_dsp_intf = np.sum(dsp_intf, axis=0)
     sdi_resh     = np.fft.fftshift(sum_dsp_intf, axes=1)
     freqs        = np.fft.fftfreq(npix)
-    print('Shape of sum_dsp_intf:', sum_dsp_intf.shape)
+    if verbose:
+        print('Shape of sum_dsp_intf:', sum_dsp_intf.shape)
     
     data['FFT'] = {'data': fft_intf, 'magnitude': fft_intf_magnitude, 'dsp': dsp_intf, 'sum_dsp': sum_dsp_intf, 'sdi': sdi_resh, 'freqs': freqs}
     return data
@@ -146,6 +148,9 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
     px     = corner[1]+np.arange(np.shape(rawdata['INTERF']['data'])[1])
     wlen   = disp[0][0] + disp[0][1]*px + disp[0][2]*px**2
     
+    # FIXME: Set the bandwidth of wavelength table
+    band = np.diff(wlen)*5
+    
     if verbose:
         print(disp)
         print(wlen)
@@ -157,17 +162,20 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
     
     rawdata['OI_WAVELENGTH'] = {}
     rawdata['OI_WAVELENGTH']['EFF_WAVE'] = wlen
+    rawdata['OI_WAVELENGTH']['EFF_BAND'] = band
 
     return wlen
 
 ##############################################
 # get the peaks position
-def op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
-    npix = np.shape(fftdata['FFT']['data'])[2]
-    if instrument == 'MATISSE':
-        peaks = np.arange(7)
-        interfringe = 17.88*2.75*2*0.85 # in D/lambda
-        peakswd = 0.7
+def op_get_peaks_position(fftdata, instrument=op_MATISSE_L, verbose=True):
+    wlen = fftdata['OI_WAVELENGTH']['EFF_WAVE']
+    
+    print('Instrument',instrument)
+    if instrument['name'] == 'MATISSE_L':
+        peaks =       np.arange(7)
+        interfringe = instrument['interfringe']
+        peakswd =     instrument['peakwd']
         pkwds   = np.ones_like(peaks) * peakswd
         peak    = peaks[:,None] * interfringe / wlen[None,:]
         peakwd  = pkwds[:,None] * interfringe / wlen[None,:]
@@ -181,7 +189,7 @@ def op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
 
 ##############################################
 # extract the correlated flux
-def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=False):
+def op_extract_CF(fftdata, peaks, peakswd, verbose=True, plot=False):
     if verbose:
         print('Extracting correlated flux...')
     bck    = np.copy(fftdata['FFT']['data'])
@@ -231,13 +239,16 @@ def op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=False):
                 ax.set_title('Background')
         plt.show()
     
-    print('Shape of FT:', np.shape(FT))
+    if verbose:
+        print('Shape of FT:', np.shape(FT))
     fftdata['CF'] = {'data': FT, 'CF': CF, 'CF_nbpx': NIZ, 'bckg': bck}
     return fftdata
 
 ##############################################
 # demodulate MATISSE fringes
-def op_demodulate(CFdata, wlen, verbose=False, plot=False):
+def op_demodulate(CFdata, verbose=False, plot=False):
+    wlen = CFdata['OI_WAVELENGTH']['EFF_WAVE']
+    
     if verbose:
         print('Demodulating correlated flux...')
     npeaks  = np.shape(CFdata['CF']['data'])[0]
@@ -251,7 +262,7 @@ def op_demodulate(CFdata, wlen, verbose=False, plot=False):
         print('npix:', npix)
         
     localopd = CFdata['INTERF']['localopd']
-    if verbose:
+    if verbose == 2:
         print('Shape of localopd:', np.shape(localopd))
     
     ntel = 4
@@ -281,7 +292,8 @@ def op_demodulate(CFdata, wlen, verbose=False, plot=False):
     CFdata['CF']['data_demod'][0,...]  = CFdata['CF']['data'][0,...]
     CFdata['CF']['data_demod'][1:,...] = CFdata['CF']['data'][1:,...] * np.conjugate(phasor[...,None])
     
-    print('wlen:', wlen)
+    if verbose: 
+        print('wlen:', wlen)
     
     if plot:
         iframe = 0
@@ -301,7 +313,8 @@ def op_demodulate(CFdata, wlen, verbose=False, plot=False):
 ##############################################
 # Function to compute correlated flux
 def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
-    print('Computing correlated flux...')
+    if verbose:
+        print('Computing correlated flux...')
     #########################################################
     # Apodization
     adata = op_apodize(bdata, verbose=verbose, plot=plot)
@@ -343,13 +356,14 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
     #########################################################
     # Get the wavelength
     wlen = op_get_wlen(shiftfile, fdata, verbose=verbose)
-    print(wlen)
+    if verbose:
+        print(wlen)
 
 
     #########################################################
-    peaks, peakswd = op_get_peaks_position(fdata, wlen, 'MATISSE', verbose=verbose)
-    
-    print(wlen)
+    peaks, peakswd = op_get_peaks_position(fdata, verbose=verbose)
+    if verbose:
+        print(wlen)
 
     colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
 
@@ -361,9 +375,9 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
         plt.show()
 
     #########################################################
-    cfdata = op_extract_CF(fdata, wlen, peaks, peakswd, verbose=verbose)
-
-    print(wlen)
+    cfdata = op_extract_CF(fdata, peaks, peakswd, verbose=verbose)
+    if verbose:
+        print(wlen)
     
         
     if plot:
@@ -384,17 +398,22 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
         plt.plot(np.abs(cfdata['CF']['bckg'][iframe,iwlen,:]))
         plt.title('Modulus of Complex Values for CF Data and Background')
         
-    cfdem = op_demodulate(cfdata, wlen, verbose=verbose, plot=plot)
+    cfdem = op_demodulate(cfdata, verbose=verbose, plot=plot)
     cfreord, cfdata_reordered = op_reorder_baselines(cfdem)
-    Temp, Pres, hum, dPath = op_get_amb_conditions(cfreord)
-    print('Temp:', Temp, 'Pres:', Pres, 'hum:', hum, 'dPath:', dPath)
+    Temp, Pres, hum, dPath    = op_get_amb_conditions(cfreord)
+    if verbose:
+        print('Temp:', Temp, 'Pres:', Pres, 'hum:', hum)
     n_air = op_air_index(wlen, Temp, Pres, hum, N_CO2=423, bands='all')
-    print('n_air:', n_air)
+    if verbose:
+        print('n_air:', n_air)
     cfclean, phase_layer_air_slope = op_corr_n_air(wlen, cfreord, n_air, dPath, wlmin=3.3e-6, wlmax=3.7e-6, verbose=verbose, plot=plot)
-
+    
+    
+    
+    cfbin = op_bin_data(cfclean)
     #return cfdem
     #return cfreord
-    return cfclean
+    return cfbin
 
 ##############################################
 # Function to sort out peaks
@@ -477,7 +496,8 @@ def op_sortout_peaks(peaksin, verbose=False):
             teli = coding[bcdscr[beamscr[itel]-1]-1]
             telj = coding[bcdscr[beamscr[jtel]-1]-1]
             lng = telj-teli
-            print("base",ibase+1, "telescopes", itel, "and", jtel, "tel1",telnamei,"tel2",telnamej, "peak",lng)
+            if verbose:
+                print("base",ibase+1, "telescopes", itel, "and", jtel, "tel1",telnamei,"tel2",telnamej, "peak",lng)
             peakscr[ibase] = -lng
             ibase+=1
             
@@ -487,8 +507,9 @@ def op_sortout_peaks(peaksin, verbose=False):
         for j in np.arange(nbases):
             if int(np.abs(peakscr[j])-1) == i:
                 peakunscr[i] = np.sign(peakscr[j]) * (j+1)
-    print("peakscr",peakscr)
-    print("peakunscr",peakunscr)
+    if verbose:
+        print("peakscr",peakscr)
+        print("peakunscr",peakunscr)
     for i in np.arange(nbases):
         if peakunscr[i] > 0:
             peaksin['CF']['CF'][i+1,...] = peaksin['CF']['CF'][int(peakunscr[i]),...]
@@ -599,7 +620,7 @@ def op_get_amb_conditions(data, verbose=False):
                         static_lengths[3] + OPLs[3] - static_lengths[1] - OPLs[1],
                         static_lengths[2] + OPLs[2] - static_lengths[0] - OPLs[0],
                         static_lengths[3] + OPLs[3] - static_lengths[0] - OPLs[0]])
-    print('dPaths inside function:', dPaths)
+    #print('dPaths inside function:', dPaths)
     
 
     return temperature, pressure, humidity, dPaths
@@ -692,12 +713,12 @@ def op_air_index(wl, T, P, h, N_CO2=423, bands='all'):
 
 ##############################################
 # Function to correct for the achromatic phase
-def op_corr_n_air(wlen, data, n_air, dPath, wlmin=3.3e-6, wlmax=3.7e-6, verbose=False, plot=True):
+def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e-6, verbose=False, plot=True):
     if verbose:
         print('Correcting for the achromatic phase...')
 
     #data, cfdem = op_reorder_baselines(data)
-    cfdem = data['CF']['CF_reord']
+    cfdem = data['CF'][cfin]
 
     n_frames = np.shape(cfdem)[1]
     n_wlen = len(wlen)
@@ -745,3 +766,38 @@ def op_corr_n_air(wlen, data, n_air, dPath, wlmin=3.3e-6, wlmax=3.7e-6, verbose=
         plt.show()
         
     return data, phase_layer_air_slope
+
+
+##############################################
+# Bin data
+def op_bin_data(data, binning=5, cfin='CF_achr_phase_corr', verbose=False, plot=False):
+    wlen = data['OI_WAVELENGTH']['EFF_WAVE']
+    cfdem = data['CF'][cfin]
+    n_wlen = len(wlen)
+    n_bins = n_wlen // binning
+    binned_wlen = np.zeros(n_bins)
+    for i in range(n_bins):
+        binned_wlen[i] = np.mean(wlen[i*binning:(i+1)*binning])
+    if verbose:
+        print('Binned wavelengths:', binned_wlen)
+    
+    binned_cf = np.zeros((cfdem.shape[0], cfdem.shape[1], n_bins), dtype=complex)
+    for i in range(cfdem.shape[0]):
+        for j in range(cfdem.shape[1]):
+            for k in range(n_bins):
+                binned_cf.real[i, j, k] = np.mean(cfdem.real[i, j, k*binning:(k+1)*binning])
+                binned_cf.imag[i, j, k] = np.mean(cfdem.imag[i, j, k*binning:(k+1)*binning])
+
+    data['OI_WAVELENGTH']['EFF_WAVE'] = binned_wlen
+    data['CF']['CF_Binned'] = binned_cf
+
+    if plot:
+        plt.figure()
+        plt.plot(wlen, np.abs(cfdem[1, 0,:]), label='Original')
+        plt.plot(binned_wlen, np.abs(binned_cf[1, 0,:]), label='Binned')
+        plt.xlabel('Wavelength')
+        plt.ylabel('Correlated Flux')
+        plt.legend()
+        plt.show()
+
+    return data
