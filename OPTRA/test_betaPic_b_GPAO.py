@@ -12,6 +12,7 @@ from op_rawdata    import *
 from op_flux       import *
 from op_vis        import *
 from op_oifits     import *
+from op_oifits     import *
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io    import fits
@@ -33,11 +34,16 @@ verbose = False
 def do_nothing():
     pass
 
-bbasedir = '/Users/jscigliuto/Nextcloud/DATA/betaPicb/betaPicb_rawdata_2024-11-17/'
-basedir  = bbasedir
+#bbasedir = '/Users/jscigliuto/Nextcloud/DATA/betaPicb/'
+#basedir = bbasedir+'betaPicb_rawdata_2024-11-17/'
+#bbasedir = '~/SynologyDrive/driveFlorentin/GRAVITY+/HR8799e/'
+bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
+basedir  = bbasedir+'2024-11-17_MATISSE_betaPic_b/'
 
-starfiles = os.listdir(bbasedir)
+starfiles = os.listdir(basedir)
+print(starfiles)
 fitsfiles = [f for f in starfiles if ".fits" in f and not "M." in f]
+print(fitsfiles)
 
 # select only fits files that correspond to observations
 obsfilesL = []
@@ -77,7 +83,7 @@ for fi in fitsfiles:
         skyfilesL.append(fi)
 
 starfiles = sorted(obsfilesL)
-#starfiles = [f for f in starfiles if 'STD' in f]
+starfiles = [f for f in starfiles if 'STD' in f]
 print('Starfiles:', starfiles)
 
 
@@ -88,13 +94,18 @@ for ifile in starfiles:
     fh = fits.open(starfile)
     hdr = fh[0].header
     fh.close()
+    mjd_obs = hdr['MJD-OBS']
     
-    # associate sky file matching properties of the star file
+    # associate the two sky files matching properties of the star file
+    
     for isky in skyfilesL:
         skyfile = basedir + isky
         fh = fits.open(skyfile)
         hdrsky = fh[0].header
         fh.close()
+        mjd_sky = hdrsky['MJD-OBS']
+        diff_mjd = np.abs(mjd_obs - mjd_sky)
+        
         keys_to_match = ['INSTRUME','ESO DET CHIP NAME','ESO DET SEQ1 DIT']
         imatch = 0
         for key in keys_to_match:
@@ -107,6 +118,7 @@ for ifile in starfiles:
         
     #skyfile  = basedir + 'MATISSE_OBS_SIPHOT_LM_SKY_323_0003.fits'
 
+    #caldir    = '/Users/jscigliuto/Nextcloud/DATA/CALIB2024/'
     caldir    = '~/Documents/ExoMATISSE/CALIB2024/'
     kappafile = caldir+'KAPPA_MATRIX_L_MED.fits'
     shiftfile = caldir+'SHIFT_L_MED.fits'
@@ -138,6 +150,17 @@ for ifile in starfiles:
 
     basename = os.path.basename(starfile)
     basen    = os.path.splitext(basename)[0]
+    directory = cfdata['hdr']['DATE-OBS'].split('T')[0]+'_OIFITS/'
+    if not os.path.exists(bbasedir+directory):
+        os.makedirs(bbasedir+directory)
+    basen = directory+cfdata['hdr']['INSTRUME'] + '_' +\
+    cfdata['hdr']['ESO INS BCD1 ID']+\
+    cfdata['hdr']['ESO INS BCD2 ID']+'_' +\
+    cfdata['hdr']['ESO OBS TARG NAME'] + '_' +\
+    cfdata['hdr']['DATE-OBS'].replace(':','-') + '_' +\
+    cfdata['hdr']['ESO DPR CATG'] + '_' +\
+    cfdata['hdr']['ESO DET CHIP NAME'] + '_' +\
+    cfdata['hdr']['ESO INS DIL ID']
         
     if 0:
         vis2, mask = op_extract_simplevis2(cfdata, verbose=verbose, plot=False)
@@ -199,6 +222,37 @@ for ifile in starfiles:
     plt.tight_layout()
     plt.savefig(os.path.expanduser(bbasedir+f'{basen}_corrflux.png'))
     #plt.show()
+    
+    
+
+    # iframe = 0
+    # fig2, ax2 = plt.subplots(2, 6, figsize=(8, 4))
+    # for i in np.arange(6): #+1 ????
+    #     ax2[0,i].plot(wlen, np.abs(cf[i,iframe,:]), color=colors[i])
+    #     ax2[1,i].plot(wlen, np.angle(cf[i,iframe,:]), color=colors[i])
+    # plt.title(f'frame {iframe} of CF data')
+    # plt.show()
+
+    data, OPD_list = op_get_piston_fft(cfdem, verbose=True, plot=True)
+    #print('OPD:',OPD_list)
+
+    #data, slopes = op_get_piston_slope(cfdem, verbose=True, plot=True)
+    # print('Slopes:',slopes)
+
+    #data, pistons = op_get_piston_chi2(data, 'fft', verbose=False, plot=True)
+    # print('Pistons:',pistons)
+
+    data = op_corr_piston(data, verbose=False, plot=False)
+
+    colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+    fig, ax = plt.subplots(7, 2, figsize=(8, 8))
+    fig.suptitle('Piston corrected phase')
+    for i_base in range(7):
+        for i_frame in range(6):
+            ax[i_base,0].plot(wlen, np.angle(data['CF']['CF_Binned'][i_base, i_frame]), color=colors[i_base])
+            ax[i_base,1].plot(wlen, np.angle(data['CF']['CF_piston_corr'][i_base, i_frame]), color=colors[i_base])
+    plt.show()
+    
 
     #########################################################
     outfilename = os.path.expanduser(bbasedir+f'{basen}_corrflux_oi.fits')

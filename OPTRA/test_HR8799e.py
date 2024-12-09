@@ -22,26 +22,27 @@ from scipy         import *
 from scipy         import stats
 
 #plt.ion()
-plot = True
-plotFringes   = plot
-plotPhi       = plot
-plotVis       = plot
-plotDsp       = plot
-plotRaw       = plot
-plotCorr      = plot
+plot = False
+plotFringes = plot
+plotPhi     = plot
+plotDsp     = plot
+plotRaw     = plot
+plotCorr    = plot
 
 verbose = False
 
 def do_nothing():
     pass
 
-#basedir = '~/Documents/G+/'
-bbasedir = os.path.expanduser('/Users/jscigliuto/Nextcloud/GPAO_HR8799e/')
-basedir  = bbasedir
+#bbasedir = os.path.expanduser('/Users/jscigliuto/Nextcloud/GPAO_HR8799e/')
+#basedir  = bbasedir
+#bbasedir = '~/SynologyDrive/driveFlorentin/GRAVITY+/HR8799e/'
+bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/GPAO_HR8799e/')
+basedir  = bbasedir+'HR8799e_rawdata/'
 
-# starfile = basedir + 'MATISSE_OBS_SIPHOT_LM_OBJECT_272_0001.fits'
+
 starfiles = os.listdir(basedir)
-fitsfiles = [f for f in starfiles if ".fits" in f]
+fitsfiles = [f for f in starfiles if ".fits" in f and not "M." in f]
 
 # select only fits files that correspond to observations
 obsfilesL = []
@@ -69,20 +70,21 @@ for fi in fitsfiles:
         ndit = hdr['ESO DET NDIT']
     except:
         do_nothing()
-    print(fi, inst, catg, type, chip, dit, ndit)
+    #print(fi, inst, catg, type, chip, dit, ndit)
     if catg == 'SCIENCE' and type == 'OBJECT' and chip == 'HAWAII-2RG' :
-        print("science file!")
+        #print("science file!")
         obsfilesL.append(fi)
     if catg == 'CALIB' and type == 'STD' and chip == 'HAWAII-2RG':
-        print("calibrator file!")
+        #print("calibrator file!")
         obsfilesL.append(fi)
     if catg == 'CALIB' and type == 'SKY' and chip == 'HAWAII-2RG' :
-        print("sky file!")
+        #print("sky file!")
         skyfilesL.append(fi)
 
 starfiles = sorted(obsfilesL)
-# starfiles = [f for f in starfiles if 'STD' in f]
+#starfiles = [f for f in starfiles if 'STD' in f]
 print('Starfiles:', starfiles)
+
 
 for ifile in starfiles:
     starfile = basedir + ifile
@@ -91,13 +93,18 @@ for ifile in starfiles:
     fh = fits.open(starfile)
     hdr = fh[0].header
     fh.close()
+    mjd_obs = hdr['MJD-OBS']
     
-    # associate sky file matching properties of the star file
+    # associate the two sky files matching properties of the star file
+    
     for isky in skyfilesL:
         skyfile = basedir + isky
         fh = fits.open(skyfile)
         hdrsky = fh[0].header
         fh.close()
+        mjd_sky = hdrsky['MJD-OBS']
+        diff_mjd = np.abs(mjd_obs - mjd_sky)
+        
         keys_to_match = ['INSTRUME','ESO DET CHIP NAME','ESO DET SEQ1 DIT']
         imatch = 0
         for key in keys_to_match:
@@ -107,20 +114,19 @@ for ifile in starfiles:
         if imatch == len(keys_to_match):
             print('Matching sky file:', skyfile)
             break
+        
+    #skyfile  = basedir + 'MATISSE_OBS_SIPHOT_LM_SKY_323_0003.fits'
 
-    print(starfile)
-
-    caldir    = '/Users/jscigliuto/Nextcloud/DATA/CALIB2024/'
+    #caldir    = '/Users/jscigliuto/Nextcloud/DATA/CALIB2024/'
+    caldir    = '~/Documents/ExoMATISSE/CALIB2024/'
     kappafile = caldir+'KAPPA_MATRIX_L_MED.fits'
     shiftfile = caldir+'SHIFT_L_MED.fits'
     flatfile  = caldir+'FLATFIELD_L_SLOW.fits'
     badfile   = caldir+'BADPIX_L_SLOW.fits'
 
-    skyfile  = basedir + 'MATISSE_OBS_SIPHOT_LM_SKY_272_0001.fits'
-
     ##########################################################
 
-    bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=False, plot=plotFringes)
+    bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=verbose, plot=plotRaw)
 
     ##########################################################
 
@@ -131,72 +137,91 @@ for ifile in starfiles:
         # Plot the first frame of intf
         ax1.imshow(np.mean(bdata['INTERF']['data'], axis=0), cmap='viridis')
         ax1.set_title('average intf')
-        plt.show()
 
-    cfdata = op_get_corrflux(bdata, shiftfile, verbose=False, plot=plotCorr)
+        plt.show()
+        
+    cfdata = op_get_corrflux(bdata, shiftfile, plot=plotCorr, verbose=verbose)
 
     wlen = cfdata['OI_WAVELENGTH']['EFF_WAVE']
-    # print(wlen)
+    #print(wlen)
 
     #########################################################
 
     basename = os.path.basename(starfile)
-    basen = os.path.splitext(basename)[0]
-
+    basen    = os.path.splitext(basename)[0]
+    directory = cfdata['hdr']['DATE-OBS'].split('T')[0]+'_OIFITS/'
+    if not os.path.exists(bbasedir+directory):
+        os.makedirs(bbasedir+directory)
+    basen = directory+cfdata['hdr']['INSTRUME'] + '_' +\
+    cfdata['hdr']['ESO INS BCD1 ID']+\
+    cfdata['hdr']['ESO INS BCD2 ID']+'_' +\
+    cfdata['hdr']['ESO OBS TARG NAME'] + '_' +\
+    cfdata['hdr']['DATE-OBS'].replace(':','-') + '_' +\
+    cfdata['hdr']['ESO DPR CATG'] + '_' +\
+    cfdata['hdr']['ESO DET CHIP NAME'] + '_' +\
+    cfdata['hdr']['ESO INS DIL ID']
+        
     if 0:
-        vis2, mask = op_extract_simplevis2(cfdata, verbose=False, plot=plotVis)
+        vis2, mask = op_extract_simplevis2(cfdata, verbose=verbose, plot=False)
+        #print(mask)
+        #print(~mask)
         notvis2 = np.ma.masked_array(np.ma.getdata(vis2), ~mask)
         allvis2 = np.ma.getdata(vis2)
+        
+        #print('Shape of vis2:', vis2.shape)
+        #print('Shape of notvis2:', notvis2.shape)
 
         fig0, ax0 = plt.subplots(7, 1, figsize=(8, 8), sharex=1, sharey=1)
-        print('Shape of ax1:', ax0.shape)
+        #print('Shape of ax1:', ax0.shape)
         colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
         for i in np.arange(7):
-            # print('i:', i)
+            #print('i:', i)
             ax0[i].plot(wlen, allvis2[i,:], color='lightgray')
-            ax0[i].plot(wlen,   vis2[i,:], color=colors[i])
-        
+            ax0[i].plot(wlen, vis2[i,:], color=colors[i])
+            ax0[i].set_ylabel(f'vis2 {i}')
 
-        # print('Basename of starfile:', basen)
+        #print('Basename of starfile:', basen)
         plt.suptitle(f'Visibility as a function of $\lambda$, {basen}')
         plt.xlim(np.min(wlen), np.max(wlen))
         plt.ylim(-0.1, 1.1)
-        # print(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
+        #print(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
         plt.savefig(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
-        # plt.show()
+        #plt.show()
 
     #########################################################
 
-    # cfdem = op_demodulate(cfdata, wlen, verbose=False, plot=False)
+    #cfdem = op_demodulate(cfdata, wlen, verbose=True, plot=False)
     cfdem = cfdata
 
-    # print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
-    # cf = cfdem['CF']['CF_achr_phase_corr']
-    cf = cfdem['CF']['CF_Binned']
 
+
+    #print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
+    #cf = cfdem['CF']['CF_achr_phase_corr']
+    cf = cfdem['CF']['CF_Binned']
+    #cf = cfdem['CF']['CF_demod']
+    #cf = cfdem['CF']['CF_reord']
     sumcf = np.sum(cf, axis=1)
-    # print('Shape of sumcf:', sumcf.shape)
-    print('wlen:',wlen.shape)
+    #print('Shape of sumcf:', sumcf.shape)
     shp = sumcf.shape
     nbs = shp[0]
-    print('nbs:', nbs)
-
     fig1, ax1 = plt.subplots(nbs, 2, figsize=(8, 8), sharex=1, sharey=0)
-    # print('Shape of ax1:', ax1.shape)
+    #print('Shape of ax1:', ax1.shape)
     colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
     for i in np.arange(nbs):
-        print('i:', i)
-        ax1[i,0].plot(wlen, np.abs(sumcf[i,:]), color=colors[i]) #i+1???
+        #print('i:', i)
+        ax1[i,0].plot(wlen,   np.abs(sumcf[i,:]), color=colors[i])
         if i == 0 and nbs == 7:
             ax1[i,0].set_ylabel(f'flux {i+1}')
         else:
             ax1[i,0].set_ylabel(f'corr. flux {i+1}')
-        ax1[i,1].plot(wlen, np.angle(sumcf[i,:]), color=colors[i]) #i+1???
+        ax1[i,1].plot(wlen, np.angle(sumcf[i,:]), color=colors[i])
         ax1[i,1].set_ylabel(f'phase {i+1}')
-    plt.suptitle('Sum of the CF data (1 exposure)')
+    plt.suptitle('Sum CF data (1 exposure)')
     plt.tight_layout()
     plt.savefig(os.path.expanduser(bbasedir+f'{basen}_corrflux.png'))
     #plt.show()
+    
+    
 
     # iframe = 0
     # fig2, ax2 = plt.subplots(2, 6, figsize=(8, 4))
@@ -207,12 +232,12 @@ for ifile in starfiles:
     # plt.show()
 
     data, OPD_list = op_get_piston_fft(cfdem, verbose=True, plot=True)
-    print('OPD:',OPD_list)
+    #print('OPD:',OPD_list)
 
-    data, slopes = op_get_piston_slope(cfdem, verbose=True, plot=True)
+    #data, slopes = op_get_piston_slope(cfdem, verbose=True, plot=True)
     # print('Slopes:',slopes)
 
-    data, pistons = op_get_piston_chi2(data, 'slope', verbose=False, plot=True)
+    #data, pistons = op_get_piston_chi2(data, 'fft', verbose=False, plot=True)
     # print('Pistons:',pistons)
 
     data = op_corr_piston(data, verbose=False, plot=False)
@@ -222,12 +247,12 @@ for ifile in starfiles:
     fig.suptitle('Piston corrected phase')
     for i_base in range(7):
         for i_frame in range(6):
-            ax[i_base,1].plot(wlen, np.angle(data['CF']['CF_piston_corr'][i_base, i_frame]), color=colors[i_base])
             ax[i_base,0].plot(wlen, np.angle(data['CF']['CF_Binned'][i_base, i_frame]), color=colors[i_base])
+            ax[i_base,1].plot(wlen, np.angle(data['CF']['CF_piston_corr'][i_base, i_frame]), color=colors[i_base])
     plt.show()
     
+
     #########################################################
-    '''
     outfilename = os.path.expanduser(bbasedir+f'{basen}_corrflux_oi.fits')
     hdr = cfdem['hdr']
     oiwavelength = op_gen_oiwavelength(cfdem, verbose=verbose)
@@ -235,80 +260,55 @@ for ifile in starfiles:
     oirray       = op_gen_oiarray(cfdem, verbose=True, plot=False)
     oivis        = op_gen_oivis(cfdem, verbose=verbose, plot=False)
     op_write_oifits(outfilename, hdr, oiwavelength, oirray, oitarget, oivis, oivis2=None, oit3=None)
+
+
     '''
-   
+    #scfdata = op_sortout_peaks(cfdata, verbose=True)
+    #scfdata = cfdata
 
-# ##### Index correction #####
-# temperature, pressure, humidity, dPaths = op_get_amb_conditions(cfdem)
-# n_air = op_air_index(wlen, temperature, pressure, humidity, N_CO2=423, bands='all')
-# data, phase_layer_air = op_corr_n_air(wlen, cfdem, n_air, dPaths, verbose=True, plot=True)
-# corrPhase = data['CF']['CF_achr_phase_corr']
-# cfdem = data['CF']['CF_demod']
-# n_frames = np.shape(cfdem)[1]
-
-# for i_frame in range(n_frames):
-#     fig3, (ax3, ax4) = plt.subplots(2, 6, figsize=(10, 5))
-#     fig3.suptitle(f'frame {i_frame+1}')
-
-#     for i_base in range(6):
-#         ax3[i_base].plot(wlen*1e6, np.angle(np.exp(1j*phase_layer_air[i_base,i_frame])), color=colors[i_base], alpha=0.3)
-#         ax3[i_base].plot(wlen*1e6, np.angle(cfdem[i_base+1,i_frame]), color=colors[i_base])
-#         ax4[i_base].plot(wlen*1e6, np.angle(corrPhase[i_base,i_frame]), color=colors[i_base])
-    
-
-plt.show()
-
-
-            #line.set_data(wlen, np.angle(cfdata['CF']['CF'][i, frame, :]  * np.conjugate(cfdata['CF']['mod_phasor'][2, frame, :])))
-            
-
-'''
-#scfdata = op_sortout_peaks(cfdata, verbose=True)
-#scfdata = cfdata
-
-iframe = 0
-import matplotlib.animation as animation
-fig, ax = plt.subplots()
-#lines = [ax.plot([], [], color=colors[i])[0] for i in range(1)]
-lines  = [ax.plot([], [], color=colors[i])[0] for i in np.arange(7)]
-#lines2 = [ax.plot([], [], '--', color=colors[i])[0] for i in np.arange(7)]
-#ax.set_xlim(0, cfdata['CF']['CF'].shape[2])
-ax.set_xlim(np.min(wlen), np.max(wlen))
-ax.set_ylim(-np.pi, np.pi)
-ax.set_title('Phase as a function of the wavelength for CF Data')
-def init():
-    for line in lines:
-        line.set_data([], [])
-    return lines
-def update(frame):
-    for i, line in enumerate(lines):
-        if i == 5:
-            #line.set_data(wlen, np.angle(cfdata['CF']['CF'][i, frame, :]  * np.conjugate(cfdata['CF']['mod_phasor'][2, frame, :])))
-            
-            # CF 1 phi 5 -> 6
-            # CF 2 phi 0 -> 1
-            # CF 3 phi 3 -> 4
-            # CF 4 phi 4 -> 5
-            # CF 5 phi 1 -> 2
-            # CF 6 phi 2 -> 3
-            line.set_data(wlen, np.angle(cfdata['CF']['CF_demod'][i, frame, :]))
-            
-            #lines2[i].set_data(wlen, np.angle(cfdata['CF']['mod_phasor'][i-1, frame, :]))
-            
-    return lines
-ani = animation.FuncAnimation(fig, update, frames=cfdata['CF']['CF'].shape[1], init_func=init, blit=True)
-plt.show()
-    
-if plotDsp:
-    plt.figure(5)
-    for i in np.arange(6)+1:
-        if i == 5:
-            plt.plot(np.abs(cfdata['CF']['CF'][i,iframe,:]) / np.abs(cfdata['CF']['CF'][0,0,:])*3,color=colors[i])
-            plt.plot(np.max(np.abs(cfdata['CF']['data'][i,iframe,:,:]),axis=1) / np.abs(cfdata['CF']['CF'][0,0,:])*3*7,':',color=colors[i])
-    plt.ylim(-0.2,1.2)
-    plt.title('This one should resemble a visibility curve')
+    iframe = 0
+    import matplotlib.animation as animation
+    fig, ax = plt.subplots()
+    #lines = [ax.plot([], [], color=colors[i])[0] for i in range(1)]
+    lines  = [ax.plot([], [], color=colors[i])[0] for i in np.arange(7)]
+    #lines2 = [ax.plot([], [], '--', color=colors[i])[0] for i in np.arange(7)]
+    #ax.set_xlim(0, cfdata['CF']['CF'].shape[2])
+    ax.set_xlim(np.min(wlen), np.max(wlen))
+    ax.set_ylim(-np.pi, np.pi)
+    ax.set_title('Phase as a function of the wavelength for CF Data')
+    def init():
+        for line in lines:
+            line.set_data([], [])
+        return lines
+    def update(frame):
+        for i, line in enumerate(lines):
+            if i == 5:
+                #line.set_data(wlen, np.angle(cfdata['CF']['CF'][i, frame, :]  * np.conjugate(cfdata['CF']['mod_phasor'][2, frame, :])))
+                
+                # CF 1 phi 5 -> 6
+                # CF 2 phi 0 -> 1
+                # CF 3 phi 3 -> 4
+                # CF 4 phi 4 -> 5
+                # CF 5 phi 1 -> 2
+                # CF 6 phi 2 -> 3
+                line.set_data(wlen, np.angle(cfdata['CF']['CF_demod'][i, frame, :]))
+                
+                #lines2[i].set_data(wlen, np.angle(cfdata['CF']['mod_phasor'][i-1, frame, :]))
+                
+        return lines
+    ani = animation.FuncAnimation(fig, update, frames=cfdata['CF']['CF'].shape[1], init_func=init, blit=True)
+    plt.show()
+        
+    if plotDsp:
+        plt.figure(5)
+        for i in np.arange(6)+1:
+            if i == 5:
+                plt.plot(np.abs(cfdata['CF']['CF'][i,iframe,:]) / np.abs(cfdata['CF']['CF'][0,0,:])*3,color=colors[i])
+                plt.plot(np.max(np.abs(cfdata['CF']['data'][i,iframe,:,:]),axis=1) / np.abs(cfdata['CF']['CF'][0,0,:])*3*7,':',color=colors[i])
+        plt.ylim(-0.2,1.2)
+        plt.title('This one should resemble a visibility curve')
 
 
 
-plt.show()
-'''
+    plt.show()
+    '''

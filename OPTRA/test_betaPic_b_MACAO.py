@@ -22,18 +22,20 @@ from scipy         import stats
 
 #plt.ion()
 plot = False
-plotFringes   = plot
-plotPhi       = plot
-plotDsp       = plot
-plotRaw       = plot
-plotCorr      = plot
+plotFringes = plot
+plotPhi     = plot
+plotDsp     = plot
+plotRaw     = plot
+plotCorr    = plot
+
+verbose = False
 
 def do_nothing():
     pass
 
 #bbasedir = '~/SynologyDrive/driveFlorentin/ExoMATISSE/beta_Pic_b/'
 bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
-basedir  = bbasedir+'Raw_MATISSE-LM_BetaPic_2022-11-08/'
+basedir  = bbasedir+'2022-11-08_Raw_MATISSE-LM_BetaPic/'
 
 starfiles = os.listdir(basedir)
 fitsfiles = [f for f in starfiles if ".fits" in f]
@@ -64,18 +66,19 @@ for fi in fitsfiles:
         ndit = hdr['ESO DET NDIT']
     except:
         do_nothing()
-    print(fi, inst, catg, type, chip, dit, ndit)
+    #print(fi, inst, catg, type, chip, dit, ndit)
     if catg == 'SCIENCE' and type == 'OBJECT' and chip == 'HAWAII-2RG' :
-        print("science file!")
+        #print("science file!")
         obsfilesL.append(fi)
     if catg == 'CALIB' and type == 'STD' and chip == 'HAWAII-2RG':
-        print("calibrator file!")
+        #print("calibrator file!")
         obsfilesL.append(fi)
     if catg == 'CALIB' and type == 'SKY' and chip == 'HAWAII-2RG' :
-        print("sky file!")
+        #print("sky file!")
         skyfilesL.append(fi)
 
-starfiles = obsfilesL
+starfiles = sorted(obsfilesL)
+#starfiles = [f for f in starfiles if 'STD' in f]
 print('Starfiles:', starfiles)
 
 
@@ -113,7 +116,7 @@ for ifile in starfiles:
 
     ##########################################################
 
-    bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=True, plot=plotRaw)
+    bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=verbose, plot=plotRaw)
 
     ##########################################################
 
@@ -127,59 +130,81 @@ for ifile in starfiles:
 
         plt.show()
         
-    cfdata, wlen = op_get_corrflux(bdata, shiftfile, plot=plotCorr, verbose=True)
+    cfdata = op_get_corrflux(bdata, shiftfile, plot=plotCorr, verbose=verbose)
 
-    print(wlen)
+    wlen = cfdata['OI_WAVELENGTH']['EFF_WAVE']
+    #print(wlen)
 
     #########################################################
-
-    vis2, mask = op_extract_simplevis2(cfdata, verbose=False, plot=False)
-    print(mask)
-    print(~mask)
-    notvis2 = np.ma.masked_array(np.ma.getdata(vis2), ~mask)
-    allvis2 = np.ma.getdata(vis2)
-    
-    print('Shape of vis2:', vis2.shape)
-    print('Shape of notvis2:', notvis2.shape)
-
-    fig0, ax0 = plt.subplots(7, 1, figsize=(8, 8), sharex=1, sharey=1)
-    print('Shape of ax1:', ax0.shape)
-    colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
-    for i in np.arange(7):
-        print('i:', i)
-        ax0[i].plot(wlen, allvis2[i,:], color='lightgray')
-        ax0[i].plot(wlen, vis2[i,:], color=colors[i])
-        ax0[i].set_ylabel(f'vis2 {i}')
 
     basename = os.path.basename(starfile)
-    basen = os.path.splitext(basename)[0]
-    print('Basename of starfile:', basen)
-    plt.suptitle(f'Visibility as a function of $\lambda$, {basen}')
-    plt.xlim(np.min(wlen), np.max(wlen))
-    plt.ylim(-0.1, 1.1)
-    print(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
-    plt.savefig(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
-    #plt.show()
+    basen    = os.path.splitext(basename)[0]
+    directory = cfdata['hdr']['DATE-OBS'].split('T')[0]+'_OIFITS/'
+    if not os.path.exists(bbasedir+directory):
+        os.makedirs(bbasedir+directory)
+    basen = directory+cfdata['hdr']['INSTRUME'] + '_' +\
+    cfdata['hdr']['ESO INS BCD1 ID']+\
+    cfdata['hdr']['ESO INS BCD2 ID']+'_' +\
+    cfdata['hdr']['ESO OBS TARG NAME'] + '_' +\
+    cfdata['hdr']['DATE-OBS'].replace(':','-') + '_' +\
+    cfdata['hdr']['ESO DPR CATG'] + '_' +\
+    cfdata['hdr']['ESO DET CHIP NAME'] + '_' +\
+    cfdata['hdr']['ESO INS DIL ID']
+        
+    if 0:
+        vis2, mask = op_extract_simplevis2(cfdata, verbose=verbose, plot=False)
+        #print(mask)
+        #print(~mask)
+        notvis2 = np.ma.masked_array(np.ma.getdata(vis2), ~mask)
+        allvis2 = np.ma.getdata(vis2)
+        
+        #print('Shape of vis2:', vis2.shape)
+        #print('Shape of notvis2:', notvis2.shape)
+
+        fig0, ax0 = plt.subplots(7, 1, figsize=(8, 8), sharex=1, sharey=1)
+        #print('Shape of ax1:', ax0.shape)
+        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+        for i in np.arange(7):
+            #print('i:', i)
+            ax0[i].plot(wlen, allvis2[i,:], color='lightgray')
+            ax0[i].plot(wlen, vis2[i,:], color=colors[i])
+            ax0[i].set_ylabel(f'vis2 {i}')
+
+        #print('Basename of starfile:', basen)
+        plt.suptitle(f'Visibility as a function of $\lambda$, {basen}')
+        plt.xlim(np.min(wlen), np.max(wlen))
+        plt.ylim(-0.1, 1.1)
+        #print(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
+        plt.savefig(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
+        #plt.show()
 
     #########################################################
 
-    cfdem = op_demodulate(cfdata, wlen, verbose=True, plot=False)
+    #cfdem = op_demodulate(cfdata, wlen, verbose=True, plot=False)
+    cfdem = cfdata
 
 
 
-    print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
-    cf = cfdem['CF']['CF_demod']
+    #print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
+    #cf = cfdem['CF']['CF_achr_phase_corr']
+    cf = cfdem['CF']['CF_Binned']
+    #cf = cfdem['CF']['CF_demod']
+    #cf = cfdem['CF']['CF_reord']
     sumcf = np.sum(cf, axis=1)
-    print('Shape of sumcf:', sumcf.shape)
-
-    fig1, ax1 = plt.subplots(6, 2, figsize=(8, 8), sharex=1, sharey=0)
-    print('Shape of ax1:', ax1.shape)
+    #print('Shape of sumcf:', sumcf.shape)
+    shp = sumcf.shape
+    nbs = shp[0]
+    fig1, ax1 = plt.subplots(nbs, 2, figsize=(8, 8), sharex=1, sharey=0)
+    #print('Shape of ax1:', ax1.shape)
     colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
-    for i in np.arange(6):
-        print('i:', i)
-        ax1[i,0].plot(wlen,   np.abs(sumcf[i+1,:]), color=colors[i])
-        ax1[i,0].set_ylabel(f'corr. flux {i+1}')
-        ax1[i,1].plot(wlen, np.angle(sumcf[i+1,:]), color=colors[i])
+    for i in np.arange(nbs):
+        #print('i:', i)
+        ax1[i,0].plot(wlen,   np.abs(sumcf[i,:]), color=colors[i])
+        if i == 0 and nbs == 7:
+            ax1[i,0].set_ylabel(f'flux {i+1}')
+        else:
+            ax1[i,0].set_ylabel(f'corr. flux {i+1}')
+        ax1[i,1].plot(wlen, np.angle(sumcf[i,:]), color=colors[i])
         ax1[i,1].set_ylabel(f'phase {i+1}')
     plt.suptitle('Sum CF data (1 exposure)')
     plt.tight_layout()
@@ -187,13 +212,13 @@ for ifile in starfiles:
     #plt.show()
 
     #########################################################
-    outfilename = os.path.expanduser(bbasedir+f'{basen}_corrflux.oifits')
+    outfilename = os.path.expanduser(bbasedir+f'{basen}_corrflux_oi.fits')
     hdr = cfdem['hdr']
-    oiwavelength = op_gen_oiwavelength(cfdem, verbose=True)
-    oirray = None
-    oitarget = None
-    oivis = op_gen_oivis(cfdem, verbose=True, plot=False)
-    op_write_oifits(outfilename, hdr, oiwavelength, oirray=None, oitarget=None, oivis=oivis, oivis2=None, oit3=None)
+    oiwavelength = op_gen_oiwavelength(cfdem, verbose=verbose)
+    oitarget     = op_gen_oitarget(cfdem, verbose=True, plot=False)
+    oirray       = op_gen_oiarray(cfdem, verbose=True, plot=False)
+    oivis        = op_gen_oivis(cfdem, verbose=verbose, plot=False)
+    op_write_oifits(outfilename, hdr, oiwavelength, oirray, oitarget, oivis, oivis2=None, oit3=None)
 
 
     '''
