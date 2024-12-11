@@ -249,7 +249,7 @@ def op_extract_CF(fftdata, peaks, peakswd, verbose=True, plot=False):
 
 ##############################################
 # demodulate MATISSE fringes
-def op_demodulate(CFdata, verbose=False, plot=False):
+def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
     wlen = CFdata['OI_WAVELENGTH']['EFF_WAVE']
     
     if verbose:
@@ -288,9 +288,9 @@ def op_demodulate(CFdata, verbose=False, plot=False):
     phasor = np.exp(2j * np.pi * localopdij[:,:,None] / wlen[None,None,:] )
     
     CFdata['CF']['mod_phasor']         = phasor
-    CFdata['CF']['CF_demod']           = np.zeros_like(CFdata['CF']['CF'])
-    CFdata['CF']['CF_demod'][0,...]    = CFdata['CF']['CF'][0,...]
-    CFdata['CF']['CF_demod'][1:,...]   = CFdata['CF']['CF'][1:,...]   * np.conjugate(phasor)
+    CFdata['CF']['CF_demod']           = np.zeros_like(CFdata['CF'][cfin])
+    CFdata['CF']['CF_demod'][0,...]    = CFdata['CF'][cfin][0,...]
+    CFdata['CF']['CF_demod'][1:,...]   = CFdata['CF'][cfin][1:,...]   * np.conjugate(phasor)
     CFdata['CF']['data_demod']         = np.zeros_like(CFdata['CF']['data'])
     CFdata['CF']['data_demod'][0,...]  = CFdata['CF']['data'][0,...]
     CFdata['CF']['data_demod'][1:,...] = CFdata['CF']['data'][1:,...] * np.conjugate(phasor[...,None])
@@ -524,9 +524,9 @@ def op_sortout_peaks(peaksin, verbose=False):
 
 ##############################################
 # reorder baselines 
-def op_reorder_baselines(data):
+def op_reorder_baselines(data, cfin='CF_demod'):
 
-    cfdata = data['CF']['CF_demod']
+    cfdata = data['CF'][cfin]
     # print(cfdata.shape) #base/frame/wl 7/6/1560
     n_frames = np.shape(cfdata)[1]
     n_exp = n_frames // 6
@@ -969,13 +969,13 @@ def op_get_piston_chi2(data, init_guess, verbose=False, plot=False):
 ####################################################
 # Function to correct from the residual piston
 
-def op_corr_piston(data, verbose=False, plot=False):
+def op_corr_piston(data, cfin='CF_Binned', verbose=False, plot=False):
     if verbose:
         print('Correcting for the residual piston...')
 
     wlen     = data['OI_WAVELENGTH']['EFF_WAVE']
     # cf = data['CF']['CF_achr_phase_corr']
-    cf       = data['CF']['CF_Binned']
+    cf       = data['CF'][cfin]
     pistons  = data['CF']['pistons']
     n_bases  = cf.shape[0]
     n_frames = cf.shape[1]
