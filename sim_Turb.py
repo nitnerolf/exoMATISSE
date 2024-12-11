@@ -3,6 +3,10 @@
 # Jules Scigliuto, Florentin Millour
 # with the help of Marcel Carbillet
 # 
+########################################################
+# Support work for Houllé et al. 2025
+# Plot of flux vs separation for exoplanets
+# at the entrance of the MATISSE instrument (with AO)
 
 import numpy as np
 import matplotlib.pyplot as plt
