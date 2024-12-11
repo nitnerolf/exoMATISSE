@@ -31,6 +31,9 @@ def op_gen_oiarray(cfdata, verbose=True, plot=False):
     oiarray_table['STATION'] = np.array([''], dtype='S16')
     '''
     
+    #oiarray_table.meta['NAME']  = 'OI_ARRAY'
+    oiarray_table.meta['EXTNAME']  = 'OI_ARRAY'
+    oiarray_table.meta['EXTVER']  = 1
     oiarray_table['TEL_NAME']  = cfdata['OI_ARRAY']['TEL_NAME']
     oiarray_table['STA_NAME']  = cfdata['OI_ARRAY']['STA_NAME']
     oiarray_table['STA_INDEX'] = cfdata['OI_ARRAY']['STA_INDEX']
@@ -74,6 +77,9 @@ def op_gen_oitarget(cfdata, verbose=True, plot=False):
     """
     # Create the OI_TARGET table
     oitarget_table = Table()
+    #oitarget_table.meta['NAME']  = 'OI_TARGET'
+    oitarget_table.meta['EXTNAME']  = 'OI_TARGET'
+    oitarget_table.meta['EXTVER']  = 1
     oitarget_table['TARGET_ID'] = [1]
     oitarget_table['TARGET']    = cfdata['hdr']['ESO OBS TARG NAME']
     oitarget_table['RAEP0']     = cfdata['hdr']['RA']
@@ -113,6 +119,9 @@ def op_gen_oiwavelength(cfdata, verbose=True, plot=False):
     """
     # Create the OI_WAVELENGTH table
     oiwavelength_table = Table()
+    #oiwavelength_table.meta['NAME']  = 'OI_WAVELENGTH'
+    oiwavelength_table.meta['EXTNAME']  = 'OI_WAVELENGTH'
+    oiwavelength_table.meta['EXTVER']  = 1
     oiwavelength_table['EFF_WAVE'] = cfdata['OI_WAVELENGTH']['EFF_WAVE']
     print('Shape of EFF_WAVE:', oiwavelength_table['EFF_WAVE'].shape)
     
@@ -126,18 +135,21 @@ def op_gen_oiwavelength(cfdata, verbose=True, plot=False):
 
 ##############################################
 # 
-def op_gen_oivis(cfdata, dtype='CF_achr_phase_corr', verbose=True, plot=False):
+def op_gen_oivis(cfdata, cfin='CF_achr_phase_corr', verbose=True, plot=False):
     print('Generating OI_VIS...')
     """
     Save the complex visibility in OIFITS format
     """
-    complexvis = cfdata['CF'][dtype][1:,...]
+    complexvis = cfdata['CF'][cfin][1:,...]
     print('Shape of complexvis:', complexvis.shape)
     complexvis2 = np.reshape(np.swapaxes(complexvis, 0,1), (complexvis.shape[0]* complexvis.shape[1],complexvis.shape[2]))
     nbases    = complexvis.shape[0]
     nframes   = complexvis.shape[1]
     # Create the OI_VIS table
     oivis_table = Table()
+    #oivis_table.meta['NAME']  = 'OI_VIS'
+    oivis_table.meta['EXTNAME']  = 'OI_VIS'
+    oivis_table.meta['EXTVER']  = 1
     oivis_table['TARGET_ID'] = np.repeat(cfdata['OI_BASELINES']['TARGET_ID'], nbases)
     print('Shape of target_IDxxx:', oivis_table['TARGET_ID'].shape)
     oivis_table['TARGET']    = cfdata['hdr']['HIERARCH ESO OBS TARG NAME']
@@ -201,6 +213,8 @@ def op_write_oifits(filename, hdr, oiwavelength, oirray=None, oitarget=None, oiv
     
     return
 
+##############################################
+# 
 def op_read_oifits(filename):
     fh = fits.open(filename)
     return fh
