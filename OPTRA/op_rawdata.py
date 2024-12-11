@@ -192,9 +192,10 @@ def op_print_fits_structure(fits_data):
         #print(f'Header:\n{hdu.header}')
         if hdu.data is not None:
             if hdu.is_image:
-                print('This HDU contains image data.')
+                print('This is an image.')
             else:
                 print('This is a table.')
+            #print(f'Name: {hdu.hdr['EXTNAME']}')
             if isinstance(hdu.data, np.recarray):
                 print(f'Columns: {hdu.data.dtype.names}')
             print(f'Data shape: {hdu.data.shape}')
