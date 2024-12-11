@@ -12,7 +12,6 @@ from op_rawdata    import *
 from op_flux       import *
 from op_vis        import *
 from op_oifits     import *
-from op_oifits     import *
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io    import fits
@@ -28,6 +27,7 @@ plotPhi     = plot
 plotDsp     = plot
 plotRaw     = plot
 plotCorr    = plot
+plotPist = plot
 
 verbose = False
 
@@ -46,15 +46,19 @@ fitsfiles = [f for f in starfiles if ".fits" in f and not "M." in f]
 print(fitsfiles)
 
 # select only fits files that correspond to observations
-obsfilesL = []
-obsfilesN = []
-skyfilesL = []
-darkfiles = []
+obsfilesL     = []
+obsfilesL_MJD = []
+obsfilesN     = []
+skyfilesL     = []
+skyfilesL_MJD = []
+darkfiles     = []
+
 for fi in fitsfiles:
-    print(fi)
+    #print(fi)
     fh = fits.open(basedir+fi)
     #op_print_fits_header(fh)
     hdr = fh[0].header
+    fh.close()
     inst = hdr['INSTRUME']
     catg = hdr['ESO DPR CATG']
     type = hdr['ESO DPR TYPE']
@@ -75,21 +79,25 @@ for fi in fitsfiles:
     if catg == 'SCIENCE' and type == 'OBJECT' and chip == 'HAWAII-2RG' :
         #print("science file!")
         obsfilesL.append(fi)
+        obsfilesL_MJD.append(hdr['MJD-OBS'])
     if catg == 'CALIB' and type == 'STD' and chip == 'HAWAII-2RG':
         #print("calibrator file!")
         obsfilesL.append(fi)
+        obsfilesL_MJD.append(hdr['MJD-OBS'])
     if catg == 'CALIB' and type == 'SKY' and chip == 'HAWAII-2RG' :
         #print("sky file!")
         skyfilesL.append(fi)
+        skyfilesL_MJD.append(hdr['MJD-OBS'])
 
+skyfilesL_MJD = np.array(skyfilesL_MJD)
 starfiles = sorted(obsfilesL)
 starfiles = [f for f in starfiles if 'STD' in f]
 print('Starfiles:', starfiles)
+print('Skyfiles:', skyfilesL)
 
 
 for ifile in starfiles:
     starfile = basedir + ifile
-#starfile = basedir + 'MATISSE_OBS_SIPHOT_LM_OBJECT_323_0003.fits'
 
     fh = fits.open(starfile)
     hdr = fh[0].header
@@ -97,14 +105,15 @@ for ifile in starfiles:
     mjd_obs = hdr['MJD-OBS']
     
     # associate the two sky files matching properties of the star file
+    mjdiff = np.abs(skyfilesL_MJD - mjd_obs)
+    # Sort skyfiles by ascending distance to the starfile
+    skyfilesL_sorted = [x for _,x in sorted(zip(mjdiff,skyfilesL))]
     
-    for isky in skyfilesL:
+    for isky in skyfilesL_sorted:
         skyfile = basedir + isky
         fh = fits.open(skyfile)
         hdrsky = fh[0].header
         fh.close()
-        mjd_sky = hdrsky['MJD-OBS']
-        diff_mjd = np.abs(mjd_obs - mjd_sky)
         
         keys_to_match = ['INSTRUME','ESO DET CHIP NAME','ESO DET SEQ1 DIT']
         imatch = 0
@@ -115,8 +124,6 @@ for ifile in starfiles:
         if imatch == len(keys_to_match):
             print('Matching sky file:', skyfile)
             break
-        
-    #skyfile  = basedir + 'MATISSE_OBS_SIPHOT_LM_SKY_323_0003.fits'
 
     #caldir    = '/Users/jscigliuto/Nextcloud/DATA/CALIB2024/'
     caldir    = '~/Documents/ExoMATISSE/CALIB2024/'
@@ -153,16 +160,21 @@ for ifile in starfiles:
     directory = cfdata['hdr']['DATE-OBS'].split('T')[0]+'_OIFITS/'
     if not os.path.exists(bbasedir+directory):
         os.makedirs(bbasedir+directory)
-    basen = directory+cfdata['hdr']['INSTRUME'] + '_' +\
-    cfdata['hdr']['ESO INS BCD1 ID']+\
-    cfdata['hdr']['ESO INS BCD2 ID']+'_' +\
-    cfdata['hdr']['ESO OBS TARG NAME'] + '_' +\
-    cfdata['hdr']['DATE-OBS'].replace(':','-') + '_' +\
-    cfdata['hdr']['ESO DPR CATG'] + '_' +\
-    cfdata['hdr']['ESO DET CHIP NAME'] + '_' +\
-    cfdata['hdr']['ESO INS DIL ID']
+    chip = cfdata['hdr']['ESO DET CHIP NAME']
+    if 'HAWAII' in chip:
+        band = 'L'
+    elif 'AQUARIUS' in chip:
+        band = 'N'
+    basen = directory+cfdata['hdr']['INSTRUME'][0:3]    + '_' +\
+    cfdata['hdr']['DATE-OBS'].replace(':','-')          + '_' +\
+    cfdata['hdr']['ESO OBS TARG NAME'].replace(' ','_') + '_' +\
+    cfdata['hdr']['ESO DPR CATG'][0:3]                  + '_' +\
+    band                                                + '_' +\
+    cfdata['hdr']['ESO INS DIL ID']                     + '_' +\
+    cfdata['hdr']['ESO INS BCD1 ID']                          +\
+    cfdata['hdr']['ESO INS BCD2 ID']
         
-    if 0:
+    if 1:
         vis2, mask = op_extract_simplevis2(cfdata, verbose=verbose, plot=False)
         #print(mask)
         #print(~mask)
@@ -206,22 +218,23 @@ for ifile in starfiles:
     shp = sumcf.shape
     nbs = shp[0]
     
-    fig1, ax1 = plt.subplots(nbs, 2, figsize=(8, 8), sharex=1, sharey=0)
-    #print('Shape of ax1:', ax1.shape)
-    colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
-    for i in np.arange(nbs):
-        #print('i:', i)
-        ax1[i,0].plot(wlen,   np.abs(sumcf[i,:]), color=colors[i])
-        if i == 0 and nbs == 7:
-            ax1[i,0].set_ylabel(f'flux {i+1}')
-        else:
-            ax1[i,0].set_ylabel(f'corr. flux {i+1}')
-        ax1[i,1].plot(wlen, np.angle(sumcf[i,:]), color=colors[i])
-        ax1[i,1].set_ylabel(f'phase {i+1}')
-    plt.suptitle('Sum CF data (1 exposure)')
-    plt.tight_layout()
-    plt.savefig(os.path.expanduser(bbasedir+f'{basen}_corrflux.png'))
-    #plt.show()
+    if plotCorr:
+        fig1, ax1 = plt.subplots(nbs, 2, figsize=(8, 8), sharex=1, sharey=0)
+        #print('Shape of ax1:', ax1.shape)
+        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+        for i in np.arange(nbs):
+            #print('i:', i)
+            ax1[i,0].plot(wlen,   np.abs(sumcf[i,:]), color=colors[i])
+            if i == 0 and nbs == 7:
+                ax1[i,0].set_ylabel(f'flux {i+1}')
+            else:
+                ax1[i,0].set_ylabel(f'corr. flux {i+1}')
+            ax1[i,1].plot(wlen, np.angle(sumcf[i,:]), color=colors[i])
+            ax1[i,1].set_ylabel(f'phase {i+1}')
+        plt.suptitle('Sum CF data (1 exposure)')
+        plt.tight_layout()
+        plt.savefig(os.path.expanduser(bbasedir+f'{basen}_corrflux.png'))
+        #plt.show()
     
     
 
@@ -233,7 +246,7 @@ for ifile in starfiles:
     # plt.title(f'frame {iframe} of CF data')
     # plt.show()
 
-    data, OPD_list = op_get_piston_fft(cfdem, verbose=True, plot=True)
+    data, OPD_list = op_get_piston_fft(cfdem, verbose=True, plot=plotPist)
     #print('OPD:',OPD_list)
 
     #data, slopes = op_get_piston_slope(cfdem, verbose=True, plot=True)
@@ -242,16 +255,17 @@ for ifile in starfiles:
     #data, pistons = op_get_piston_chi2(data, 'fft', verbose=False, plot=True)
     # print('Pistons:',pistons)
 
-    data = op_corr_piston(data, verbose=False, plot=False)
+    data = op_corr_piston(data, verbose=False, plot=plotPist)
 
-    colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
-    fig, ax = plt.subplots(7, 2, figsize=(8, 8))
-    fig.suptitle('Piston corrected phase')
-    for i_base in range(7):
-        for i_frame in range(6):
-            ax[i_base,0].plot(wlen, np.angle(data['CF']['CF_Binned'][i_base, i_frame]), color=colors[i_base])
-            ax[i_base,1].plot(wlen, np.angle(data['CF']['CF_piston_corr'][i_base, i_frame]), color=colors[i_base])
-    plt.show()
+    if plotPist:
+        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+        fig, ax = plt.subplots(7, 2, figsize=(8, 8))
+        fig.suptitle('Piston corrected phase')
+        for i_base in range(7):
+            for i_frame in range(6):
+                ax[i_base,0].plot(wlen, np.angle(data['CF']['CF_Binned'][i_base, i_frame]), color=colors[i_base])
+                ax[i_base,1].plot(wlen, np.angle(data['CF']['CF_piston_corr'][i_base, i_frame]), color=colors[i_base])
+        plt.show()
     
 
     #########################################################
@@ -260,7 +274,7 @@ for ifile in starfiles:
     oiwavelength = op_gen_oiwavelength(cfdem, verbose=verbose)
     oitarget     = op_gen_oitarget(cfdem, verbose=True, plot=False)
     oirray       = op_gen_oiarray(cfdem, verbose=True, plot=False)
-    oivis        = op_gen_oivis(cfdem, verbose=verbose, plot=False)
+    oivis        = op_gen_oivis(cfdem, cfin='CF_piston_corr', verbose=verbose, plot=False)
     op_write_oifits(outfilename, hdr, oiwavelength, oirray, oitarget, oivis, oivis2=None, oit3=None)
 
 
