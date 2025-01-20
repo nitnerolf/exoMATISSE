@@ -31,8 +31,8 @@ plotCorr      = plot
 def do_nothing():
     pass
 
-#bbasedir = '~/SynologyDrive/driveFlorentin/GRAVITY+/HR8799e/'
-bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
+bbasedir = '~/SynologyDrive/driveFlorentin/ExoMATISSE/beta_Pic_b/'
+#bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
 basedir  = bbasedir+'2024-11-17_MATISSE/'
 
 starfiles = os.listdir(basedir)
