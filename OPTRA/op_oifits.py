@@ -17,7 +17,10 @@ from astropy.time import Time
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 
+##############################################
+# 
 def op_gen_oiarray(cfdata, verbose=True, plot=False):
+    print('Generating OI_ARRAY...')
     """
     Save the array information in OIFITS format
     """
@@ -28,11 +31,14 @@ def op_gen_oiarray(cfdata, verbose=True, plot=False):
     oiarray_table['STATION'] = np.array([''], dtype='S16')
     '''
     
-    oiarray_table['TEL_NAME'] = np.array([1, 2], dtype=np.int32)
-    oiarray_table['STA_NAME'] = np.array([1, 2], dtype=np.int32)
-    oiarray_table['STA_INDEX'] = np.array([1, 2], dtype=np.int32)
-    oiarray_table['DIAMETER'] = 0.0
-    oiarray_table['STAXYZ'] = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=np.float64)
+    #oiarray_table.meta['NAME']  = 'OI_ARRAY'
+    oiarray_table.meta['EXTNAME']  = 'OI_ARRAY'
+    oiarray_table.meta['EXTVER']  = 1
+    oiarray_table['TEL_NAME']  = cfdata['OI_ARRAY']['TEL_NAME']
+    oiarray_table['STA_NAME']  = cfdata['OI_ARRAY']['STA_NAME']
+    oiarray_table['STA_INDEX'] = cfdata['OI_ARRAY']['STA_INDEX']
+    oiarray_table['DIAMETER']  = cfdata['OI_ARRAY']['DIAMETER']
+    oiarray_table['STAXYZ']    = cfdata['OI_ARRAY']['STAXYZ']
     oiarray_table['FOV'] = 1.0
     oiarray_table['FOVTYPE'] = 'RADIUS'
     
@@ -62,30 +68,36 @@ def op_gen_oiarray(cfdata, verbose=True, plot=False):
     
     return oiarray_table
 
+##############################################
+# 
 def op_gen_oitarget(cfdata, verbose=True, plot=False):
+    print('Generating OI_TARGET...')
     """
     Save the target information in OIFITS format
     """
     # Create the OI_TARGET table
     oitarget_table = Table()
-    oitarget_table['TARGET_ID'] = 1
-    oitarget_table['TARGET'] = np.array(cfdata['hdr']['HIERARCH ESO TARG NAME'], dtype='S16')
-    oitarget_table['RAEP0']  = cfdata['hdr']['RA']
-    oitarget_table['DECEP0'] = cfdata['hdr']['DEC']
-    oitarget_table['EQUINOX'] = cfdata['hdr']['EQUINOX']
-    oitarget_table['RA_ERR'] = 0.0
-    oitarget_table['DEC_ERR'] = 0.0
-    oitarget_table['SYSVEL'] = cfdata['hdr']['RADECSYS']
-    oitarget_table['VELTYP'] = 'HELIOCEN'
-    oitarget_table['VELDEF'] = 'OPTICAL'
-    oitarget_table['PMRA'] = 0.0
-    oitarget_table['PMDEC'] = 0.0
-    oitarget_table['PMRA_ERR'] = 0.0
+    #oitarget_table.meta['NAME']  = 'OI_TARGET'
+    oitarget_table.meta['EXTNAME']  = 'OI_TARGET'
+    oitarget_table.meta['EXTVER']  = 1
+    oitarget_table['TARGET_ID'] = [1]
+    oitarget_table['TARGET']    = cfdata['hdr']['ESO OBS TARG NAME']
+    oitarget_table['RAEP0']     = cfdata['hdr']['RA']
+    oitarget_table['DECEP0']    = cfdata['hdr']['DEC']
+    oitarget_table['EQUINOX']   = cfdata['hdr']['EQUINOX']
+    oitarget_table['RA_ERR']    = 0.0
+    oitarget_table['DEC_ERR']   = 0.0
+    oitarget_table['SYSVEL']    = cfdata['hdr']['RADECSYS']
+    oitarget_table['VELTYP']    = 'HELIOCEN'
+    oitarget_table['VELDEF']    = 'OPTICAL'
+    oitarget_table['PMRA']      = 0.0
+    oitarget_table['PMDEC']     = 0.0
+    oitarget_table['PMRA_ERR']  = 0.0
     oitarget_table['PMDEC_ERR'] = 0.0
-    oitarget_table['PARALLAX'] = 0.0
-    oitarget_table['PARA_ERR'] = 0.0
-    oitarget_table['SPECTYP']  = 'UNKNOWN'
-    oitarget_table['CATEGORY'] = cfdata['hdr']['HIERARCH ESO TARG TYPE']
+    oitarget_table['PARALLAX']  = 0.0
+    oitarget_table['PARA_ERR']  = 0.0
+    oitarget_table['SPECTYP']   = 'UNKNOWN'
+    oitarget_table['CATEGORY']  = cfdata['hdr']['ESO DPR CATG']
     '''
     oitarget_table['FLUX'] = cfdata['hdr']['HIERARCH ESO SEQ TARG FLUX L']
     oitarget_table['FLUXERR'] = 0.0
@@ -97,51 +109,70 @@ def op_gen_oitarget(cfdata, verbose=True, plot=False):
     '''
        
     return oitarget_table
-    
+
+##############################################
+# 
 def op_gen_oiwavelength(cfdata, verbose=True, plot=False):
+    print('Generating OI_WAVELENGTH...')
     """
     Save the wavelength information in OIFITS format
     """
     # Create the OI_WAVELENGTH table
     oiwavelength_table = Table()
-    oiwavelength_table['EFF_WAVE'] = cfdata['wlen']
+    #oiwavelength_table.meta['NAME']  = 'OI_WAVELENGTH'
+    oiwavelength_table.meta['EXTNAME']  = 'OI_WAVELENGTH'
+    oiwavelength_table.meta['EXTVER']  = 1
+    oiwavelength_table['EFF_WAVE'] = cfdata['OI_WAVELENGTH']['EFF_WAVE']
+    print('Shape of EFF_WAVE:', oiwavelength_table['EFF_WAVE'].shape)
     
-    oiwavelength_table['EFF_BAND'] = 0.0
-    oiwavelength_table['EFF_REF'] = 0.0
+    oiwavelength_table['EFF_BAND']  = 0.0
+    oiwavelength_table['EFF_REF']   = 0.0
     oiwavelength_table['BANDWIDTH'] = 0.0
-    oiwavelength_table['FOV'] = 0.0
-    oiwavelength_table['FOVTYPE'] = 'RADIUS'
+    oiwavelength_table['FOV']       = 0.0
+    oiwavelength_table['FOVTYPE']   = 'RADIUS'
     
     return oiwavelength_table
 
-def op_gen_oivis(cfdata, verbose=True, plot=False):
+##############################################
+# 
+def op_gen_oivis(cfdata, cfin='CF_achr_phase_corr', verbose=True, plot=False):
+    print('Generating OI_VIS...')
     """
     Save the complex visibility in OIFITS format
     """
-    complexvis = cfdata['CF']['CF_demod'][1:,...]
-    complexvis = np.reshape(complexvis, (complexvis.shape[0]* complexvis.shape[1],complexvis.shape[2]))
-    nblines   = complexvis.shape[0]
+    complexvis = cfdata['CF'][cfin][1:,...]
+    print('Shape of complexvis:', complexvis.shape)
+    complexvis2 = np.reshape(np.swapaxes(complexvis, 0,1), (complexvis.shape[0]* complexvis.shape[1],complexvis.shape[2]))
+    nbases    = complexvis.shape[0]
+    nframes   = complexvis.shape[1]
     # Create the OI_VIS table
     oivis_table = Table()
-    print('Shape of target_ID:', nblines)
-    oivis_table['TARGET_ID'] = np.ones(nblines)
-    oivis_table['TARGET']    = np.repeat(cfdata['hdr']['HIERARCH ESO OBS TARG NAME'], nblines)
-    oivis_table['TIME']      = np.repeat(Time(cfdata['hdr']['MJD-OBS'], format='jd'), nblines)
-    oivis_table['MJD']       = np.repeat(Time(cfdata['hdr']['MJD-OBS'], format='jd'), nblines)
-    oivis_table['INT_TIME']  = np.repeat(cfdata['hdr']['HIERARCH ESO DET SEQ1 DIT'], nblines)
-    print('Shape of complexvis:', complexvis.shape)
-    oivis_table['VISAMP']    = np.abs(complexvis)
+    #oivis_table.meta['NAME']  = 'OI_VIS'
+    oivis_table.meta['EXTNAME']  = 'OI_VIS'
+    oivis_table.meta['EXTVER']  = 1
+    oivis_table['TARGET_ID'] = np.repeat(cfdata['OI_BASELINES']['TARGET_ID'], nbases)
+    print('Shape of target_IDxxx:', oivis_table['TARGET_ID'].shape)
+    oivis_table['TARGET']    = cfdata['hdr']['HIERARCH ESO OBS TARG NAME']
+    oivis_table['TIME']      = np.repeat(cfdata['OI_BASELINES']['TIME'], nbases)
+    oivis_table['MJD']       = np.repeat(cfdata['OI_BASELINES']['MJD'],  nbases)
+    oivis_table['INT_TIME']  = np.repeat(cfdata['OI_BASELINES']['INT_TIME'], nbases)
+    #print('Shape of complexvisxxx:', complexvis2.shape)
+    oivis_table['VISAMP']    = np.abs(complexvis2)
     oivis_table['VISAMPERR'] = 0.0
-    oivis_table['VISPHI']    = np.angle(complexvis)
+    oivis_table['VISPHI']    = np.angle(complexvis2)
     oivis_table['VISPHIERR'] = 0.0
     oivis_table['UCOORD']    = 0.0
     oivis_table['VCOORD']    = 0.0
-    oivis_table['STA_INDEX'] = np.array([1, 2], dtype=np.int32)
-    oivis_table['FLAG']      = np.array([0], dtype=np.int32)
+    #print('Shape of STA_INDEX:', np.tile(np.array(cfdata['OI_BASELINES']['STA_INDEX']), (nframes,1)).shape)
+    oivis_table['STA_INDEX'] = np.tile(cfdata['OI_BASELINES']['STA_INDEX'], (nframes,1))
+    oivis_table['FLAG']      = 0
     
     return oivis_table
-    
+
+##############################################
+# 
 def op_write_oifits(filename, hdr, oiwavelength, oirray=None, oitarget=None, oivis=None, oivis2=None, oit3=None):
+    print('Writing OI fits...')
     """
     Write the OIFITS file
     """
@@ -181,3 +212,9 @@ def op_write_oifits(filename, hdr, oiwavelength, oirray=None, oitarget=None, oiv
     oifits.writeto(filename, overwrite=True)
     
     return
+
+##############################################
+# 
+def op_read_oifits(filename):
+    fh = fits.open(filename)
+    return fh

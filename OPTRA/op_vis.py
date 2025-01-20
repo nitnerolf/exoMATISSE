@@ -10,61 +10,97 @@ Project: OPTRA
 from   astropy.stats import sigma_clip
 import numpy as np
 import matplotlib.pyplot as plt
+from op_instruments import *
 
 def op_extract_simplevis2(cfdata, verbose=True, plot=False):
     print('Extracting visibility')
     # Put the sum of the PSD in the first row to the same scale as the other rows
-    psd     = np.abs(cfdata['CF']['CF'])**2
-    niz     = cfdata['CF']['CF_nbpx']
+    psd     = np.abs(cfdata['CF']['data'])**2
     print('Shape of psd:', psd.shape)
+    niz     = cfdata['CF']['CF_nbpx']
+    if verbose:
+        print('Shape of psd:', psd.shape)
     
-    sumPSD  = np.sum(psd, axis=1)
+    sumPSD     = np.sum(psd,    axis=1)
+    npx = np.sum((sumPSD!=0), axis=-1)
+    print('npx:', npx)
+    
+    plt.figure()
+    plt.plot(npx.T)
+    plt.show()
+    ssumPSD    = np.sum(sumPSD, axis=-1)
     background = np.abs(cfdata['CF']['bckg'])**2
-    print('Shape of sumPSD:', sumPSD.shape)
-    print('Shape of background:', background.shape)
+    if verbose:
+        print('Shape of sumPSD:',     sumPSD.shape)
+        print('Shape of ssumPSD:',    ssumPSD.shape)
+        print('Shape of background:', background.shape)
     sumBkg  = np.sum(background, axis=0)
     print('Shape of sumBkg:', sumBkg.shape)
     
-    # plt.figure()
-    # plt.imshow(sumBkg, cmap='viridis')
-    # plt.show()
+    plt.figure()
+    plt.imshow(sumBkg,vmin=0,vmax=5e6)
+    plt.title('Background')
+    plt.show()
     
-    avgBkg = []
-    count = 0
-    filtBkg = np.ma.array(sumBkg, mask=sumBkg==0)
+    filtBkg = np.ma.array(sumBkg, mask=(sumBkg==0))
+    #for iwlen in np.arange(sumBkg.shape[0]):
+    #    filtBkg[iwlen,:] = np.ma.array(sumBkg[iwlen,:], mask=(sumBkg[iwlen,:]==0))
     
-    # plt.figure()
-    # plt.imshow(filtBkg, cmap='viridis')
-    # plt.show()
+    plt.figure()
+    plt.imshow(filtBkg,vmin=0,vmax=8e6)
+    plt.title('Filtered background')
+    plt.show()
     
+    iwlen=560
+    iwlen=400
+    iwlen=1120
+    plt.figure()
+    plt.plot(sumBkg[iwlen,:])
+    plt.plot(filtBkg[iwlen,:],color='red')
+    sbkg = sumBkg[iwlen,:]
+    med = np.median(sbkg[np.where(sbkg!=0)])
+    print('Median:', med)
+    plt.title(f'Background at wavelength {iwlen}')
+    plt.axhline(med)
+    for i in np.arange(7):
+        plt.plot(sumPSD[i,iwlen,:])
+    plt.ylim(-0.1*med, 2*med)
+    plt.show()
+    
+    avgBkg = np.zeros(sumBkg.shape[0])
     for iwlen in np.arange(sumBkg.shape[0]):
-        count+=1
-        if count%100 == 0:
-            print('iwlen:', iwlen)
-        #filtBkg = sigma_clip(sumBkg, sigma=3, maxiters=1)
-        vgbk    = np.mean(filtBkg[iwlen, :])
-        cnt     = filtBkg[iwlen, :].count()
-        origCnt = len(filtBkg[iwlen, :])
-        
-        #print('vgbk:', vgbk)
-        avgBkg.append(vgbk / 5 * (origCnt / cnt)**2)
+        sbkg = sumBkg[iwlen,:]
+        avgBkg[iwlen] = np.median(sbkg[np.where(sbkg!=0)])
     
-    avgBkg = np.array(avgBkg)
+    
+    if verbose:
+        print('Shape of avgBkg:', avgBkg.shape)
+    
+    plt.figure()
+    plt.plot(avgBkg)
+    plt.show()
     
     simplevis = np.zeros((7, sumPSD.shape[1]))
     for i in np.arange(7):    
-        simplevis[i,:] = 36 / 4 * (sumPSD[i,:] - niz[i,:] * avgBkg) / sumPSD[0,:][None, :]
+        if i == 0:
+            # Factor is 6 baselines **2 divided by 4 telescopes
+            simplevis[i,:] = 36 / 4 * (ssumPSD[0,:] / npx[0,] - avgBkg) / (ssumPSD[0,:] / npx[0,:])
+        else:
+            # Factor 2 here because we have only half the pixels in the photometric peak
+            simplevis[i,:] = 2 * 36 / 4 * (ssumPSD[i,:] / npx[i,:] - avgBkg) / (ssumPSD[0,:] / npx[0,:] - avgBkg)
     simplevis[0,:] /= 9
     
     clipvis = sigma_clip(simplevis[0,:], sigma=3, maxiters=5)
     mask    = simplevis[0,:] < 0.99 * np.median(clipvis)
-    print('median of simplevis:', np.mean(clipvis))
-    print('mask:', mask)
+    if verbose:
+        print('median of simplevis:', np.mean(clipvis))
+        print('mask:', mask)
     mask2      = np.repeat(mask[None,:], 7, axis=0)
     simplevis2 = np.ma.array(simplevis, mask=mask2)
     
-    print('Shape of simplevis2:', simplevis2.shape)
-    print('Shape of mask:', mask2.shape)
+    if verbose:
+        print('Shape of simplevis2:', simplevis2.shape)
+        print('Shape of mask:', mask2.shape)
 
     # plt.figure()
     # plt.plot(mask)

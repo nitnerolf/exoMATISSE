@@ -3,6 +3,10 @@
 # Jules Scigliuto, Florentin Millour
 # with the help of Marcel Carbillet
 # 
+########################################################
+# Support work for Houllé et al. 2025
+# Plot of flux vs separation for exoplanets
+# at the entrance of the MATISSE instrument (with AO)
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -94,7 +98,7 @@ def generate_pupil_obstr(dim, D=8, D_obstr=1.2, plot=False):
 
 ################################################
 
-def atm_psg_sha(dim, length, L0, sha):
+def generate_phase_screen_subharmonics(dim, length, L0, sha):
     '''
     directly inspired from the IDL routines of Marcel Carbillet
     '''
@@ -189,7 +193,7 @@ def generate_phase_screen(dim, length, L0, r0, r0_lambda, plot=False, seed="seed
     # Set amplitude of mode 0 to 0
     #modul[np.where(rr==0)] = 0.0
     #compute subharmonics
-    subh_term = atm_psg_sha(dim, length, L0, 9)
+    subh_term = generate_phase_screen_subharmonics(dim, length, L0, 9)
     
     if filter_nmodes > 0:
         nmradius = np.sqrt(np.pi * filter_nmodes)
@@ -360,7 +364,8 @@ D    = 8.0 # telescope diameter m
 D_obs = 1.2 # central obscuration m
 r0   = 0.1 # Fried diameter m
 r0_lamb = 0.5e-6 #m
-#lam  = 0.5e-6 #m 
+rejection = 8.
+#lam  = 0.655e-6 #m 
 #lam  = 1.2e-6 #m 
 #lam  = 2.2e-6 #m 
 lam  = 3.5e-6 #m 
@@ -384,7 +389,7 @@ plot = False
 PSF50 = []
 for i in range(nrepeat):
     print(i)
-    screen, scaling, x_ps = generate_phase_screen(dim, phsz, L0, r0, r0_lamb, plot=plot, seed="random", filter_nmodes=50)
+    screen, scaling, x_ps = generate_phase_screen(dim, phsz, L0, r0, r0_lamb, plot=plot, seed="random", filter_nmodes=50, rejection=rejection)
     if i == 0:
         E_img, psf, ps_dim, E_perfect, psf_perfect = generate_turbulent_psf(D, phsz, screen, lam, plot=plot, n_pad=n_pad, gen_perfect_psf=True)
     else:
@@ -396,7 +401,7 @@ average_PSF_PERFECT = psf_perfect
 PSF500 = []
 for i in range(nrepeat):
     print(i)
-    screen, scaling, x_ps = generate_phase_screen(dim, phsz, L0, r0, r0_lamb, plot=plot, seed="random", filter_nmodes=500)
+    screen, scaling, x_ps = generate_phase_screen(dim, phsz, L0, r0, r0_lamb, plot=plot, seed="random", filter_nmodes=500, rejection=rejection)
     E_img, psf, ps_dim = generate_turbulent_psf(D, phsz, screen, lam, plot=plot, n_pad=n_pad)
     PSF500.append(psf)
 average_PSF500 = np.mean(PSF500, axis=0)
@@ -407,7 +412,7 @@ dim = average_PSF500.shape[0]
 
 fig0, ax0 = plt.subplots(2, 3, figsize=(15, 8))
 
-plt.suptitle('Comparison of PSF with 50 and 500 modes (3.5 µm)')
+plt.suptitle(f'Comparison of PSF with 50 and 500 modes ({lam*1e6} µm)')
 
 ax0[0,0].set_title('Average PSF with 50 modes')
 ax0[0,0].imshow(np.log(average_PSF50))

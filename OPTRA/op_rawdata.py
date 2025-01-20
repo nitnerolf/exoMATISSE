@@ -42,6 +42,7 @@ from   scipy import *
 import numpy as np
 import fnmatch
 import matplotlib.pyplot as plt
+from op_instruments import *
 
 ##############################################
 # Function to interpolate bad pixels
@@ -57,7 +58,7 @@ def op_interpolate_bad_pixels(data, bad_pixel_map, verbose=False):
 
 ##############################################
 # Load bad pixel map
-def op_load_bpm(filename, verbose=True):
+def op_load_bpm(filename, verbose=False):
     if verbose:
         print('Loading bad pixel map...')
     fh = fits.open(filename)
@@ -67,14 +68,14 @@ def op_load_bpm(filename, verbose=True):
 
 ##############################################
 # Apply bpm
-def op_apply_bpm(rawdata, bpmap, verbose=True):
+def op_apply_bpm(rawdata, bpmap, verbose=False):
     if verbose:
         print('Applying bad pixel map...')
     # Subtract sky from rawdata
     
     corner = rawdata['INTERF']['corner']
     naxis  = rawdata['INTERF']['naxis']
-    intf  = rawdata['INTERF']['data']
+    intf   = rawdata['INTERF']['data']
     nframe = np.shape(intf)[0]
     if verbose:
         print(f'Processing {nframe} frames')
@@ -89,7 +90,7 @@ def op_apply_bpm(rawdata, bpmap, verbose=True):
     for key in rawdata['PHOT']:
         corner = rawdata['PHOT'][key]['corner']
         naxis  = rawdata['PHOT'][key]['naxis']
-        phot  = rawdata['PHOT'][key]['data']
+        phot   = rawdata['PHOT'][key]['data']
         wbpm = bpmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
         # Interpolate bad pixels in each frame
         fdata = []
@@ -113,7 +114,7 @@ def op_apply_bpm(rawdata, bpmap, verbose=True):
 
 ##############################################
 # Load flat field map
-def op_load_ffm(filename, verbose=True):
+def op_load_ffm(filename, verbose=False):
     if verbose:
         print('Loading flat field...')
     fh = fits.open(filename)
@@ -123,7 +124,7 @@ def op_load_ffm(filename, verbose=True):
 
 ##############################################
 # Apply flat field map
-def op_apply_ffm(rawdata, ffmap, verbose=True):
+def op_apply_ffm(rawdata, ffmap, verbose=False):
     if verbose:
         print('Applying flat field map...')
     # Subtract sky from rawdata
@@ -167,7 +168,7 @@ def op_apply_ffm(rawdata, ffmap, verbose=True):
 
 ##############################################
 # Subtract sky
-def op_subtract_sky(rawdata, skydata, verbose=True):
+def op_subtract_sky(rawdata, skydata, verbose=False):
     if verbose:
         print('Subtracting sky...')
     # Compute robust average of sky
@@ -191,9 +192,10 @@ def op_print_fits_structure(fits_data):
         #print(f'Header:\n{hdu.header}')
         if hdu.data is not None:
             if hdu.is_image:
-                print('This HDU contains image data.')
+                print('This is an image.')
             else:
                 print('This is a table.')
+            #print(f'Name: {hdu.hdr['EXTNAME']}')
             if isinstance(hdu.data, np.recarray):
                 print(f'Columns: {hdu.data.dtype.names}')
             print(f'Data shape: {hdu.data.shape}')
@@ -221,11 +223,15 @@ def op_match_keys(fits_data, keys, values, hdu=0):
 
 ##############################################
 # Load raw data
+##############################################
+# Load raw data
 def op_load_rawdata(filename, verbose=True):
     print('Loading raw data...')
     fh      =  fits.open(filename)
     data    = {'hdr': fh[0].header}
     nframes = len(fh['IMAGING_DATA'].data)
+    nexp    = len(fh['IMAGING_DATA'].data)//6
+    #print('nexp:',nexp)
     nreg    = len(fh['IMAGING_DETECTOR'].data)
     
     data['PHOT'] = {}
@@ -236,12 +242,36 @@ def op_load_rawdata(filename, verbose=True):
     data['ARRAY_GEOMETRY']    = fh['ARRAY_GEOMETRY'].data
     data['OPTICAL_TRAIN']     = fh['OPTICAL_TRAIN'].data
     
+    # Fill in the OI_ARRAY table
+    data['OI_ARRAY'] = {}
+    data['OI_ARRAY']['TEL_NAME']  = data['ARRAY_GEOMETRY']['TEL_NAME']
+    data['OI_ARRAY']['STA_NAME']  = data['ARRAY_GEOMETRY']['STA_NAME']
+    data['OI_ARRAY']['STA_INDEX'] = data['ARRAY_GEOMETRY']['STA_INDEX']
+    data['OI_ARRAY']['DIAMETER']  = data['ARRAY_GEOMETRY']['DIAMETER']
+    data['OI_ARRAY']['STAXYZ']    = data['ARRAY_GEOMETRY']['STAXYZ']
+    
     # Load the local OPD table that contains the modulation information
     localopd = []
+    mjds = []
+    tartyp = []
+    exptime = []
+    target = []
+
     for i in np.arange(nframes):
         localopd.append(fh['IMAGING_DATA'].data[i]['LOCALOPD'].astype(float))
+        mjds.append(    fh['IMAGING_DATA'].data[i]['TIME'].astype(float))
+        exptime.append( fh['IMAGING_DATA'].data[i]['EXPTIME'])
+        target.append(  fh['IMAGING_DATA'].data[i]['TARGET'])
+        tartyp.append(  fh['IMAGING_DATA'].data[i]['TARTYP'])
     localopd = np.array(localopd) 
-    print('Localopd:', localopd)
+    mjds = np.array(mjds)
+    tartyp = np.array(tartyp)
+    exptime = np.array(exptime)
+    target = np.array(target)
+
+    #print('Localopd:', localopd)
+    #print('MJDs:', mjds)
+    #print('TARTYP:', tartyp)
     
     for j in np.arange(nreg):
         corner = fh['IMAGING_DETECTOR'].data[j]['CORNER']
@@ -255,6 +285,11 @@ def op_load_rawdata(filename, verbose=True):
             data['INTERF']['corner']   = corner
             data['INTERF']['naxis']    = naxis
             data['INTERF']['localopd'] = localopd
+            data['INTERF']['mjds']     = mjds
+            data['INTERF']['tartyp']   = tartyp
+            data['INTERF']['exptime']  = exptime
+            data['INTERF']['target']   = target
+
         elif fnmatch.fnmatch(fh['IMAGING_DETECTOR'].data['REGNAME'][j], 'PHOT*'):
             key = fh['IMAGING_DETECTOR'].data['REGNAME'][j]
             data['PHOT'][key]={}
@@ -272,7 +307,7 @@ def op_load_rawdata(filename, verbose=True):
 
 ##############################################
 # Load and calibrate raw data
-def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, verbose=True, plot=False):
+def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, instrument=op_MATISSE_L, verbose=False, plot=False):
     print('loading and calibrating raw data...')
     # Load the star and sky data
     tardata  = op_load_rawdata(sciencefile)
@@ -298,5 +333,15 @@ def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, verbose=True, plot=Fal
 
     fdata = op_apply_ffm(stardata, ffm, verbose=verbose)
     bdata = op_apply_bpm(fdata, bpm, verbose=verbose)
+    
+    bdata['OI_BASELINES'] = {}
+    bdata['OI_BASELINES']['TARGET_ID'] = bdata['INTERF']['target']
+    bdata['OI_BASELINES']['TARGET']    = bdata['hdr']['ESO OBS TARG NAME']
+    bdata['OI_BASELINES']['TIME']      = 86400 * (bdata['INTERF']['mjds'] - bdata['INTERF']['mjds'][0])
+    bdata['OI_BASELINES']['MJD']       = bdata['INTERF']['mjds']
+    bdata['OI_BASELINES']['INT_TIME']  = bdata['INTERF']['exptime']
+    bdata['OI_BASELINES']['STA_INDEX'] = bdata['OI_ARRAY']['STA_INDEX'][instrument['scrB']]
+    #print('Scrambling of baselines:', bdata['OI_ARRAY']['STA_INDEX'][instrument['scrB']])
+    
     
     return bdata

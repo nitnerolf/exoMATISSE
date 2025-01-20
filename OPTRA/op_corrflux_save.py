@@ -1,7 +1,7 @@
 '''
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Correlated flux computation
-Author: fmillour, jscigliuto
+Author: fmillour
 Date: 01/07/2024
 Project: OPTRA
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -249,7 +249,7 @@ def op_extract_CF(fftdata, peaks, peakswd, verbose=True, plot=False):
 
 ##############################################
 # demodulate MATISSE fringes
-def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
+def op_demodulate(CFdata, verbose=False, plot=False):
     wlen = CFdata['OI_WAVELENGTH']['EFF_WAVE']
     
     if verbose:
@@ -288,9 +288,9 @@ def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
     phasor = np.exp(2j * np.pi * localopdij[:,:,None] / wlen[None,None,:] )
     
     CFdata['CF']['mod_phasor']         = phasor
-    CFdata['CF']['CF_demod']           = np.zeros_like(CFdata['CF'][cfin])
-    CFdata['CF']['CF_demod'][0,...]    = CFdata['CF'][cfin][0,...]
-    CFdata['CF']['CF_demod'][1:,...]   = CFdata['CF'][cfin][1:,...]   * np.conjugate(phasor)
+    CFdata['CF']['CF_demod']           = np.zeros_like(CFdata['CF']['CF'])
+    CFdata['CF']['CF_demod'][0,...]    = CFdata['CF']['CF'][0,...]
+    CFdata['CF']['CF_demod'][1:,...]   = CFdata['CF']['CF'][1:,...]   * np.conjugate(phasor)
     CFdata['CF']['data_demod']         = np.zeros_like(CFdata['CF']['data'])
     CFdata['CF']['data_demod'][0,...]  = CFdata['CF']['data'][0,...]
     CFdata['CF']['data_demod'][1:,...] = CFdata['CF']['data'][1:,...] * np.conjugate(phasor[...,None])
@@ -524,9 +524,9 @@ def op_sortout_peaks(peaksin, verbose=False):
 
 ##############################################
 # reorder baselines 
-def op_reorder_baselines(data, cfin='CF_demod'):
+def op_reorder_baselines(data):
 
-    cfdata = data['CF'][cfin]
+    cfdata = data['CF']['CF_demod']
     # print(cfdata.shape) #base/frame/wl 7/6/1560
     n_frames = np.shape(cfdata)[1]
     n_exp = n_frames // 6
@@ -567,6 +567,8 @@ def op_get_amb_conditions(data, verbose=False):
 
     # Relative humidity
     humidity = data['hdr']['ESO ISS AMBI RHUM'] / 100
+    if verbose:
+        print('Relative humidity:', humidity)
 
     # Temperature (°C)
     T1 = data['hdr']['ESO ISS TEMP TUN1']
@@ -788,50 +790,43 @@ def op_get_piston_fft(data, verbose=False, plot=True):
         print('Calculating piston from FFT...')
 
     wlen = data['OI_WAVELENGTH']['EFF_WAVE']
-    # cf = data['CF']['CF_achr_phase_corr']
-    cf = data['CF']['CF_Binned']
-    
     #Linear interpolation in wavenumber sigma
     sigma     = 1.0/wlen
-    
-    dsigma = np.diff(sigma)
-    # Make sigma increasing
-    if np.mean(dsigma) < 0:
-        sigma     = sigma[::-1]
-        cf        = cf[...,::-1]
-        
-    step      = np.min(np.abs(dsigma))
+    sigma     = sigma[::-1]
+    step      = np.min(np.abs(np.diff(sigma)))
     sigma_lin = np.arange(min(sigma), max(sigma), step)
 
-    print('cf shape:', cf.shape)
-    n_base  = np.shape(cf)[0]
-    n_frame = np.shape(cf)[1]
-    n_wlen  = np.shape(cf)[2]
-    print('n_base:', n_base, 'n_frame:', n_frame)
+    # cf = data['CF']['CF_achr_phase_corr']
+    cf = data['CF']['CF_Binned']
 
-    data['CF']['CF_sigma'] = np.zeros((cf.shape[0],cf.shape[1],sigma_lin.shape[0]), dtype=complex)
+    n_base = np.shape(cf)[0]
+    n_frame = np.shape(cf)[1]
+
+    data['CF']['CF_sigma'] = np.zeros((7,6,sigma_lin.shape[0]), dtype=complex)
     OPD_lst = np.zeros((n_base,n_frame))
     if plot:
-        fig, ax = plt.subplots(n_base, 1, figsize=(8, 8))
+        fig, ax = plt.subplots(7, 1, figsize=(8, 8))
         colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
 
     for i_base in range(n_base):
+            
         for i_frame in range(n_frame):
+
             #Interpolation of correlated flux 
-            f = interpolate.interp1d(sigma, np.real(cf[i_base, i_frame,...]))
+            f = interpolate.interp1d(sigma, np.real(cf[i_base, i_frame]))
             cf_real_interp = f(sigma_lin)
-            f = interpolate.interp1d(sigma, np.imag(cf[i_base, i_frame,...]))
+            f = interpolate.interp1d(sigma, np.imag(cf[i_base, i_frame]))
             cf_imag_interp = f(sigma_lin)
             cf_interp = cf_real_interp + 1j * cf_imag_interp
 
             data['CF']['CF_sigma'][i_base, i_frame] = cf_interp
             
             log_base_2 = int(math.log2(cf_interp.size)) 
-            new_size = int(2**(log_base_2+4))
+            new_size = int(2**(log_base_2+2))
             cf_interp = np.pad(cf_interp, (new_size//2 - cf_interp.shape[0]//2), mode='constant', constant_values=0)
 
             fft_cf = np.fft.fftshift(np.fft.fft(cf_interp))
-            OPDs   = np.fft.fftshift(np.fft.fftfreq(cf_interp.shape[0], step))
+            OPDs = np.fft.fftshift(np.fft.fftfreq(cf_interp.shape[0], step)) * 1e6 
 
             #OPD determination
             OPD = OPDs[np.argmax(np.abs(fft_cf))]
@@ -840,15 +835,11 @@ def op_get_piston_fft(data, verbose=False, plot=True):
 
 
         if plot:
-            ax[i_base].plot(OPDs * 1e6, np.sqrt(fft_cf.real**2 + fft_cf.imag**2), color=colors[i_base])
+            ax[i_base].plot(OPDs, np.sqrt(fft_cf.real**2 + fft_cf.imag**2), color=colors[i_base])
             ax[i_base].set_xlabel('OPD [µm]')
             ax[i_base].set_xlim(-600, 600)
 
-    # if verbose:
-    #     print('OPD:', OPD_lst)
-
     data['CF']['piston_fft'] = OPD_lst
-    data['CF']['pistons']    = OPD_lst
     return data, OPD_lst
 
 #################################################
@@ -869,9 +860,9 @@ def op_get_piston_slope(data, wlenmin=3.5e-6, wlenmax=3.9e-6, verbose=False, plo
     for i_base in range(n_bases):
         for i_frame in range(n_frames):
             wl_mask = (wlen > wlenmin) & (wlen < wlenmax)
-            wlenm   = wlen[wl_mask]
-            phasem  = np.angle(cf[i_base, i_frame])[wl_mask]
-            slope   = np.polyfit(wlenm, phasem, 1)[0]
+            wlenm = wlen[wl_mask]
+            phasem = np.angle(cf[i_base, i_frame])[wl_mask]
+            slope = np.polyfit(wlenm, phasem, 1)[0]
             ords_og = np.polyfit(wlenm, phasem, 1)[1]
             slopes[i_base, i_frame] = slope
             ord_og[i_base, i_frame] = ords_og
@@ -886,9 +877,8 @@ def op_get_piston_slope(data, wlenmin=3.5e-6, wlenmax=3.9e-6, verbose=False, plo
             ax[i_base].set_ylabel('Piston slope')
 
     wlenmm = np.mean(wlenm)
-    slopes *= -(wlenmm**2) / (2 * np.pi) #rad/m -> µm
+    slopes *= 1e6 * (wlenmm**2) / (2 * np.pi) #rad/m -> µm
     data['CF']['piston_slope'] = slopes
-    data['CF']['pistons'] = slopes
 
     return data, slopes
 
@@ -900,7 +890,6 @@ def op_get_piston_chi2(data, init_guess, verbose=False, plot=False):
         print('Calculating piston using chi2 minimization...')
 
     wlen         = data['OI_WAVELENGTH']['EFF_WAVE']
-    wlenMean     = np.mean(wlen)
     # cf           = data['CF']['CF_achr_phase_corr']
     cf           = data['CF']['CF_Binned']
     n_bases      = cf.shape[0]
@@ -914,68 +903,41 @@ def op_get_piston_chi2(data, init_guess, verbose=False, plot=False):
         OPDs = data['CF']['piston_fft']
         init_guess = OPDs
 
-    def chi2_1(piston, cf1D, wlen):
-        phasor_model = np.exp(-2j * np.pi * piston / wlen)
-        cres = cf1D * phasor_model
-        chi2_val    = np.sum(cres.imag**2) / np.sum(np.abs(cres)**2)
-        return chi2_val
-
-    def chi2_1b(piston_offset, cf1D, wlen):
-        phasor_model = np.exp(-2j * np.pi * (piston_offset[0] / wlen - piston_offset[1]))
-        cres = cf1D * phasor_model
-        chi2_val    = np.sum(cres.imag**2) / np.sum(np.abs(cres)**2)
-        return chi2_val
-
-    def chi2_2(piston, cf1D, wlen):
-        phasor_model = np.exp(2j * np.pi * piston / wlen)
-        phasor = cf1D * np.conj(phasor_model)
-        chi2_val    = np.sum(np.angle(phasor))**2 * np.sum(np.abs(cf1D)) **2
+    def chi2(piston, cf, wlen):
+        phase_model = np.angle(np.exp(1j * 2 * np.pi * piston / wlen))
+        phase = np.angle(cf)
+        residual = (np.angle(np.exp(1j * phase)) - phase_model)**2 / np.std(phase)**2
+        chi2_val = np.sum(residual)
         return chi2_val
 
     for i_base in range(n_bases):
         for i_frame in range(n_frames):
             cf_frame = cf[i_base, i_frame]
-            initial_guess = (init_guess[i_base, i_frame],0)  # Initial guess for the piston
-            result = minimize(chi2_1b, initial_guess, args=(cf_frame, wlen))
-            print('result:', result.x)
-            pistons[i_base, i_frame] = result.x[0]
+            initial_guess = init_guess[i_base, i_frame]  # Initial guess for the piston
+            result = minimize(chi2, initial_guess, args=(cf_frame, wlen))
+            pistons[i_base, i_frame] = result.x
 
     if plot:
-        fig, ax = plt.subplots(7, 2, figsize=(8, 8))
+        fig, ax = plt.subplots(7, 1, figsize=(8, 8))
         colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
         for i_base in range(n_bases):
-            ax[i_base,0].plot(pistons[i_base], color=colors[i_base], marker='*', linestyle='dashed', label='Final')
-            ax[i_base,0].plot(init_guess[i_base], color=colors[i_base], marker='*', label='Initial')
-            ax[i_base,0].legend()
-            ax[i_base,0].set_xlabel('Frame')
-            ax[i_base,0].set_ylabel('Piston [µm]')
-            ax[i_base,0].set_ylim(-10e-6,10e-6)
-            
-            pistonss = np.linspace(-100e-6, 100e-6, 1000)
-            chi2s = np.copy(pistonss)
-            for i_frame in range(n_frames):
-                for ipist,pist in enumerate(pistonss):
-                    chi2s[ipist] = chi2_1(pist, cf[i_base, i_frame], wlen)
-                ax[i_base,1].plot(pistonss, chi2s)
-            ax[i_base,1].set_xlim(-10e-6,10e-6)
+            ax[i_base].plot(pistons[i_base], color=colors[i_base], marker='*')
+            ax[i_base].set_xlabel('Frame')
+            ax[i_base].set_ylabel('Piston [µm]')
 
-    plt.show()
-    #if verbose:
-    print('OPD chi2:', pistons)
-    
-    data['CF']['pistons'] = -pistons
+    data['CF']['pistons'] = pistons
     return data, pistons
 
 ####################################################
 # Function to correct from the residual piston
 
-def op_corr_piston(data, cfin='CF_Binned', verbose=False, plot=False):
+def op_corr_piston(data, verbose=False, plot=False):
     if verbose:
         print('Correcting for the residual piston...')
 
     wlen     = data['OI_WAVELENGTH']['EFF_WAVE']
     # cf = data['CF']['CF_achr_phase_corr']
-    cf       = data['CF'][cfin]
+    cf       = data['CF']['CF_Binned']
     pistons  = data['CF']['pistons']
     n_bases  = cf.shape[0]
     n_frames = cf.shape[1]
@@ -985,15 +947,15 @@ def op_corr_piston(data, cfin='CF_Binned', verbose=False, plot=False):
     for i_base in np.arange(6):
         for i_frame in range(n_frames):
             cf_frame = cf[i_base+1, i_frame]
-            piston = pistons[i_base+1, i_frame]
+            piston = pistons[i_base, i_frame]
             # print('piston:', piston)   
-            corr =  np.exp(1j * 2 * np.pi * piston / wlen)
+            corr =  np.exp(1j * 2 * np.pi * piston * 1e-6 / wlen)
             cf_corr = cf_frame * np.conj(corr)
             data['CF']['CF_piston_corr'][i_base+1, i_frame] = cf_corr
     
     if plot:
         colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
-        fig, ax = plt.subplots(n_bases, 1, figsize=(8, 8))
+        fig, ax = plt.subplots(7, 1, figsize=(8, 8))
         for i_base in range(n_bases):
             ax[i_base].plot(np.angle(data['CF']['CF_piston_corr'][i_base, 0]), color=colors[i_base])
     plt.show()
