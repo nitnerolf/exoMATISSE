@@ -8,6 +8,7 @@ from astropy.io import fits
 
 ##############################################################################################################################
 
+
 def simiGetLocation(place, interferometer=None):
     """
     Fills in the SimiLOCATION structure based on the input place and interferometer.
