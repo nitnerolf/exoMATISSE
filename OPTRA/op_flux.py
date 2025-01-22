@@ -11,7 +11,11 @@ def op_extract_beams(rawdata):
     for key in rawdata['PHOT']:
         photi = rawdata['PHOT'][key]['data']
         # Do something with photi
+        photishape = np.mean(photi,axis=0)
+        photishape = photishape / np.mean(photishape)
+        photivar   = np.mean(photi,axis=[1,2])
         print('Photi:', np.shape(photi))
+        
 
 def op_compute_kappa():
     here_do_domething

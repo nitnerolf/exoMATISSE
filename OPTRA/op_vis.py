@@ -84,10 +84,10 @@ def op_extract_simplevis2(cfdata, verbose=True, plot=False):
     for i in np.arange(7):    
         if i == 0:
             # Factor is 6 baselines **2 divided by 4 telescopes
-            simplevis[i,:] = 36 / 4 * (ssumPSD[0,:] / npx[0,] - avgBkg) / (ssumPSD[0,:] / npx[0,:])
+            simplevis[i,:] = 36 / 4 * (ssumPSD[0,:] / npx[0,:] - avgBkg) / (ssumPSD[0,:] / npx[0,:])
         else:
             # Factor 2 here because we have only half the pixels in the photometric peak
-            simplevis[i,:] = 2 * 36 / 4 * (ssumPSD[i,:] / npx[i,:] - avgBkg) / (ssumPSD[0,:] / npx[0,:] - avgBkg)
+            simplevis[i,:] = 36 / 4 * (ssumPSD[i,:] / npx[i,:] - avgBkg) / (ssumPSD[0,:] / npx[0,:] - avgBkg) * npx[i,:] / npx[0,:]
     simplevis[0,:] /= 9
     
     clipvis = sigma_clip(simplevis[0,:], sigma=3, maxiters=5)
@@ -106,6 +106,9 @@ def op_extract_simplevis2(cfdata, verbose=True, plot=False):
     # plt.plot(mask)
     # plt.plot(simplevis[0,:])
     # plt.show()
+    
+    cfdata['VIS2'] = {}
+    cfdata['VIS2']['simplevis2'] = simplevis2
     
     return simplevis2, mask2
 
