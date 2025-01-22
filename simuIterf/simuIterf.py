@@ -6,6 +6,7 @@ import math
 import os
 from astropy.io import fits
 
+
 ##############################################################################################################################
 
 def simiGetLocation(place, interferometer=None):
