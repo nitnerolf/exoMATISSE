@@ -1,6 +1,6 @@
 """
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Example script to process MATISSE data of beta Pic b
+Example script to process MATISSE data of beta Pic b with GPAO
 Author: fmillour
 Date: 18/11/2024
 Project: OPTRA
@@ -21,13 +21,13 @@ from scipy         import *
 from scipy         import stats
 
 #plt.ion()
-plot = False
+plot = 0
 plotFringes = plot
 plotPhi     = plot
 plotDsp     = plot
 plotRaw     = plot
 plotCorr    = plot
-plotPist = plot
+plotPist    = plot
 
 verbose = False
 
@@ -127,14 +127,15 @@ for ifile in starfiles:
 
     #caldir    = '/Users/jscigliuto/Nextcloud/DATA/CALIB2024/'
     caldir    = '~/Documents/ExoMATISSE/CALIB2024/'
-    kappafile = caldir+'KAPPA_MATRIX_L_MED.fits'
-    shiftfile = caldir+'SHIFT_L_MED.fits'
-    flatfile  = caldir+'FLATFIELD_L_SLOW.fits'
-    badfile   = caldir+'BADPIX_L_SLOW.fits'
+    kappafile = caldir+'KAPPA_MATRIX_L_MED.fits.gz'
+    shiftfile = caldir+'SHIFT_L_MED.fits.gz'
+    flatfile  = caldir+'FLATFIELD_L_SLOW.fits.gz'
+    badfile   = caldir+'BADPIX_L_SLOW.fits.gz'
 
     ##########################################################
 
     bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=verbose, plot=plotRaw)
+    
 
     ##########################################################
 
@@ -174,7 +175,7 @@ for ifile in starfiles:
     cfdata['hdr']['ESO INS BCD1 ID']                          +\
     cfdata['hdr']['ESO INS BCD2 ID']
         
-    if 1:
+    if 0:
         vis2, mask = op_extract_simplevis2(cfdata, verbose=verbose, plot=False)
         #print(mask)
         #print(~mask)
@@ -210,7 +211,8 @@ for ifile in starfiles:
 
     #print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
     #cf = cfdem['CF']['CF_achr_phase_corr']
-    cf = cfdem['CF']['CF_Binned']
+    cf   = cfdem['CF']['CF_Binned']
+    wlen = cfdata['OI_WAVELENGTH']['EFF_WAVE_Binned']
     #cf = cfdem['CF']['CF_demod']
     #cf = cfdem['CF']['CF_reord']
     sumcf = np.sum(cf, axis=1)
@@ -314,7 +316,6 @@ for ifile in starfiles:
         return lines
     ani = animation.FuncAnimation(fig, update, frames=cfdata['CF']['CF'].shape[1], init_func=init, blit=True)
     plt.show()
-        
     if plotDsp:
         plt.figure(5)
         for i in np.arange(6)+1:
@@ -323,8 +324,5 @@ for ifile in starfiles:
                 plt.plot(np.max(np.abs(cfdata['CF']['data'][i,iframe,:,:]),axis=1) / np.abs(cfdata['CF']['CF'][0,0,:])*3*7,':',color=colors[i])
         plt.ylim(-0.2,1.2)
         plt.title('This one should resemble a visibility curve')
-
-
-
     plt.show()
     '''
