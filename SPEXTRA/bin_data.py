@@ -3,7 +3,7 @@
 
 #################################################################################################
 
-# Bin the OIFITS data by chunks of 5 spectral channels.
+# Bin the OIFITS data by chunks of n_bin spectral channels.
 
 # Requires:
 # - A directory with all reduced frame files from phase_correction.py
@@ -23,12 +23,14 @@ from astropy.io import fits
 
 path_oifits = '/data/home/jscigliuto/Pipeline/corrPhase1/'
 
+n_bin = 5
+
 #################################################################################################
 
 path_oifits_corrected = path_oifits 
 
-if not os.path.isdir(path_oifits + '/corrected_data_5bin/'):
-    os.makedirs(path_oifits + '/corrected_data_5bin/')
+if not os.path.isdir(path_oifits + f'/corrected_data_{n_bin}bin/'):
+    os.makedirs(path_oifits + f'/corrected_data_{n_bin}bin/')
 
 files = sorted(os.listdir(path_oifits_corrected))
 
@@ -77,12 +79,12 @@ for file in files:
     t3_imag_err = np.sqrt((np.sin(t3_phi) * t3_amp_err)**2 + (t3_amp * np.cos(t3_phi) * t3_phi_err)**2)
 
     # Bin
-    wl = wl.reshape(-1, 5).mean(axis=1)
+    wl = wl.reshape(-1, n_bin).mean(axis=1)
     
-    cf_real = np.real(cf).reshape(n_base, -1, 5).mean(axis=2)
-    cf_imag = np.imag(cf).reshape(n_base, -1, 5).mean(axis=2)
-    cf_real_err = np.sqrt((cf_real_err**2).reshape(n_base, -1, 5).mean(axis=2))
-    cf_imag_err = np.sqrt((cf_imag_err**2).reshape(n_base, -1, 5).mean(axis=2))
+    cf_real = np.real(cf).reshape(n_base, -1, n_bin).mean(axis=2)
+    cf_imag = np.imag(cf).reshape(n_base, -1, n_bin).mean(axis=2)
+    cf_real_err = np.sqrt((cf_real_err**2).reshape(n_base, -1, n_bin).mean(axis=2))
+    cf_imag_err = np.sqrt((cf_imag_err**2).reshape(n_base, -1, n_bin).mean(axis=2))
     
     cf = cf_real + 1j * cf_imag
     cf_amp = np.abs(cf)
@@ -90,10 +92,10 @@ for file in files:
     cf_amp_err = np.sqrt((cf_real*cf_real_err)**2 + (cf_imag*cf_imag_err)**2) / cf_amp
     cf_phi_err = np.sqrt((cf_imag*cf_real_err)**2 + (cf_real*cf_imag_err)**2) / cf_amp**2
 
-    t3_real = np.real(t3).reshape(n_triangle, -1, 5).mean(axis=2)
-    t3_imag = np.imag(t3).reshape(n_triangle, -1, 5).mean(axis=2)
-    t3_real_err = np.sqrt((t3_real_err**2).reshape(n_triangle, -1, 5).mean(axis=2))
-    t3_imag_err = np.sqrt((t3_imag_err**2).reshape(n_triangle, -1, 5).mean(axis=2))
+    t3_real = np.real(t3).reshape(n_triangle, -1, n_bin).mean(axis=2)
+    t3_imag = np.imag(t3).reshape(n_triangle, -1, n_bin).mean(axis=2)
+    t3_real_err = np.sqrt((t3_real_err**2).reshape(n_triangle, -1, n_bin).mean(axis=2))
+    t3_imag_err = np.sqrt((t3_imag_err**2).reshape(n_triangle, -1, n_bin).mean(axis=2))
     
     t3 = t3_real + 1j * t3_imag
     t3_amp = np.abs(t3)
@@ -158,6 +160,6 @@ for file in files:
 
     hdul_bin = fits.HDUList([hdu0, hdu_target, hdu_array, hdu_wave, hdu_vis, hdu_t3])
     #hdul.writeto(f'{path_results}/corrected_data/{obs_time}_exp{i_exp+1}_frame{i_frame+1}.fits', overwrite=True)
-    hdul_bin.writeto(f"{path_oifits}/corrected_data_5bin/{file[:file.find('.fits')]}_bin.fits", overwrite=True)
+    hdul_bin.writeto(f"{path_oifits}/corrected_data_{n_bin}bin/{file[:file.find('.fits')]}_bin.fits", overwrite=True)
 
     hdul.close()
