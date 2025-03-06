@@ -1,11 +1,14 @@
-"""
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Example script to process the data of HR8799e with OPTRA
-Author: fmillour
-Date: 29/09/2024
-Project: OPTRA
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+################################################################################
+#
+# Example script to process the data of HR8799e with OPTRA
+# Author: fmillour
+# Date: 29/09/2024
+# Project: OPTRA
+#
+################################################################################
 
 from op_corrflux   import *
 from op_rawdata    import *

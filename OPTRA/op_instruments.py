@@ -1,11 +1,14 @@
-"""
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Instrument-specific parameters for the OPTRA project.
-Author: fmillour
-Date: 04/12/2024
-Project: OPTRA
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+################################################################################
+#
+# Instrument-specific parameters for the OPTRA project.
+# Author: fmillour
+# Date: 04/12/2024
+# Project: OPTRA
+#
+################################################################################
 
 #################################################
 # Instrument-specific parameters for VINCI

@@ -1,11 +1,14 @@
-"""
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Example of OPTRA pipeline for the beta Pic c data
-Author: fmillour
-Date: 19/11/2024
-Project: OPTRA
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+################################################################################
+#
+# Example of OPTRA pipeline for the beta Pic c data
+# Author: fmillour
+# Date: 19/11/2024
+# Project: OPTRA
+#
+################################################################################
 
 from op_corrflux   import *
 from op_rawdata    import *

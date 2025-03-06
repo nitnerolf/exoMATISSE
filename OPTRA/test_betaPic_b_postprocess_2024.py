@@ -1,11 +1,14 @@
-"""
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Example script to post-process MATISSE data of beta Pic b
-Author: fmillour
-Date: 06/12/2024
-Project: OPTRA
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+################################################################################
+#
+# Example script to post-process MATISSE data of beta Pic b
+# Author: fmillour
+# Date: 06/12/2024
+# Project: OPTRA
+#
+################################################################################
 
 from op_corrflux   import *
 from op_rawdata    import *

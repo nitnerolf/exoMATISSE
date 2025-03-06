@@ -1,11 +1,15 @@
-"""
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Functions to extract visibilities from the CF data
-Author: fmillour
-Date: 18/11/2024
-Project: OPTRA
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+################################################################################
+#
+# Functions to extract visibilities from the CF data
+# Author: fmillour
+# Date: 18/11/2024
+# Project: OPTRA
+#
+################################################################################
+
 
 from   astropy.stats import sigma_clip
 import numpy as np

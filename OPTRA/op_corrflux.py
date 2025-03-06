@@ -1,15 +1,19 @@
-'''
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Correlated flux computation
-Author: fmillour, jscigliuto
-Date: 01/07/2024
-Project: OPTRA
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-This module contains functions for computing correlated flux, apodizing data, computing FFT of interferograms,
-extracting correlated flux, demodulating MATISSE fringes, sorting out beams and peaks, and computing the air refractive index.
-
-'''
+################################################################################
+#
+# Correlated flux computation
+# Author: fmillour, jscigliuto, mhoulle
+# Date: 01/07/2024
+# Project: OPTRA
+#
+# This module contains functions for computing correlated flux, apodizing data,
+# computing FFT of interferograms, extracting correlated flux, demodulating 
+# MATISSE fringes, sorting out beams and peaks, and computing the air refractive 
+# index.
+#
+################################################################################
 
 from os import error
 from astropy.io import fits
@@ -1023,8 +1027,8 @@ def op_corr_piston(data, cfin='CF_Binned', verbose=False, plot=False):
 ##############################################
 # Bin data
 def op_bin_data(data, binning=5, cfin='CF_achr_phase_corr', verbose=False, plot=False):
-    wlen = data['OI_WAVELENGTH']['EFF_WAVE']
-    cfdem = data['CF'][cfin]
+    wlen   = data['OI_WAVELENGTH']['EFF_WAVE']
+    cfdem  = data['CF'][cfin]
     n_wlen = len(wlen)
     n_bins = n_wlen // binning
     binned_wlen = np.zeros(n_bins)

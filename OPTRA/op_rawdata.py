@@ -1,16 +1,21 @@
-"""
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Cosmetics for raw data
-Author: fmillour
-Date: 01/07/2024
-Project: OPTRA
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-This module provides functions to process and calibrate raw data from FITS files.
-It includes functions to interpolate bad pixels, load and apply bad pixel maps,
-load and apply flat field maps, subtract sky data, and display the structure and
-header of FITS files.
-"""
+################################################################################
+#
+# Cosmetics for raw data
+# Author: fmillour
+# Date: 01/07/2024
+# Project: OPTRA
+#
+# This module provides functions to process and calibrate raw data from FITS 
+# files. It includes functions to interpolate bad pixels, load and apply bad 
+# pixel maps, load and apply flat field maps, subtract sky data, and display 
+# the structure and header of FITS files.
+#
+################################################################################
+
+
 
 from   astropy.io import fits
 from   scipy.ndimage import median_filter

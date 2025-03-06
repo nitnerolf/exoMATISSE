@@ -1,11 +1,14 @@
-"""
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Example script to process MATISSE data of beta Pic b with GPAO
-Author: fmillour
-Date: 18/11/2024
-Project: OPTRA
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+################################################################################
+#
+# Example script to process MATISSE data of beta Pic b with GPAO
+# Author: fmillour
+# Date: 18/11/2024
+# Project: OPTRA
+# 
+################################################################################
 
 from op_corrflux   import *
 from op_rawdata    import *
