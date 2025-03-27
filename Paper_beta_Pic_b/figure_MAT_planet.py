@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import tkinter as tk
+from astropy.io import fits
 
 # ###############################################
 # #
@@ -26,25 +27,35 @@ import tkinter as tk
 # ##############################################
 
 ##### Paramètres 
+
+target = 'pds70c'
+sep = 206.653 # Séparation étoile-planète en mas
+plan_flx = 0.15e-3 # Flux de la planète en Jy
+star_flx = 0.2 # Flux de l'étoile en Jy
+
+# target = 'pds70b'
+# sep = 143.807 # Séparation étoile-planète en mas
+# plan_flx = 0.3e-3 # Flux de la planète en Jy
+# star_flx = 0.2 # Flux de l'étoile en Jy
+
+holediam = 1.5 #En lam/D à 3.5µm
+
 lam = 3.5e-6 #Longueur d'onde
 n_pix = 1024 #Nombre de pixel
 D = 8 #Diamètre du télescope
 D1 = 50
-sep = 534 #Séparation étoile-planète en mas
 sep_rad = (sep*1e-3/3600) * (np.pi/180) #Séparation étoile-planète en rad
 sep_lam = sep_rad/(lam/D) #Séparation étoile-planète en lam/D
-plan_flx = 8e-3 #Flux de la planète en Jy
-star_flx = 10 #Flux de l'étoile en Jy
-holediam = 1.5 #En lam/D à 3.5µm
 a = 10 #Borne pour le plot final en lam/D
+
+turbulent_psf = True
+
 
 plotquisertarien = False
 
 r0_500nm = 0.1 #Paramètre de Fried à 500 nm
 r0 = r0_500nm * (lam/500e-9)**(6/5) #Rayon de Fried en mètre à lam souhaitée
 k0 = 2*np.pi/D1 #Nombre d'onde (grande échelle)
-
-print(sep_lam)
 
 ##### Masque de phase - Kolmogorov
 fx, fy = np.meshgrid((np.arange(n_pix) - n_pix//2)*2*np.pi/D, (np.arange(n_pix) - n_pix//2)*2*np.pi/D)
@@ -92,8 +103,14 @@ if plotquisertarien:
     
 
 ##### Calcul de la PSF d'un point source à travers un télescope de 8
-E_img = np.fft.fftshift(np.fft.fft2(np.fft.fftshift(pupil)))
-psf = np.abs(E_img*E_img)
+if turbulent_psf:
+    E_img_real = fits.getdata('real_E_img_500.fits')
+    E_img_imag = fits.getdata('imag_E_img_500.fits')
+    E_img = E_img_real + 1j * E_img_imag
+    psf = fits.getdata('average_PSF500.fits')
+else:
+    E_img = np.fft.fftshift(np.fft.fft2(np.fft.fftshift(pupil)))
+    psf = np.abs(E_img*E_img)
 x_f = np.fft.fftshift(np.fft.fftfreq(n_pix,(2*npad*D)/n_pix))*D
 
 if plotquisertarien:
@@ -263,11 +280,42 @@ ax2.get_xaxis().set_visible(False)
 ax2.set_xlim(-2.5*(sep/sep_lam), a*(sep/sep_lam))
 #ax2.set_xlabel('Separation (mas)', fontsize=15)
 
-plt.tight_layout()
+psf_pla = (psf_onplan[n_pix//2]/np.max(psf_on))*(plan_flx/star_flx)
+psf_star = psf_off[n_pix//2]/np.max(psf_on)
 
-plt.savefig('figbetapic1.pdf', format='pdf')
-plt.savefig('figbetapic1.png', format='png')
-#plt.show()
+mode = 'mean'
+
+if mode == 'center':
+    i_pla = np.argmin(np.abs(x_f))
+    f_pla = psf_pla[i_pla]
+    f_star = psf_star[i_pla]
+    ratio = f_pla/f_star
+    snr = f_pla / np.sqrt(f_star+f_pla)
+    suffix = 'center'
+elif mode == 'mean':
+    #i_filt = (-holediam/2 < x_f) & (x_f < holediam/2)
+    i_filt = (-1.22 < x_f) & (x_f < 1.22)
+    f_pla = np.mean(psf_pla[i_filt])
+    f_star = np.mean(psf_star[i_filt])
+    ratio = f_pla/f_star
+    snr = f_pla / np.sqrt(f_star+f_pla)
+    suffix = 'mean'
+elif mode == 'max':
+    i_filt = (-holediam/2 < x_f) & (x_f < holediam/2)
+    f_pla = np.max(psf_pla[i_filt])
+    f_star = np.max(psf_star[i_filt])
+    ratio = f_pla/f_star
+    snr = f_pla / np.sqrt(f_star+f_pla)
+    suffix = 'max'
+else:
+    raise ValueError('Unknown mode')
+
+
+fig.suptitle(f'f_pla={f_pla:.2e}, f_star={f_star:.2e}, f_pla/f_star={ratio:.4f}, snr={snr:.4f}')
+ax1.axhline(f_pla, ls='--', c='darkred')
+ax1.axhline(f_star, ls='--', c='mediumblue')
+plt.tight_layout()
+plt.savefig(f'{target}_{holediam}ld_{suffix}.pdf')
 
 ##############################################################
 
@@ -291,11 +339,25 @@ ax3.legend(title="MATISSE flux",loc='upper right', title_fontproperties={'weight
 ax3.set_facecolor('lightgrey')
 ax3.get_xaxis().set_visible(False)
 
+# psf_pla = (psf_offplan[n_pix//2]/np.max(psf_on))*(plan_flx/star_flx)
+# psf_star = psf_on[n_pix//2]/np.max(psf_on)
+
+# i_pla = np.argmin(np.abs(x_f-sep_lam))
+
+# f_pla = psf_pla[i_pla]
+# f_star = psf_star[i_pla]
+
+# ratio = f_pla/f_star
+
+#fig.suptitle(f'f_pla={f_pla:.2e}, f_star={f_star:.2e}, f_pla/f_star={ratio:.4f}')
+
 ax4 = ax3.twiny()
 
 ax4.set_xlim(-2.5*(sep/sep_lam), a*(sep/sep_lam))
 ax4.set_xlabel('Separation (mas)', fontsize=15)
 plt.tight_layout()
-plt.savefig('figbetapic2.pdf', format='pdf')
-plt.savefig('figbetapic2.png', format='png')
-plt.show()
+#plt.savefig('figbetapic2.pdf', format='pdf')
+#plt.savefig('figbetapic2.png', format='png')
+#plt.show()
+
+
