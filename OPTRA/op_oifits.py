@@ -1,11 +1,14 @@
-'''
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-OIFITS handling methods
-Author: fmillour
-Date: 22/11/2024
-Project: OPTRA
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-'''
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+################################################################################
+#
+# OIFITS handling methods
+# Author: fmillour
+# Date: 22/11/2024
+# Project: OPTRA
+#
+################################################################################
 
 import os
 import sys
@@ -32,39 +35,15 @@ def op_gen_oiarray(cfdata, verbose=True, plot=False):
     '''
     
     #oiarray_table.meta['NAME']  = 'OI_ARRAY'
-    oiarray_table.meta['EXTNAME']  = 'OI_ARRAY'
+    oiarray_table.meta['EXTNAME'] = 'OI_ARRAY'
     oiarray_table.meta['EXTVER']  = 1
-    oiarray_table['TEL_NAME']  = cfdata['OI_ARRAY']['TEL_NAME']
-    oiarray_table['STA_NAME']  = cfdata['OI_ARRAY']['STA_NAME']
-    oiarray_table['STA_INDEX'] = cfdata['OI_ARRAY']['STA_INDEX']
-    oiarray_table['DIAMETER']  = cfdata['OI_ARRAY']['DIAMETER']
-    oiarray_table['STAXYZ']    = cfdata['OI_ARRAY']['STAXYZ']
-    oiarray_table['FOV'] = 1.0
-    oiarray_table['FOVTYPE'] = 'RADIUS'
-    
-    '''
-    oiarray_table['FILT'] = np.array([''], dtype='S16')
-    oiarray_table['CBEAM'] = np.array([''], dtype='S16')
-    oiarray_table['NBEAM'] = np.array([''], dtype='S16')
-    oiarray_table['IATM'] = np.array([''], dtype='S16')
-    oiarray_table['ATMOBS'] = np.array([''], dtype='S16')
-    oiarray_table['ATMOBSERR'] = 0.0
-    oiarray_table['TUT1'] = 0.0
-    oiarray_table['UT1UTC'] = 0.0
-    oiarray_table['DUT1'] = 0.0
-    oiarray_table['POLARX'] = 0.0
-    oiarray_table['POLARY'] = 0.0
-    oiarray_table['LONGITUD'] = cfdata['hdr']['HIERARCH ESO ISS GEOLON']
-    oiarray_table['LATITUDE'] = cfdata['hdr']['HIERARCH ESO ISS GEOLAT']
-    oiarray_table['ALTITUDE'] = cfdata['hdr']['HIERARCH ESO ISS GEOELEV']
-    oiarray_table['OBSLOC'] = np.array([''], dtype='S16')
-    oiarray_table['TELESCOP'] = np.array([''], dtype='S16')
-    oiarray_table['ARRAYX'] = 0.0
-    oiarray_table['ARRAYY'] = 0.0
-    oiarray_table['ARRAYZ'] = 0.0
-    oiarray_table['FRAME'] = np.array([''], dtype='S16')
-    oiarray_table['ARRAYST'] =
-    '''
+    oiarray_table['TEL_NAME']     = cfdata['OI_ARRAY']['TEL_NAME']
+    oiarray_table['STA_NAME']     = cfdata['OI_ARRAY']['STA_NAME']
+    oiarray_table['STA_INDEX']    = cfdata['OI_ARRAY']['STA_INDEX']
+    oiarray_table['DIAMETER']     = cfdata['OI_ARRAY']['DIAMETER']
+    oiarray_table['STAXYZ']       = cfdata['OI_ARRAY']['STAXYZ']
+    oiarray_table['FOV']          = 1.0
+    oiarray_table['FOVTYPE']      = 'RADIUS'
     
     return oiarray_table
 
@@ -98,15 +77,6 @@ def op_gen_oitarget(cfdata, verbose=True, plot=False):
     oitarget_table['PARA_ERR']  = 0.0
     oitarget_table['SPECTYP']   = 'UNKNOWN'
     oitarget_table['CATEGORY']  = cfdata['hdr']['ESO DPR CATG']
-    '''
-    oitarget_table['FLUX'] = cfdata['hdr']['HIERARCH ESO SEQ TARG FLUX L']
-    oitarget_table['FLUXERR'] = 0.0
-    oitarget_table['DIAM'] = 0.0
-    oitarget_table['DIAMERR'] = 0.0
-    oitarget_table['DISTORT'] = 0.0
-    oitarget_table['GCAL_ID'] = np.array([''], dtype='S8')
-    oitarget_table['CALSTAT'] = np.array([''], dtype='S8')
-    '''
        
     return oitarget_table
 
@@ -171,6 +141,40 @@ def op_gen_oivis(cfdata, cfin='CF_achr_phase_corr', verbose=True, plot=False):
 
 ##############################################
 # 
+def op_gen_oivis2(cfdata, v2in='simplevis2', verbose=True, plot=False):
+    print('Generating OI_VIS2...')
+    """
+    Save the v squared in OIFITS format
+    """
+    complexvis = cfdata['CF'][cfin][1:,...]
+    print('Shape of complexvis:', complexvis.shape)
+    complexvis2 = np.reshape(np.swapaxes(complexvis, 0,1), (complexvis.shape[0]* complexvis.shape[1],complexvis.shape[2]))
+    nbases    = complexvis.shape[0]
+    nframes   = complexvis.shape[1]
+    # Create the OI_VIS table
+    oivis_table = Table()
+    #oivis_table.meta['NAME']  = 'OI_VIS'
+    oivis_table.meta['EXTNAME']  = 'OI_VIS2 '
+    oivis_table.meta['EXTVER']  = 1
+    oivis_table['TARGET_ID'] = np.repeat(cfdata['OI_BASELINES']['TARGET_ID'], nbases)
+    print('Shape of target_IDxxx:', oivis_table['TARGET_ID'].shape)
+    oivis_table['TARGET']    = cfdata['hdr']['HIERARCH ESO OBS TARG NAME']
+    oivis_table['TIME']      = np.repeat(cfdata['OI_BASELINES']['TIME'], nbases)
+    oivis_table['MJD']       = np.repeat(cfdata['OI_BASELINES']['MJD'],  nbases)
+    oivis_table['INT_TIME']  = np.repeat(cfdata['OI_BASELINES']['INT_TIME'], nbases)
+    #print('Shape of complexvisxxx:', complexvis2.shape)
+    oivis_table['VIS2DATA']    = cfdata['VIS2']['simplevis2']
+    oivis_table['VIS2ERR'] = 0.0
+    oivis_table['UCOORD']    = 0.0
+    oivis_table['VCOORD']    = 0.0
+    #print('Shape of STA_INDEX:', np.tile(np.array(cfdata['OI_BASELINES']['STA_INDEX']), (nframes,1)).shape)
+    oivis_table['STA_INDEX'] = np.tile(cfdata['OI_BASELINES']['STA_INDEX'], (nframes,1))
+    oivis_table['FLAG']      = 0
+    
+    return oivis2_table
+
+##############################################
+# 
 def op_write_oifits(filename, hdr, oiwavelength, oirray=None, oitarget=None, oivis=None, oivis2=None, oit3=None):
     print('Writing OI fits...')
     """
@@ -218,3 +222,42 @@ def op_write_oifits(filename, hdr, oiwavelength, oirray=None, oitarget=None, oiv
 def op_read_oifits(filename):
     fh = fits.open(filename)
     return fh
+
+##############################################
+# 
+def op_read_oifits_sequence(basedir, filelist):
+    
+    hdus = []
+    vis  = []
+    vis2  = []
+    dit = []
+    for ifile, file in enumerate(filelist):
+        print('reading file: ', file)
+        
+        ihdu = op_read_oifits(basedir + file)
+        
+        if ifile == 0:
+            wlen = ihdu['OI_WAVELENGTH'].data['EFF_WAVE']
+            band = ihdu['OI_WAVELENGTH'].data['EFF_BAND']
+        dit.append(ihdu[0].header['ESO DET SEQ1 DIT'])
+        
+        ivis    = ihdu['OI_VIS'].data['VISAMP'] * np.exp(1j * ihdu['OI_VIS'].data['VISPHI'])
+        ivis2   = ihdu['OI_VIS2'].data['VIS2DATA']
+        nbase   = 6;
+        nframes = np.shape(ivis)[0]//nbase
+        nwlen   = np.shape(ivis)[1]
+        ivisr   = ivis.reshape((nframes,nbase,nwlen))
+        ivis2r   = ivis2.reshape((nframes,nbase,nwlen))
+        print('ivis shape: ', np.shape(ivisr))
+        
+        imedvis = np.median(np.abs(ivis), axis=-1)
+        print('imedvis : ', imedvis)
+        
+        vis.append(ivisr)
+        vis2.append(ivis2r)
+        hdus.append(ihdu)    
+        ihdu.close()
+    #vis = np.array(vis)
+    #dit = np.array(dit)
+    
+    return hdus, vis, vis2, wlen, band, dit

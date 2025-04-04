@@ -1,39 +1,19 @@
-'''
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Correlated flux computation
-Author: fmillour, jscigliuto
-Date: 01/07/2024
-Project: OPTRA
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-This module contains functions for computing correlated flux, apodizing data, computing FFT of interferograms,
-extracting correlated flux, demodulating MATISSE fringes, sorting out beams and peaks, and computing the air refractive index.
-Functions:
-    op_apodize(data, verbose=True, plot=False):
-        Apply an apodizing window to the data.
-    op_calc_fft(data, verbose=True):
-        Compute the FFT of interferograms.
-    op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
-        Compute the wavelength map from the shift map.
-    op_get_peaks_position(fftdata, wlen, instrument, verbose=True):
-        Get the peaks position for the given instrument.
-    op_extract_CF(fftdata, wlen, peaks, peakswd, verbose=True, plot=False):
-        Extract the correlated flux from the FFT data.
-    op_demodulate(CFdata, wlen, verbose=True, plot=False):
-        Demodulate the correlated flux for MATISSE fringes.
-    op_sortout_beams(beamsin, verbose=True):
-        Sort out beams (currently not implemented).
-    op_sortout_peaks(peaksin, verbose=True):
-        Sort out peaks based on the instrument configuration.
-    reorder_baselines(hdu):
-        Reorder the OI_VIS and OI_VIS2 tables according to baselines in order and the OI_T3 table in order.
-    op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
-        Compute the correlated flux from the given data and shift file.
-    op_compute_air_index(fh):
-        Compute the air refractive index (currently not implemented).
-    op_air_index(wl, T=15, P=1013.25, h=0.1, N_CO2=423, bands='all'):
-        Compute the refractive index as a function of wavelength at a given temperature, pressure, relative humidity, and CO2 concentration.
-'''
+################################################################################
+#
+# Correlated flux computation
+# Author: fmillour, jscigliuto, mhoulle
+# Date: 01/07/2024
+# Project: OPTRA
+#
+# This module contains functions for computing correlated flux, apodizing data,
+# computing FFT of interferograms, extracting correlated flux, demodulating 
+# MATISSE fringes, sorting out beams and peaks, and computing the air refractive 
+# index.
+#
+################################################################################
 
 from os import error
 from astropy.io import fits
@@ -48,7 +28,7 @@ from scipy.optimize import minimize
 
 ##############################################
 # Apodization function
-def op_apodize(data, verbose=True,plot=False):
+def op_apodize(data, verbose=True,plot=False, frac=0.85):
     if verbose:
         print('Apodizing data...')
     # Apply an apodizing window to the data
@@ -59,16 +39,20 @@ def op_apodize(data, verbose=True,plot=False):
     if verbose:
         print('computing apodizing window...')
     intf  = stats.trim_mean(data['INTERF']['data'],axis=0, proportiontocut=0.05)
-    argmx = np.argmax(stats.trim_mean(intf, axis=0, proportiontocut=0.05))
+    n     = np.shape(intf)[1]
+    #argmx = np.argmax(stats.trim_mean(intf, axis=0, proportiontocut=0.05))
+    #argmx=n//2
+    argmx=272
     if verbose:
         print('argmx', argmx)
-    n     = np.shape(intf)[1]
     if verbose:
         print('n', n)
-    dx = int(n - 2*np.abs(n/2 - argmx))
+    dx = int((n - 2*np.abs(n//2 - argmx))*frac)
     if verbose:
         print('dx', dx)
-    wn   = signal.get_window(('kaiser', 14), dx)
+    if n%2 == 1:
+        dx+=1
+    wn    = signal.get_window(('kaiser', 14), dx)
     zewin = np.zeros(n)
     zewin[argmx-dx//2:argmx+dx//2] = wn
     centered_win_intf = zewin
@@ -91,14 +75,14 @@ def op_apodize(data, verbose=True,plot=False):
         pht   = stats.trim_mean(data['PHOT'][key]['data'],axis=0, proportiontocut=0.05)
         argmx = np.argmax(stats.trim_mean(pht, axis=0, proportiontocut=0.05))
         n     = np.shape(pht)[1]
-        dx = int(n - 2*np.abs(n/2 - argmx))
+        dx    = int(n - 2*np.abs(n/2 - argmx))
         if verbose:
             print('dx', dx)
-        wn   = signal.get_window(('kaiser', 14), dx)
+        wn    = signal.get_window(('kaiser', 14), dx)
         zewin = np.zeros(n)
         zewin[argmx-dx//2:argmx+dx//2] = wn
-        centered_win_pht = zewin
-        data['PHOT'][key]['center'] = argmx
+        centered_win_pht               = zewin
+        data['PHOT'][key]['center']    = argmx
         for i in np.arange(nframes):
             data['PHOT'][key]['data'][i] *= centered_win_pht
             
@@ -118,8 +102,8 @@ def op_calc_fft(data, verbose=True):
     fft_intf = np.fft.fft(intf, axis=2)
     # Compute the phasor corresponding to the shift of the center of the window
     center_shift = data['INTERF']['center']
-    phasor    = np.exp(2j * np.pi * center_shift * (np.arange(npix)) / npix)
-    fft_intf *= phasor[None,None,:]
+    phasor       = np.exp(2j * np.pi * center_shift * (np.arange(npix)) / npix)
+    fft_intf    *= phasor[None,None,:]
     
     fft_intf_magnitude = np.abs(fft_intf)
     dsp_intf     = fft_intf_magnitude**2
@@ -364,6 +348,7 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
 
 
     #########################################################
+    # Get the peaks position
     peaks, peakswd = op_get_peaks_position(fdata, verbose=verbose)
     if verbose:
         print(wlen)
@@ -378,6 +363,7 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
         plt.show()
 
     #########################################################
+    # Extract the correlated flux
     cfdata = op_extract_CF(fdata, peaks, peakswd, verbose=verbose)
     if verbose:
         print(wlen)
@@ -399,21 +385,47 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
         for i in np.arange(7):
             plt.plot(np.abs(cfdata['CF']['data'][i,iframe,iwlen,:]),color=colors[i])
         plt.plot(np.abs(cfdata['CF']['bckg'][iframe,iwlen,:]))
+        plt.yscale('log')
         plt.title('Modulus of Complex Values for CF Data and Background')
         
+    #########################################################
+    # Demodulate MATISSE fringes
     cfdem = op_demodulate(cfdata, verbose=verbose, plot=plot)
+    
+    #########################################################
+    # Reorder baselines
     cfreord, cfdata_reordered = op_reorder_baselines(cfdem)
+    
+    #########################################################
+    # Get the air refractive index
     Temp, Pres, hum, dPath    = op_get_amb_conditions(cfreord)
     if verbose:
         print('Temp:', Temp, 'Pres:', Pres, 'hum:', hum)
     n_air = op_air_index(wlen, Temp, Pres, hum, N_CO2=423, bands='all')
     if verbose:
         print('n_air:', n_air)
+        
+    #########################################################
+    # Correct the phase for air path
     cfclean, phase_layer_air_slope = op_corr_n_air(wlen, cfreord, n_air, dPath, wlmin=3.3e-6, wlmax=3.7e-6, verbose=verbose, plot=plot)
     
+    #########################################################
+    # Get the piston    
+    data, OPD_list = op_get_piston_fft(cfclean, cfin='CF_chr_phase_corr', verbose=verbose, plot=plot)
     
-    
-    cfbin = op_bin_data(cfclean)
+    #########################################################
+    # Correct the piston
+    data2 = op_corr_piston(data, cfin='CF_chr_phase_corr', verbose=verbose, plot=plot)
+
+    #########################################################
+    # Correct for residual phase
+    totvis = np.sum(data2['CF']['CF_piston_corr'],axis=-1)
+    cvis = data2['CF']['CF_piston_corr'] * np.exp(-1j * np.angle(totvis[...,None]))
+    data2['CF']['CF_piston_corr2'] = cvis
+
+    #########################################################
+    # Bin the data
+    cfbin = op_bin_data(data2, cfin='CF_piston_corr2', verbose=verbose, plot=plot)
     #return cfdem
     #return cfreord
     return cfbin
@@ -725,10 +737,10 @@ def op_air_index(wl, T, P, h, N_CO2=423, bands='all'):
     return n_air
 
 ##############################################
-# Function to correct for the achromatic phase
+# Function to correct for the chromatic phase
 def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e-6, verbose=False, plot=True):
     if verbose:
-        print('Correcting for the achromatic phase...')
+        print('Correcting for the chromatic phase...')
 
     #data, cfdem = op_reorder_baselines(data)
     cfdem = data['CF'][cfin]
@@ -736,7 +748,7 @@ def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax
     n_frames = np.shape(cfdem)[1]
     n_wlen = len(wlen)
 
-    data['CF']['CF_achr_phase_corr'] = np.copy(cfdem)
+    data['CF']['CF_chr_phase_corr'] = np.copy(cfdem)
     phase_layer_air = np.zeros((6, n_frames, n_wlen))
     slope = np.zeros((6, n_frames))
     phase_layer_air_slope = np.zeros((6, n_frames, n_wlen))
@@ -773,7 +785,7 @@ def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax
                 ax1[i_base,1].set_ylabel(f'phase {i_base+1}')
                 ax1[i_base,1].set_ylim(-np.pi, np.pi)
 
-            data['CF']['CF_achr_phase_corr'][i_base+1, i_frame] = cfcorr
+            data['CF']['CF_chr_phase_corr'][i_base+1, i_frame] = cfcorr
 
     if plot:
         plt.show()
@@ -783,13 +795,16 @@ def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax
 
 ##############################################
 # Function to get the residual piston on the correlated flux phase, via a FFT's method
-def op_get_piston_fft(data, verbose=False, plot=True):
+def op_get_piston_fft(data, cfin='CF_Binned', verbose=False, plot=True):
     if verbose:
         print('Calculating piston from FFT...')
 
-    wlen = data['OI_WAVELENGTH']['EFF_WAVE']
-    # cf = data['CF']['CF_achr_phase_corr']
-    cf = data['CF']['CF_Binned']
+    if cfin == 'CF_Binned':
+        wlen         = data['OI_WAVELENGTH']['EFF_WAVE_Binned']
+    else:
+        wlen         = data['OI_WAVELENGTH']['EFF_WAVE']
+        
+    cf = data['CF'][cfin]
     
     #Linear interpolation in wavenumber sigma
     sigma     = 1.0/wlen
@@ -853,14 +868,17 @@ def op_get_piston_fft(data, verbose=False, plot=True):
 
 #################################################
 # Function to get the piston slope on the correlated flux phase
-def op_get_piston_slope(data, wlenmin=3.5e-6, wlenmax=3.9e-6, verbose=False, plot=False):
+def op_get_piston_slope(data, cfin='CF_Binned', wlenmin=3.5e-6, wlenmax=3.9e-6, verbose=False, plot=False):
     if verbose:
         print('Calculating piston slope...')
-    
-    wlen = data['OI_WAVELENGTH']['EFF_WAVE']
+
+    if cfin == 'CF_Binned':
+        wlen         = data['OI_WAVELENGTH']['EFF_WAVE_Binned']
+    else:
+        wlen         = data['OI_WAVELENGTH']['EFF_WAVE']
+        
     print('wlen:',wlen)
-    # cf = data['CF']['CF_achr_phase_corr']
-    cf = data['CF']['CF_Binned']
+    cf = data['CF'][cfin]
     n_bases  = cf.shape[0]
     n_frames = cf.shape[1]
     slopes   = np.zeros((n_bases, n_frames))
@@ -895,14 +913,18 @@ def op_get_piston_slope(data, wlenmin=3.5e-6, wlenmax=3.9e-6, verbose=False, plo
 
 ####################################################
 # Function to get the final piston using a chi2 minimization
-def op_get_piston_chi2(data, init_guess, verbose=False, plot=False):
+def op_get_piston_chi2(data, init_guess, cfin='CF_Binned', verbose=False, plot=False):
     if verbose:
         print('Calculating piston using chi2 minimization...')
 
-    wlen         = data['OI_WAVELENGTH']['EFF_WAVE']
+    if cfin == 'CF_Binned':
+        wlen         = data['OI_WAVELENGTH']['EFF_WAVE_Binned']
+    else:
+        wlen         = data['OI_WAVELENGTH']['EFF_WAVE']
+        
     wlenMean     = np.mean(wlen)
     # cf           = data['CF']['CF_achr_phase_corr']
-    cf           = data['CF']['CF_Binned']
+    cf           = data['CF'][cfin]
     n_bases      = cf.shape[0]
     n_frames     = cf.shape[1]
     pistons      = np.zeros((n_bases, n_frames))
@@ -968,13 +990,15 @@ def op_get_piston_chi2(data, init_guess, verbose=False, plot=False):
 
 ####################################################
 # Function to correct from the residual piston
-
 def op_corr_piston(data, cfin='CF_Binned', verbose=False, plot=False):
     if verbose:
         print('Correcting for the residual piston...')
 
-    wlen     = data['OI_WAVELENGTH']['EFF_WAVE']
-    # cf = data['CF']['CF_achr_phase_corr']
+    if cfin == 'CF_Binned':
+        wlen         = data['OI_WAVELENGTH']['EFF_WAVE_Binned']
+    else:
+        wlen         = data['OI_WAVELENGTH']['EFF_WAVE']
+        
     cf       = data['CF'][cfin]
     pistons  = data['CF']['pistons']
     n_bases  = cf.shape[0]
@@ -1003,8 +1027,8 @@ def op_corr_piston(data, cfin='CF_Binned', verbose=False, plot=False):
 ##############################################
 # Bin data
 def op_bin_data(data, binning=5, cfin='CF_achr_phase_corr', verbose=False, plot=False):
-    wlen = data['OI_WAVELENGTH']['EFF_WAVE']
-    cfdem = data['CF'][cfin]
+    wlen   = data['OI_WAVELENGTH']['EFF_WAVE']
+    cfdem  = data['CF'][cfin]
     n_wlen = len(wlen)
     n_bins = n_wlen // binning
     binned_wlen = np.zeros(n_bins)
@@ -1020,7 +1044,7 @@ def op_bin_data(data, binning=5, cfin='CF_achr_phase_corr', verbose=False, plot=
                 binned_cf.real[i, j, k] = np.mean(cfdem.real[i, j, k*binning:(k+1)*binning])
                 binned_cf.imag[i, j, k] = np.mean(cfdem.imag[i, j, k*binning:(k+1)*binning])
 
-    data['OI_WAVELENGTH']['EFF_WAVE'] = binned_wlen
+    data['OI_WAVELENGTH']['EFF_WAVE_Binned'] = binned_wlen
     data['CF']['CF_Binned'] = binned_cf
 
     if plot:

@@ -24,7 +24,7 @@ from scipy         import *
 from scipy         import stats
 
 #plt.ion()
-plot = 0
+plot = 1
 plotFringes = plot
 plotPhi     = plot
 plotDsp     = plot
@@ -39,9 +39,9 @@ def do_nothing():
 
 #bbasedir = '/Users/jscigliuto/Nextcloud/DATA/betaPicb/'
 #basedir = bbasedir+'betaPicb_rawdata_2024-11-17/'
-bbasedir = '~/SynologyDrive/driveFlorentin/ExoMATISSE/beta_Pic_b/'
+bbasedir = '/Users/jscigliuto/Desktop/PDS70/'
 #bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
-basedir  = bbasedir+'2024-11-17_MATISSE_betaPic_b/'
+basedir  = bbasedir
 
 starfiles = os.listdir(basedir)
 print(starfiles)
@@ -129,11 +129,11 @@ for ifile in starfiles:
             break
 
     #caldir    = '/Users/jscigliuto/Nextcloud/DATA/CALIB2024/'
-    caldir    = '~/Documents/ExoMATISSE/CALIB2024/'
-    kappafile = caldir+'KAPPA_MATRIX_L_MED.fits.gz'
-    shiftfile = caldir+'SHIFT_L_MED.fits.gz'
-    flatfile  = caldir+'FLATFIELD_L_SLOW.fits.gz'
-    badfile   = caldir+'BADPIX_L_SLOW.fits.gz'
+    caldir    = '/Users/jscigliuto/Nextcloud/DATA/CALIB2024/'
+    kappafile = caldir+'KAPPA_MATRIX_L_MED.fits'
+    shiftfile = caldir+'SHIFT_L_MED.fits'
+    flatfile  = caldir+'FLATFIELD_L_SLOW.fits'
+    badfile   = caldir+'BADPIX_L_SLOW.fits'
 
     ##########################################################
 
@@ -198,7 +198,7 @@ for ifile in starfiles:
             ax0[i].set_ylabel(f'vis2 {i}')
 
         #print('Basename of starfile:', basen)
-        plt.suptitle(f'Visibility as a function of $\lambda$, {basen}')
+        plt.suptitle(r'Visibility as a function of $\lambda$, {basen}')
         plt.xlim(np.min(wlen), np.max(wlen))
         plt.ylim(-0.1, 1.1)
         #print(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
@@ -210,7 +210,7 @@ for ifile in starfiles:
     #cfdem = op_demodulate(cfdata, wlen, verbose=True, plot=False)
     cfdem = cfdata
 
-
+ 
 
     #print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
     #cf = cfdem['CF']['CF_achr_phase_corr']

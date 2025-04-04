@@ -1,11 +1,14 @@
-"""
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Example script to process MATISSE data of beta Pic b
-Author: fmillour
-Date: 18/11/2024
-Project: OPTRA
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+################################################################################
+#
+# Example script to process MATISSE data of beta Pic b with MACAO
+# Author: fmillour
+# Date: 18/11/2024
+# Project: OPTRA
+#
+################################################################################
 
 from op_corrflux   import *
 from op_rawdata    import *
@@ -21,13 +24,13 @@ from scipy         import *
 from scipy         import stats
 
 #plt.ion()
-plot = False
+plot = 0
 plotFringes = plot
 plotPhi     = plot
 plotDsp     = plot
 plotRaw     = plot
 plotCorr    = plot
-plotPist = plot
+plotPist    = plot
 
 verbose = False
 
@@ -44,12 +47,12 @@ fitsfiles = [f for f in starfiles if ".fits" in f and not "M." in f]
 print(fitsfiles)
 
 # select only fits files that correspond to observations
-obsfilesL = []
+obsfilesL     = []
 obsfilesL_MJD = []
-obsfilesN = []
-skyfilesL = []
+obsfilesN     = []
+skyfilesL     = []
 skyfilesL_MJD = []
-darkfiles = []
+darkfiles     = []
 
 for fi in fitsfiles:
     #print(fi)
@@ -91,11 +94,11 @@ skyfilesL_MJD = np.array(skyfilesL_MJD)
 starfiles = sorted(obsfilesL)
 #starfiles = [f for f in starfiles if 'STD' in f]
 print('Starfiles:', starfiles)
+print('Skyfiles:', skyfilesL)
 
 
 for ifile in starfiles:
     starfile = basedir + ifile
-#starfile = basedir + 'MATISSE_OBS_SIPHOT_LM_OBJECT_323_0003.fits'
 
     fh = fits.open(starfile)
     hdr = fh[0].header
@@ -122,15 +125,13 @@ for ifile in starfiles:
         if imatch == len(keys_to_match):
             print('Matching sky file:', skyfile)
             break
-        
-    #skyfile  = basedir + 'MATISSE_OBS_SIPHOT_LM_SKY_323_0003.fits'
 
     #caldir    = '/Users/jscigliuto/Nextcloud/DATA/CALIB2024/'
     caldir    = '~/Documents/ExoMATISSE/CALIB2024/'
-    kappafile = caldir+'KAPPA_MATRIX_L_MED.fits'
-    shiftfile = caldir+'SHIFT_L_MED.fits'
-    flatfile  = caldir+'FLATFIELD_L_SLOW.fits'
-    badfile   = caldir+'BADPIX_L_SLOW.fits'
+    kappafile = caldir+'KAPPA_MATRIX_L_MED.fits.gz'
+    shiftfile = caldir+'SHIFT_L_MED.fits.gz'
+    flatfile  = caldir+'FLATFIELD_L_SLOW.fits.gz'
+    badfile   = caldir+'BADPIX_L_SLOW.fits.gz'
 
     ##########################################################
 
@@ -210,7 +211,8 @@ for ifile in starfiles:
 
     #print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
     #cf = cfdem['CF']['CF_achr_phase_corr']
-    cf = cfdem['CF']['CF_Binned']
+    cf   = cfdem['CF']['CF_Binned']
+    wlen = cfdata['OI_WAVELENGTH']['EFF_WAVE_Binned']
     #cf = cfdem['CF']['CF_demod']
     #cf = cfdem['CF']['CF_reord']
     sumcf = np.sum(cf, axis=1)
@@ -314,7 +316,6 @@ for ifile in starfiles:
         return lines
     ani = animation.FuncAnimation(fig, update, frames=cfdata['CF']['CF'].shape[1], init_func=init, blit=True)
     plt.show()
-        
     if plotDsp:
         plt.figure(5)
         for i in np.arange(6)+1:
@@ -323,8 +324,5 @@ for ifile in starfiles:
                 plt.plot(np.max(np.abs(cfdata['CF']['data'][i,iframe,:,:]),axis=1) / np.abs(cfdata['CF']['CF'][0,0,:])*3*7,':',color=colors[i])
         plt.ylim(-0.2,1.2)
         plt.title('This one should resemble a visibility curve')
-
-
-
     plt.show()
     '''

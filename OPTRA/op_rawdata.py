@@ -1,40 +1,21 @@
-"""
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Cosmetics for raw data
-Author: fmillour
-Date: 01/07/2024
-Project: OPTRA
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-This module provides functions to process and calibrate raw data from FITS files.
-It includes functions to interpolate bad pixels, load and apply bad pixel maps,
-load and apply flat field maps, subtract sky data, and display the structure and
-header of FITS files.
-Functions:
-----------
-- op_interpolate_bad_pixels(data, bad_pixel_map, verbose=False):
-    Interpolates bad pixels in the given data using a median filter.
-- op_load_bpm(filename, verbose=True):
-    Loads a bad pixel map from a FITS file.
-- op_apply_bpm(rawdata, bpmap, verbose=True):
-    Applies a bad pixel map to the raw data.
-- op_load_ffm(filename, verbose=True):
-    Loads a flat field map from a FITS file.
-- op_apply_ffm(rawdata, ffmap, verbose=True):
-    Applies a flat field map to the raw data.
-- op_subtract_sky(rawdata, skydata, verbose=True):
-    Subtracts sky data from the raw data.
-- op_print_fits_structure(fits_data):
-    Displays the structure of a FITS file.
-- op_print_fits_header(fits_data, hdu=0):
-    Displays the header of a FITS file.
-- op_match_keys(fits_data, keys, values, hdu=0):
-    Matches keys and values in the header of a FITS file.
-- op_load_rawdata(filename, verbose=True):
-    Loads raw data from a FITS file.
-- op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, verbose=True, plot=False):
-    Loads and calibrates raw data using bad pixel maps and flat field maps.
-"""
+################################################################################
+#
+# Cosmetics for raw data
+# Author: fmillour
+# Date: 01/07/2024
+# Project: OPTRA
+#
+# This module provides functions to process and calibrate raw data from FITS 
+# files. It includes functions to interpolate bad pixels, load and apply bad 
+# pixel maps, load and apply flat field maps, subtract sky data, and display 
+# the structure and header of FITS files.
+#
+################################################################################
+
+
 
 from   astropy.io import fits
 from   scipy.ndimage import median_filter

@@ -1,11 +1,14 @@
-"""
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Example script to post-process MATISSE data of beta Pic b
-Author: fmillour
-Date: 06/12/2024
-Project: OPTRA
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+################################################################################
+#
+# Example script to post-process MATISSE data of beta Pic b
+# Author: fmillour
+# Date: 06/12/2024
+# Project: OPTRA
+#
+################################################################################
 
 from op_corrflux   import *
 from op_rawdata    import *
@@ -40,34 +43,6 @@ ININfiles.sort()
 
 starfiles = [f for f in BCDfiles if "CAL" in f]
 
-def op_read_oifits_sequence(basedir, filelist):
-    
-    hdus = []
-    vis  = []
-    for ifile, file in enumerate(filelist):
-        print('reading file: ', file)
-        
-        ihdu = op_read_oifits(basedir + file)
-        
-        if ifile == 0:
-            wlen = ihdu['OI_WAVELENGTH'].data['EFF_WAVE']
-            band = ihdu['OI_WAVELENGTH'].data['EFF_BAND']
-            dit = ihdu[0].header['ESO DET SEQ1 DIT']
-        
-        ivis    = ihdu['OI_VIS'].data['VISAMP'] * np.exp(1j * ihdu['OI_VIS'].data['VISPHI'])
-        nbase   = 6;
-        nframes = np.shape(ivis)[0]//nbase
-        nwlen   = np.shape(ivis)[1]
-        ivis2   = ivis.reshape((nframes,nbase,nwlen))
-        print('ivis shape: ', np.shape(ivis2))
-        
-        imedvis = np.median(np.abs(ivis), axis=-1)
-        print('imedvis : ', imedvis)
-        
-        vis.append(ivis2)
-        hdus.append(ihdu)    
-        ihdu.close()
-    return hdus, vis, wlen, band, dit
 #print(wlen)
 #print(ihdu)
 

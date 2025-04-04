@@ -1,12 +1,14 @@
-"""
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Example script to process the data of HR8799e with OPTRA
-Author: fmillour
-Date: 29/09/2024
-Project: OPTRA
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
+################################################################################
+#
+# Example script to process the data of HR8799e with OPTRA
+# Author: fmillour
+# Date: 29/09/2024
+# Project: OPTRA
+#
+################################################################################
 
 from op_corrflux   import *
 from op_rawdata    import *
@@ -43,7 +45,9 @@ basedir  = bbasedir+'HR8799e_rawdata/'
 
 
 starfiles = os.listdir(basedir)
+print('Starfiles:', starfiles)
 fitsfiles = [f for f in starfiles if ".fits" in f and not "M." in f]
+print('Fitsfiles:', fitsfiles)
 
 # select only fits files that correspond to observations
 obsfilesL     = []
@@ -75,7 +79,7 @@ for fi in fitsfiles:
         ndit = hdr['ESO DET NDIT']
     except:
         do_nothing()
-    #print(fi, inst, catg, type, chip, dit, ndit)
+    print(fi, inst, catg, type, chip, dit, ndit)
     if catg == 'SCIENCE' and type == 'OBJECT' and chip == 'HAWAII-2RG' :
         #print("science file!")
         obsfilesL.append(fi)
@@ -94,7 +98,6 @@ starfiles = sorted(obsfilesL)
 #starfiles = [f for f in starfiles if 'STD' in f]
 print('Starfiles:', starfiles)
 print('Skyfiles:', skyfilesL)
-
 
 for ifile in starfiles:
     starfile = basedir + ifile
@@ -130,10 +133,10 @@ for ifile in starfiles:
 
     #caldir    = '/Users/jscigliuto/Nextcloud/DATA/CALIB2024/'
     caldir    = '~/Documents/ExoMATISSE/CALIB2024/'
-    kappafile = caldir+'KAPPA_MATRIX_L_MED.fits'
-    shiftfile = caldir+'SHIFT_L_MED.fits'
-    flatfile  = caldir+'FLATFIELD_L_SLOW.fits'
-    badfile   = caldir+'BADPIX_L_SLOW.fits'
+    kappafile = caldir+'KAPPA_MATRIX_L_MED.fits.gz'
+    shiftfile = caldir+'SHIFT_L_MED.fits.gz'
+    flatfile  = caldir+'FLATFIELD_L_SLOW.fits.gz'
+    badfile   = caldir+'BADPIX_L_SLOW.fits.gz'
 
     ##########################################################
 
@@ -177,8 +180,8 @@ for ifile in starfiles:
     cfdata['hdr']['ESO INS BCD1 ID']                          +\
     cfdata['hdr']['ESO INS BCD2 ID']
         
-    if 0:
-        vis2, mask = op_extract_simplevis2(cfdata, verbose=verbose, plot=False)
+    if 1:
+        vis2, mask = op_extract_simplevis2(cfdata, verbose=True, plot=False)
         #print(mask)
         #print(~mask)
         notvis2 = np.ma.masked_array(np.ma.getdata(vis2), ~mask)

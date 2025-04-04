@@ -1,11 +1,14 @@
-"""
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Example of OPTRA pipeline for the beta Pic c data
-Author: fmillour
-Date: 19/11/2024
-Project: OPTRA
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+################################################################################
+#
+# Example of OPTRA pipeline for the beta Pic c data
+# Author: fmillour
+# Date: 19/11/2024
+# Project: OPTRA
+#
+################################################################################
 
 from op_corrflux   import *
 from op_rawdata    import *
@@ -21,7 +24,7 @@ from scipy         import *
 from scipy         import stats
 
 #plt.ion()
-plot = False
+plot = True
 plotFringes = plot
 plotPhi     = plot
 plotDsp     = plot
@@ -40,6 +43,7 @@ def do_nothing():
 bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_c/')
 
 basedir  = bbasedir+'2023-11-27_betaPic_c/'
+basedir  = bbasedir+'2023-12-29_betaPic_c/'
 
 starfiles = os.listdir(basedir)
 fitsfiles = [f for f in starfiles if ".fits" in f and not "M." in f]
@@ -125,14 +129,12 @@ for ifile in starfiles:
             print('Matching sky file:', skyfile)
             break
         
-    #skyfile  = basedir + 'MATISSE_OBS_SIPHOT_LM_SKY_323_0003.fits'
-
     #caldir    = '/Users/jscigliuto/Nextcloud/DATA/CALIB2024/'
     caldir    = '~/Documents/ExoMATISSE/CALIB2024/'
-    kappafile = caldir+'KAPPA_MATRIX_L_MED.fits'
-    shiftfile = caldir+'SHIFT_L_MED.fits'
-    flatfile  = caldir+'FLATFIELD_L_SLOW.fits'
-    badfile   = caldir+'BADPIX_L_SLOW.fits'
+    kappafile = caldir+'KAPPA_MATRIX_L_MED.fits.gz'
+    shiftfile = caldir+'SHIFT_L_MED.fits.gz'
+    flatfile  = caldir+'FLATFIELD_L_SLOW.fits.gz'
+    badfile   = caldir+'BADPIX_L_SLOW.fits.gz'
 
     ##########################################################
 
@@ -213,6 +215,7 @@ for ifile in starfiles:
     #print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
     #cf = cfdem['CF']['CF_achr_phase_corr']
     cf = cfdem['CF']['CF_Binned']
+    wlen = cfdata['OI_WAVELENGTH']['EFF_WAVE_Binned']
     #cf = cfdem['CF']['CF_demod']
     #cf = cfdem['CF']['CF_reord']
     sumcf = np.sum(cf, axis=1)
