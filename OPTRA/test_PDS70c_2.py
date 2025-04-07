@@ -22,9 +22,10 @@ import os
 from scipy.ndimage import median_filter
 from scipy         import *
 from scipy         import stats
+from os.path       import basename
 
 #plt.ion()
-plot = 1
+plot = 0
 plotFringes = plot
 plotPhi     = plot
 plotDsp     = plot
@@ -39,7 +40,8 @@ def do_nothing():
 
 #bbasedir = '/Users/jscigliuto/Nextcloud/DATA/betaPicb/'
 #basedir = bbasedir+'betaPicb_rawdata_2024-11-17/'
-bbasedir = '/Users/jscigliuto/Desktop/PDS70/'
+#bbasedir = '/Users/jscigliuto/Desktop/PDS70/'
+bbasedir = os.path.expandvars('$HOME/SynologyDrive/driveFlorentin/DATA/PDS70/PDS70_1703/')
 #bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
 basedir  = bbasedir
 
@@ -98,9 +100,9 @@ starfiles = [f for f in starfiles if 'STD' in f]
 print('Starfiles:', starfiles)
 print('Skyfiles:', skyfilesL)
 
-
 for ifile in starfiles:
     starfile = basedir + ifile
+    print('\nWorking on file:', ifile)
 
     fh = fits.open(starfile)
     hdr = fh[0].header
@@ -125,20 +127,21 @@ for ifile in starfiles:
                 print('Matching key:', key)
                 imatch += 1
         if imatch == len(keys_to_match):
+            #bsf = basename(skyfile)
             print('Matching sky file:', skyfile)
             break
 
+    caldir = os.path.expandvars('$HOME/SynologyDrive/driveFlorentin/DATA/CALIB2024/')
     #caldir    = '/Users/jscigliuto/Nextcloud/DATA/CALIB2024/'
-    caldir    = '/Users/jscigliuto/Nextcloud/DATA/CALIB2024/'
-    kappafile = caldir+'KAPPA_MATRIX_L_MED.fits'
-    shiftfile = caldir+'SHIFT_L_MED.fits'
-    flatfile  = caldir+'FLATFIELD_L_SLOW.fits'
-    badfile   = caldir+'BADPIX_L_SLOW.fits'
+    ext = '.fits.gz'
+    kappafile = caldir+'KAPPA_MATRIX_L_LOW'+ext
+    shiftfile = caldir+'SHIFT_L_LOW'+ext
+    flatfile  = caldir+'FLATFIELD_L_SLOW'+ext
+    badfile   = caldir+'BADPIX_L_SLOW'+ext
 
     ##########################################################
 
     bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=verbose, plot=plotRaw)
-    
 
     ##########################################################
 
@@ -209,9 +212,7 @@ for ifile in starfiles:
 
     #cfdem = op_demodulate(cfdata, wlen, verbose=True, plot=False)
     cfdem = cfdata
-
- 
-
+    
     #print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
     #cf = cfdem['CF']['CF_achr_phase_corr']
     cf   = cfdem['CF']['CF_Binned']
@@ -240,11 +241,9 @@ for ifile in starfiles:
         plt.tight_layout()
         plt.savefig(os.path.expanduser(bbasedir+f'{basen}_corrflux.png'))
         #plt.show()
-    
-    
 
     # iframe = 0
-    # fig2, ax2 = plt.subplots(2, 6, figsize=(8, 4))
+    # fig2, ax2 = plt. subplots(2, 6, figsize=(8, 4))
     # for i in np.arange(6): #+1 ????
     #     ax2[0,i].plot(wlen, np.abs(cf[i,iframe,:]), color=colors[i])
     #     ax2[1,i].plot(wlen, np.angle(cf[i,iframe,:]), color=colors[i])
@@ -271,7 +270,6 @@ for ifile in starfiles:
                 ax[i_base,0].plot(wlen, np.angle(data['CF']['CF_Binned'][i_base, i_frame]), color=colors[i_base])
                 ax[i_base,1].plot(wlen, np.angle(data['CF']['CF_piston_corr'][i_base, i_frame]), color=colors[i_base])
         plt.show()
-    
 
     #########################################################
     outfilename = os.path.expanduser(bbasedir+f'{basen}_corrflux_oi.fits')
@@ -281,7 +279,6 @@ for ifile in starfiles:
     oirray       = op_gen_oiarray(cfdem, verbose=True, plot=False)
     oivis        = op_gen_oivis(cfdem, cfin='CF_piston_corr', verbose=verbose, plot=False)
     op_write_oifits(outfilename, hdr, oiwavelength, oirray, oitarget, oivis, oivis2=None, oit3=None)
-
 
     '''
     #scfdata = op_sortout_peaks(cfdata, verbose=True)
