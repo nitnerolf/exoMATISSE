@@ -94,9 +94,9 @@ def op_calc_fft(data, verbose=True):
     if verbose:
         print('Computing FFT of interferograms...')
     intf = data['INTERF']['data']
-    nframe = np.shape(intf)[0]
-    nwlen  = np.shape(intf)[1]
-    npix   = np.shape(intf)[2]
+    nframe = np.shape(intf)[0] # Frames dimension
+    nwlen  = np.shape(intf)[1] # Wavelength dimension
+    npix   = np.shape(intf)[2] # Pixels dimension (fringed Airy pattern)
     
     # Compute FFT 1D of intf along the pixels axis
     fft_intf = np.fft.fft(intf, axis=2)
@@ -105,11 +105,11 @@ def op_calc_fft(data, verbose=True):
     phasor       = np.exp(2j * np.pi * center_shift * (np.arange(npix)) / npix)
     fft_intf    *= phasor[None,None,:]
     
-    fft_intf_magnitude = np.abs(fft_intf)
-    dsp_intf     = fft_intf_magnitude**2
-    sum_dsp_intf = np.sum(dsp_intf, axis=0)
-    sdi_resh     = np.fft.fftshift(sum_dsp_intf, axes=1)
-    freqs        = np.fft.fftfreq(npix)
+    fft_intf_magnitude = np.abs(fft_intf)   # Compute the magnitude of the FFT
+    dsp_intf     = fft_intf_magnitude**2    # Compute the power spectrum
+    sum_dsp_intf = np.sum(dsp_intf, axis=0) # Sum the power spectrum over all frames
+    sdi_resh     = np.fft.fftshift(sum_dsp_intf, axes=1) # Shift the zero frequency to the center
+    freqs        = np.fft.fftfreq(npix)     # Compute the frequencies
     if verbose:
         print('Shape of sum_dsp_intf:', sum_dsp_intf.shape)
     
@@ -133,7 +133,15 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
     
     corner = rawdata['INTERF']['corner']
     px     = corner[1]+np.arange(np.shape(rawdata['INTERF']['data'])[1])
-    wlen   = disp[0][0] + disp[0][1]*px + disp[0][2]*px**2
+    wlen   = disp[0][0] + disp[0][1]*px + disp[0][2]*px**2 + disp[0][3]*px**3 + disp[0][4]*px**4
+    wlen2   = disp[1][0] + disp[1][1]*px + disp[1][2]*px**2 + disp[0][3]*px**3 + disp[0][4]*px**4
+    
+    if verbose:
+        print('Corner',corner)
+        print('px',px)
+        print('Disp',disp)
+    
+        print('Wavelength',wlen)
     
     # FIXME: Set the bandwidth of wavelength table
     band = np.diff(wlen)*5
@@ -182,19 +190,19 @@ def op_extract_CF(fftdata, peaks, peakswd, verbose=True, plot=False):
     bck    = np.copy(fftdata['FFT']['data'])
     nfreq  = np.shape(bck)[2]
     nfreq2 = int(nfreq/2)
-    bck = bck[:,:,0:nfreq2]
+    bck    = bck[:,:,0:nfreq2]
     if verbose:
         print('Shape of bck:', np.shape(bck))
         print('nfreq:', nfreq)
-    ifreq = np.arange(nfreq2)
+    ifreq  = np.arange(nfreq2)
     npeaks = np.shape(peaks)[0]
-    ibase = np.arange(npeaks)
+    ibase  = np.arange(npeaks)
     FT = []
     CF = []
     NIZ = []
     for i in ibase:
-        fti = fftdata['FFT']['data'][:,:,0:nfreq2]
-        zone = np.logical_and(ifreq[None,:] >= peaks[i,:][:,None]-peakswd[i,:][:,None]/2, ifreq[None,:] <= peaks[i,:][:,None]+peakswd[i,:][:,None]/2)
+        fti    = fftdata['FFT']['data'][:,:,0:nfreq2]
+        zone   = np.logical_and(ifreq[None,:] >= peaks[i,:][:,None]-peakswd[i,:][:,None]/2, ifreq[None,:] <= peaks[i,:][:,None]+peakswd[i,:][:,None]/2)
         weight = np.exp(-0.5 * ((ifreq[None,:] - peaks[i,:][:,None]) / (2*peakswd[i,:][:,None] / 2.355))**2)
         
         NIZ.append(np.sum(weight * zone, axis=1))
@@ -371,7 +379,7 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
         
     if plot:
         iframe = 0
-        iwlen = 1400
+        iwlen = 70
         plt.figure(1)
         plt.imshow(np.angle(cfdata['CF']['data'][1,iframe,:,:]), cmap='gray')
         plt.title('2D phase map for one peak')
@@ -744,9 +752,12 @@ def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax
 
     #data, cfdem = op_reorder_baselines(data)
     cfdem = data['CF'][cfin]
-
+    print('cfdem shape:', cfdem.shape)
+    n_bases = np.shape(cfdem)[0]-1
     n_frames = np.shape(cfdem)[1]
+    n_wlen_0 = np.shape(cfdem)[2]
     n_wlen = len(wlen)
+    print('n_bases:', n_bases, 'n_frames:', n_frames, 'n_wlen_0:', n_wlen_0, 'n_wlen:', n_wlen)
 
     data['CF']['CF_chr_phase_corr'] = np.copy(cfdem)
     phase_layer_air = np.zeros((6, n_frames, n_wlen))
@@ -822,7 +833,7 @@ def op_get_piston_fft(data, cfin='CF_Binned', verbose=False, plot=True):
     n_base  = np.shape(cf)[0]
     n_frame = np.shape(cf)[1]
     n_wlen  = np.shape(cf)[2]
-    print('n_base:', n_base, 'n_frame:', n_frame)
+    print('n_base:', n_base, 'n_frame:', n_frame, 'n_wlen:', n_wlen)
 
     data['CF']['CF_sigma'] = np.zeros((cf.shape[0],cf.shape[1],sigma_lin.shape[0]), dtype=complex)
     OPD_lst = np.zeros((n_base,n_frame))
@@ -1026,7 +1037,7 @@ def op_corr_piston(data, cfin='CF_Binned', verbose=False, plot=False):
 
 ##############################################
 # Bin data
-def op_bin_data(data, binning=5, cfin='CF_achr_phase_corr', verbose=False, plot=False):
+def op_bin_data(data, binning=2, cfin='CF_achr_phase_corr', verbose=False, plot=False):
     wlen   = data['OI_WAVELENGTH']['EFF_WAVE']
     cfdem  = data['CF'][cfin]
     n_wlen = len(wlen)
