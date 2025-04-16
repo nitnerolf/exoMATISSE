@@ -27,6 +27,8 @@ from op_instruments import *
 
 ##############################################
 # Function to interpolate bad pixels
+# 
+# 
 def op_interpolate_bad_pixels(data, bad_pixel_map, verbose=False):
     if verbose:
         print('Interpolating bad pixels...')
@@ -207,7 +209,7 @@ def op_match_keys(fits_data, keys, values, hdu=0):
 ##############################################
 # Load raw data
 def op_load_rawdata(filename, verbose=True):
-    print('Loading raw data...')
+    print(f'Loading raw data {filename}...')
     fh      =  fits.open(filename)
     data    = {'hdr': fh[0].header}
     nframes = len(fh['IMAGING_DATA'].data)
