@@ -312,11 +312,11 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
         print('Computing correlated flux...')
     #########################################################
     # Apodization
-    adata = op_apodize(bdata, verbose=verbose, plot=plot)
+    bdata = op_apodize(bdata, verbose=verbose, plot=plot)
         
     if plot:
         # Compute the average of intf after apodization
-        avg_intf = np.mean(adata['INTERF']['data'], axis=0)
+        avg_intf = np.mean(bdata['INTERF']['data'], axis=0)
         vmn = 1e-9
         vmx = np.max(avg_intf)
         fig, axes = plt.subplots(1, 3, figsize=(18, 6))
@@ -329,11 +329,11 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
         
     #########################################################
     #compute fft
-    fdata = op_calc_fft(adata)
+    bdata = op_calc_fft(bdata)
 
     if plot:
         # Compute the average of intf after apodization
-        sum_dsp = np.log(fdata['FFT']['sum_dsp'])
+        sum_dsp = np.log(bdata['FFT']['sum_dsp'])
         #fig, axes = plt.subplots(1, 3, figsize=(18, 6))
         fig, axes = plt.subplots(1, 1, figsize=(6, 10))
         fig.tight_layout()
@@ -350,14 +350,14 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
 
     #########################################################
     # Get the wavelength
-    wlen = op_get_wlen(shiftfile, fdata, verbose=verbose)
+    wlen = op_get_wlen(shiftfile, bdata, verbose=verbose)
     if verbose:
         print(wlen)
 
 
     #########################################################
     # Get the peaks position
-    peaks, peakswd = op_get_peaks_position(fdata, verbose=verbose)
+    peaks, peakswd = op_get_peaks_position(bdata, verbose=verbose)
     if verbose:
         print(wlen)
 
@@ -372,7 +372,7 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
 
     #########################################################
     # Extract the correlated flux
-    cfdata = op_extract_CF(fdata, peaks, peakswd, verbose=verbose)
+    bdata = op_extract_CF(bdata, peaks, peakswd, verbose=verbose)
     if verbose:
         print(wlen)
     
@@ -381,32 +381,32 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
         iframe = 0
         iwlen = 70
         plt.figure(1)
-        plt.imshow(np.angle(cfdata['CF']['data'][1,iframe,:,:]), cmap='gray')
+        plt.imshow(np.angle(bdata['CF']['data'][1,iframe,:,:]), cmap='gray')
         plt.title('2D phase map for one peak')
 
         plt.figure(2)
         for i in np.arange(7):
-            plt.plot(np.angle(cfdata['CF']['data'][i,iframe,iwlen,:]),color=colors[i])
+            plt.plot(np.angle(bdata['CF']['data'][i,iframe,iwlen,:]),color=colors[i])
         plt.title('Cut of the phase of CF Data')
 
         plt.figure(3)
         for i in np.arange(7):
-            plt.plot(np.abs(cfdata['CF']['data'][i,iframe,iwlen,:]),color=colors[i])
+            plt.plot(np.abs(bdata['CF']['data'][i,iframe,iwlen,:]),color=colors[i])
         plt.plot(np.abs(cfdata['CF']['bckg'][iframe,iwlen,:]))
         plt.yscale('log')
         plt.title('Modulus of Complex Values for CF Data and Background')
         
     #########################################################
     # Demodulate MATISSE fringes
-    cfdem = op_demodulate(cfdata, verbose=verbose, plot=plot)
+    bdata = op_demodulate(bdata, verbose=verbose, plot=plot)
     
     #########################################################
     # Reorder baselines
-    cfreord, cfdata_reordered = op_reorder_baselines(cfdem)
+    bdata, cfdata_reordered = op_reorder_baselines(bdata)
     
     #########################################################
     # Get the air refractive index
-    Temp, Pres, hum, dPath    = op_get_amb_conditions(cfreord)
+    Temp, Pres, hum, dPath    = op_get_amb_conditions(bdata)
     if verbose:
         print('Temp:', Temp, 'Pres:', Pres, 'hum:', hum)
     n_air = op_air_index(wlen, Temp, Pres, hum, N_CO2=423, bands='all')
@@ -415,25 +415,25 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
         
     #########################################################
     # Correct the phase for air path
-    cfclean, phase_layer_air_slope = op_corr_n_air(wlen, cfreord, n_air, dPath, wlmin=3.3e-6, wlmax=3.7e-6, verbose=verbose, plot=plot)
+    bdata, phase_layer_air_slope = op_corr_n_air(wlen, bdata, n_air, dPath, wlmin=3.3e-6, wlmax=3.7e-6, verbose=verbose, plot=plot)
     
     #########################################################
     # Get the piston    
-    data, OPD_list = op_get_piston_fft(cfclean, cfin='CF_chr_phase_corr', verbose=verbose, plot=plot)
+    bdata, OPD_list = op_get_piston_fft(bdata, cfin='CF_chr_phase_corr', verbose=verbose, plot=plot)
     
     #########################################################
     # Correct the piston
-    data2 = op_corr_piston(data, cfin='CF_chr_phase_corr', verbose=verbose, plot=plot)
+    bdata = op_corr_piston(bdata, cfin='CF_chr_phase_corr', verbose=verbose, plot=plot)
 
     #########################################################
     # Correct for residual phase
-    totvis = np.sum(data2['CF']['CF_piston_corr'],axis=-1)
-    cvis = data2['CF']['CF_piston_corr'] * np.exp(-1j * np.angle(totvis[...,None]))
-    data2['CF']['CF_piston_corr2'] = cvis
+    totvis = np.sum(bdata['CF']['CF_piston_corr'],axis=-1)
+    cvis = bdata['CF']['CF_piston_corr'] * np.exp(-1j * np.angle(totvis[...,None]))
+    bdata['CF']['CF_piston_corr2'] = cvis
 
     #########################################################
     # Bin the data
-    cfbin = op_bin_data(data2, cfin='CF_piston_corr2', verbose=verbose, plot=plot)
+    cfbin = op_bin_data(bdata, cfin='CF_piston_corr2', verbose=verbose, plot=plot)
     #return cfdem
     #return cfreord
     return cfbin
@@ -583,23 +583,37 @@ def op_reorder_baselines(data, cfin='CF_demod'):
 
 ##############################################
 # Function to get the ambient conditions
-def op_get_amb_conditions(data, verbose=False):
+def op_get_amb_conditions(data, verbose=True):
 
     # Relative humidity
     humidity = data['hdr']['ESO ISS AMBI RHUM'] / 100
 
     # Temperature (°C)
-    T1 = data['hdr']['ESO ISS TEMP TUN1']
-    T2 = data['hdr']['ESO ISS TEMP TUN2']
-    T3 = data['hdr']['ESO ISS TEMP TUN3']
-    T4 = data['hdr']['ESO ISS TEMP TUN4']
+    T1 = data['hdr']['ESO ISS TEMP TUN1'] # Temp in tunnel west [C], duct A.         
+    T2 = data['hdr']['ESO ISS TEMP TUN2'] # Temp in tunnel centre [C], M16 west.     
+    T3 = data['hdr']['ESO ISS TEMP TUN3'] # Temp in tunnel centre [C], M16 east.     
+    T4 = data['hdr']['ESO ISS TEMP TUN4'] # Temp in tunnel east [C], duct L.         
     temperature = (T1+T2+T3+T4)/4
 
     #Others temperatures (°C)
-    Tlab = data['hdr']['ESO ISS TEMP LAB1']
-    Tamb = data['hdr']['ESO ISS AMBI TEMP']
-    Tamb_dew = data['hdr']['ESO ISS AMBI TEMPDEW']
-    Tsky = data['hdr']['ESO ISS AMBI IRSKY TEMP']
+    Tlab = data['hdr']['ESO ISS TEMP LAB1'] # Temp in lab.                             
+    Tamb = data['hdr']['ESO ISS AMBI TEMP'] # Observatory ambient temperature [C].      
+    Tamb_dew = data['hdr']['ESO ISS AMBI TEMPDEW'] # Observatory ambient dew temperature [C]
+    Tsky = data['hdr']['ESO ISS AMBI IRSKY TEMP'] # Temperature of the IR sky, from rad
+    
+    # MATISSE-specific temps
+    try:
+        Tins1 = data['hdr']['ESO INS SENS34 VAL'] #  [C] Ambient temperature Value.           
+        Tins2 = data['hdr']['ESO INS SENS147 VAL'] # [C] Ambient temperature Value.      
+        Tins3 = data['hdr']['ESO INS SENS240 VAL'] # [C] SOS Ambient temperature Value.     
+        Tins4 = data['hdr']['ESO INS SENS242 VAL'] # [C] CPL Ambient temperature Value.      
+        Tins5 = data['hdr']['ESO INS SENS244 VAL'] # [C] CPN Ambient temperature Value.
+        Tins6 = data['hdr']['ESO INS SENS246 VAL'] # [C] ARC Ambient temperature Value. 
+        Tins7 = data['hdr']['ESO INS SENS258 VAL'] # [C] Cabinet ambient temperature Value.
+        print("Loaded MATISSE-specific temperatures")
+    except:
+        print("WARNING: No MATISSE-specific temperatures found!")
+    
     # temperature = Tlab
 
     # keys=[]
@@ -617,9 +631,9 @@ def op_get_amb_conditions(data, verbose=False):
     # Get the MJDs
     mjds   = data['INTERF']['mjds'] 
     if verbose:
-        print('MJDs:', mjds)
+        print('MJDs:',np.shape(mjds))
     tartyp = data['INTERF']['tartyp']
-    mjds_valid = mjds[tartyp == 'T']
+    mjds_valid = mjds#[tartyp == 'T']
     n_valid_frames = np.sum(tartyp == 'T')
 
     ## Get the path lengths
@@ -641,10 +655,10 @@ def op_get_amb_conditions(data, verbose=False):
         print('Start MJD:', start_mjd, 'End MJD:', end_mjd)
     relative_mjds      = (mjds_valid - start_mjd) / (end_mjd - start_mjd)
     if verbose:
-        print('Relative MJDs:', relative_mjds)
+        print('Relative MJDs:', np.shape(relative_mjds))
     OPLs = (np.outer(end_OPLs - start_OPLs, relative_mjds).T + start_OPLs).T
     if verbose:
-        print('OPLs inside function:', OPLs)
+        print('OPLs inside function:', np.shape(OPLs))
 
     # FIXME: attention, take into account baseline scrambling here
     dPaths  = np.array([static_lengths[3] + OPLs[3] - static_lengths[2] - OPLs[2],
@@ -992,7 +1006,7 @@ def op_get_piston_chi2(data, init_guess, cfin='CF_Binned', verbose=False, plot=F
                 ax[i_base,1].plot(pistonss, chi2s)
             ax[i_base,1].set_xlim(-10e-6,10e-6)
 
-    plt.show()
+        plt.show()
     #if verbose:
     print('OPD chi2:', pistons)
     
@@ -1031,7 +1045,7 @@ def op_corr_piston(data, cfin='CF_Binned', verbose=False, plot=False):
         fig, ax = plt.subplots(n_bases, 1, figsize=(8, 8))
         for i_base in range(n_bases):
             ax[i_base].plot(np.angle(data['CF']['CF_piston_corr'][i_base, 0]), color=colors[i_base])
-    plt.show()
+        plt.show()
  
     return data
 
