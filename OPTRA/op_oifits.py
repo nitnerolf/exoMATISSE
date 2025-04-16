@@ -146,11 +146,11 @@ def op_gen_oivis2(cfdata, v2in='simplevis2', verbose=True, plot=False):
     """
     Save the v squared in OIFITS format
     """
-    complexvis = cfdata['CF'][cfin][1:,...]
-    print('Shape of complexvis:', complexvis.shape)
-    complexvis2 = np.reshape(np.swapaxes(complexvis, 0,1), (complexvis.shape[0]* complexvis.shape[1],complexvis.shape[2]))
-    nbases    = complexvis.shape[0]
-    nframes   = complexvis.shape[1]
+    vis2in = cfdata['VIS2'][v2in][1:,...]
+    print('Shape of vis2:', vis2in.shape)
+    #vis2in2 = np.reshape(np.swapaxes(vis2in, 0,1), (vis2in.shape[0]* vis2in.shape[1],vis2in.shape[2]))
+    nbases    = vis2in.shape[0]
+    nframes   = vis2in.shape[1]
     # Create the OI_VIS table
     oivis_table = Table()
     #oivis_table.meta['NAME']  = 'OI_VIS'
@@ -163,8 +163,8 @@ def op_gen_oivis2(cfdata, v2in='simplevis2', verbose=True, plot=False):
     oivis_table['MJD']       = np.repeat(cfdata['OI_BASELINES']['MJD'],  nbases)
     oivis_table['INT_TIME']  = np.repeat(cfdata['OI_BASELINES']['INT_TIME'], nbases)
     #print('Shape of complexvisxxx:', complexvis2.shape)
-    oivis_table['VIS2DATA']    = cfdata['VIS2']['simplevis2']
-    oivis_table['VIS2ERR'] = 0.0
+    oivis_table['VIS2DATA']  = cfdata['VIS2'][v2in]
+    oivis_table['VIS2ERR']   = 0.0
     oivis_table['UCOORD']    = 0.0
     oivis_table['VCOORD']    = 0.0
     #print('Shape of STA_INDEX:', np.tile(np.array(cfdata['OI_BASELINES']['STA_INDEX']), (nframes,1)).shape)
@@ -176,7 +176,7 @@ def op_gen_oivis2(cfdata, v2in='simplevis2', verbose=True, plot=False):
 ##############################################
 # 
 def op_write_oifits(filename, hdr, oiwavelength, oirray=None, oitarget=None, oivis=None, oivis2=None, oit3=None):
-    print('Writing OI fits...')
+    print(f'Writing OI fits {filename}...')
     """
     Write the OIFITS file
     """
@@ -214,6 +214,8 @@ def op_write_oifits(filename, hdr, oiwavelength, oirray=None, oitarget=None, oiv
     
     # Write the OIFITS file
     oifits.writeto(filename, overwrite=True)
+    
+    print(f'Done!')
     
     return
 
