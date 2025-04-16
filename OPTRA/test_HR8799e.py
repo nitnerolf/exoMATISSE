@@ -30,7 +30,7 @@ plotPhi     = plot
 plotDsp     = plot
 plotRaw     = plot
 plotCorr    = plot
-plotPist = plot
+plotPist    = plot
 
 verbose = False
 
@@ -40,14 +40,16 @@ def do_nothing():
 #bbasedir = os.path.expanduser('/Users/jscigliuto/Nextcloud/GPAO_HR8799e/')
 #basedir  = bbasedir
 #bbasedir = '~/SynologyDrive/driveFlorentin/GRAVITY+/HR8799e/'
-bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/GPAO_HR8799e/')
+bbasedir = os.path.expanduser('~/SynologyDrive/driveFlorentin/DATA/GPAO_HR8799e/')
 basedir  = bbasedir+'HR8799e_rawdata/'
 
 
+outdir = os.path.expandvars('$HOME/HR8799e_MACAO/')
 starfiles = os.listdir(basedir)
-print('Starfiles:', starfiles)
 fitsfiles = [f for f in starfiles if ".fits" in f and not "M." in f]
-print('Fitsfiles:', fitsfiles)
+#print(fitsfiles)
+
+colors = ['#7a0e04', '#7a4f04', '#6a7a04', '#317a04', '#047d6f', '#04477d', '#45077a']
 
 # select only fits files that correspond to observations
 obsfilesL     = []
@@ -69,29 +71,32 @@ for fi in fitsfiles:
     try:
         chip = hdr['ESO DET CHIP NAME']
     except:
-        do_nothing()
+        do_nothing=1
     try:
         dit  = hdr['ESO DET SEQ1 DIT']
     except:
-        do_nothing()
+        do_nothing=1
         #print('No DIT in header')
     try:
         ndit = hdr['ESO DET NDIT']
     except:
-        do_nothing()
-    print(fi, inst, catg, type, chip, dit, ndit)
+        do_nothing=1
+    #print(fi, inst, catg, type, chip, dit, ndit)
     if catg == 'SCIENCE' and type == 'OBJECT' and chip == 'HAWAII-2RG' :
         #print("science file!")
         obsfilesL.append(fi)
         obsfilesL_MJD.append(hdr['MJD-OBS'])
-    if catg == 'CALIB' and type == 'STD' and chip == 'HAWAII-2RG':
-        #print("calibrator file!")
+    elif catg == 'CALIB' and type == 'STD' and chip == 'HAWAII-2RG':
+        #print("calibrator file!", fi)
         obsfilesL.append(fi)
         obsfilesL_MJD.append(hdr['MJD-OBS'])
-    if catg == 'CALIB' and type == 'SKY' and chip == 'HAWAII-2RG' :
-        #print("sky file!")
+    elif catg == 'CALIB' and type == 'SKY' and chip == 'HAWAII-2RG' :
+        #print("sky file!", fi)
         skyfilesL.append(fi)
         skyfilesL_MJD.append(hdr['MJD-OBS'])
+    else:
+        do_nothing = 1
+        #print('Not a science or sky file:', fi)
 
 skyfilesL_MJD = np.array(skyfilesL_MJD)
 starfiles = sorted(obsfilesL)
@@ -99,9 +104,10 @@ starfiles = sorted(obsfilesL)
 print('Starfiles:', starfiles)
 print('Skyfiles:', skyfilesL)
 
+
 for ifile in starfiles:
     starfile = basedir + ifile
-#starfile = basedir + 'MATISSE_OBS_SIPHOT_LM_OBJECT_323_0003.fits'
+    print('\nWorking on file:', ifile)
 
     fh = fits.open(starfile)
     hdr = fh[0].header
@@ -110,7 +116,7 @@ for ifile in starfiles:
     
     # associate the two sky files matching properties of the star file
     mjdiff = np.abs(skyfilesL_MJD - mjd_obs)
-    # Sort skyfiles by ascending distance to the starfile
+    # Sort skyfiles by ascending time distance to the starfile
     skyfilesL_sorted = [x for _,x in sorted(zip(mjdiff,skyfilesL))]
     
     for isky in skyfilesL_sorted:
@@ -123,24 +129,24 @@ for ifile in starfiles:
         imatch = 0
         for key in keys_to_match:
             if hdr[key] == hdrsky[key]:
-                print('Matching key:', key)
+                #print('Matching key:', key)
                 imatch += 1
         if imatch == len(keys_to_match):
             print('Matching sky file:', skyfile)
             break
-        
-    #skyfile  = basedir + 'MATISSE_OBS_SIPHOT_LM_SKY_323_0003.fits'
 
-    #caldir    = '/Users/jscigliuto/Nextcloud/DATA/CALIB2024/'
-    caldir    = '~/Documents/ExoMATISSE/CALIB2024/'
-    kappafile = caldir+'KAPPA_MATRIX_L_MED.fits.gz'
-    shiftfile = caldir+'SHIFT_L_MED.fits.gz'
-    flatfile  = caldir+'FLATFIELD_L_SLOW.fits.gz'
-    badfile   = caldir+'BADPIX_L_SLOW.fits.gz'
+    caldir = os.path.expandvars('$HOME/SynologyDrive/driveFlorentin/DATA/CALIB2024/')
+    
+    ext = '.fits.gz'
+    kappafile = caldir+'KAPPA_MATRIX_L_MED'+ext
+    shiftfile = caldir+'SHIFT_L_MED'+ext
+    flatfile  = caldir+'FLATFIELD_L_SLOW'+ext
+    badfile   = caldir+'BADPIX_L_SLOW'+ext
 
     ##########################################################
 
     bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=verbose, plot=plotRaw)
+    
 
     ##########################################################
 
@@ -164,8 +170,8 @@ for ifile in starfiles:
     basename = os.path.basename(starfile)
     basen    = os.path.splitext(basename)[0]
     directory = cfdata['hdr']['DATE-OBS'].split('T')[0]+'_OIFITS/'
-    if not os.path.exists(bbasedir+directory):
-        os.makedirs(bbasedir+directory)
+    if not os.path.exists(outdir+directory):
+        os.makedirs(outdir+directory)
     chip = cfdata['hdr']['ESO DET CHIP NAME']
     if 'HAWAII' in chip:
         band = 'L'
@@ -181,7 +187,9 @@ for ifile in starfiles:
     cfdata['hdr']['ESO INS BCD2 ID']
         
     if 1:
-        vis2, mask = op_extract_simplevis2(cfdata, verbose=True, plot=False)
+        cfdata, vis2, mask = op_extract_simplevis2(cfdata, verbose=verbose, plot=0)
+        
+    if plotDsp:
         #print(mask)
         #print(~mask)
         notvis2 = np.ma.masked_array(np.ma.getdata(vis2), ~mask)
@@ -192,7 +200,6 @@ for ifile in starfiles:
 
         fig0, ax0 = plt.subplots(7, 1, figsize=(8, 8), sharex=1, sharey=1)
         #print('Shape of ax1:', ax0.shape)
-        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
         for i in np.arange(7):
             #print('i:', i)
             ax0[i].plot(wlen, allvis2[i,:], color='lightgray')
@@ -200,49 +207,51 @@ for ifile in starfiles:
             ax0[i].set_ylabel(f'vis2 {i}')
 
         #print('Basename of starfile:', basen)
-        plt.suptitle(f'Visibility as a function of $\lambda$, {basen}')
+        plt.suptitle(r'Visibility as a function of $\lambda$, {basen}')
         plt.xlim(np.min(wlen), np.max(wlen))
         plt.ylim(-0.1, 1.1)
         #print(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
-        plt.savefig(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
+        plt.savefig(os.path.expanduser(outdir+f'{basen}_vis2.png'))
         #plt.show()
 
     #########################################################
 
     #cfdem = op_demodulate(cfdata, wlen, verbose=True, plot=False)
     cfdem = cfdata
-
-
-
+    
     #print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
     #cf = cfdem['CF']['CF_achr_phase_corr']
-    cf = cfdem['CF']['CF_Binned']
+    cf   = cfdem['CF']['CF_Binned']
+    nbframes = cf.shape[1]
+    wlen = cfdata['OI_WAVELENGTH']['EFF_WAVE_Binned']
     #cf = cfdem['CF']['CF_demod']
     #cf = cfdem['CF']['CF_reord']
     sumcf = np.sum(cf, axis=1)
+    avgcf = np.mean(cf, axis=1)
     #print('Shape of sumcf:', sumcf.shape)
     shp = sumcf.shape
     nbs = shp[0]
     
-    if plotCorr:
+    if 1:
         fig1, ax1 = plt.subplots(nbs, 2, figsize=(8, 8), sharex=1, sharey=0)
         #print('Shape of ax1:', ax1.shape)
-        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
         for i in np.arange(nbs):
             #print('i:', i)
-            ax1[i,0].plot(wlen,   np.abs(sumcf[i,:]), color=colors[i])
+            ax1[i,0].plot(wlen,   np.abs(avgcf[i,:]), color=colors[i])
+            for j in np.arange(nbframes):
+                ax1[i,0].plot(wlen, np.abs(cf[i,j,:]), color=colors[i], alpha=0.1)
             if i == 0 and nbs == 7:
                 ax1[i,0].set_ylabel(f'flux {i+1}')
             else:
                 ax1[i,0].set_ylabel(f'corr. flux {i+1}')
-            ax1[i,1].plot(wlen, np.angle(sumcf[i,:]), color=colors[i])
+            ax1[i,1].plot(wlen, np.angle(avgcf[i,:]), color=colors[i])
+            for j in np.arange(nbframes):
+                ax1[i,1].plot(wlen, np.angle(cf[i,j,:]), color=colors[i], alpha=0.1)
             ax1[i,1].set_ylabel(f'phase {i+1}')
         plt.suptitle('Sum CF data (1 exposure)')
         plt.tight_layout()
-        plt.savefig(os.path.expanduser(bbasedir+f'{basen}_corrflux.png'))
+        plt.savefig(os.path.expanduser(outdir+f'{basen}_corrflux.png'))
         #plt.show()
-    
-    
 
     # iframe = 0
     # fig2, ax2 = plt.subplots(2, 6, figsize=(8, 4))
@@ -264,7 +273,6 @@ for ifile in starfiles:
     data = op_corr_piston(data, verbose=False, plot=plotPist)
 
     if plotPist:
-        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
         fig, ax = plt.subplots(7, 2, figsize=(8, 8))
         fig.suptitle('Piston corrected phase')
         for i_base in range(7):
@@ -275,14 +283,15 @@ for ifile in starfiles:
     
 
     #########################################################
-    outfilename = os.path.expanduser(bbasedir+f'{basen}_corrflux_oi.fits')
+    outfilename = os.path.expanduser(outdir+f'{basen}_corrflux_oi.fits')
     hdr = cfdem['hdr']
     oiwavelength = op_gen_oiwavelength(cfdem, verbose=verbose)
     oitarget     = op_gen_oitarget(cfdem, verbose=True, plot=False)
     oirray       = op_gen_oiarray(cfdem, verbose=True, plot=False)
     oivis        = op_gen_oivis(cfdem, cfin='CF_piston_corr', verbose=verbose, plot=False)
-    op_write_oifits(outfilename, hdr, oiwavelength, oirray, oitarget, oivis, oivis2=None, oit3=None)
-
+    #oivis2       = op_gen_oivis2(cfdem, v2in='simplevis2', verbose=verbose, plot=False)
+    oivis2=None
+    op_write_oifits(outfilename, hdr, oiwavelength, oirray, oitarget, oivis, oivis2=oivis2, oit3=None)
 
     '''
     #scfdata = op_sortout_peaks(cfdata, verbose=True)
@@ -320,7 +329,6 @@ for ifile in starfiles:
         return lines
     ani = animation.FuncAnimation(fig, update, frames=cfdata['CF']['CF'].shape[1], init_func=init, blit=True)
     plt.show()
-        
     if plotDsp:
         plt.figure(5)
         for i in np.arange(6)+1:
@@ -329,8 +337,5 @@ for ifile in starfiles:
                 plt.plot(np.max(np.abs(cfdata['CF']['data'][i,iframe,:,:]),axis=1) / np.abs(cfdata['CF']['CF'][0,0,:])*3*7,':',color=colors[i])
         plt.ylim(-0.2,1.2)
         plt.title('This one should resemble a visibility curve')
-
-
-
     plt.show()
     '''
