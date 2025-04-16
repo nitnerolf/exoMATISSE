@@ -98,6 +98,7 @@ def op_apply_bpm(rawdata, bpmap, verbose=False):
         rawdata['OTHER'][key]['data'] = other
     return rawdata
 
+
 ##############################################
 # Load flat field map
 def op_load_ffm(filename, verbose=False):
