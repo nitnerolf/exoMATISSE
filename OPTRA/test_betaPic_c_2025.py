@@ -21,9 +21,10 @@ import os
 
 
 ##################################### Plot et verbose ####################################
-plot=False
-plotCorr=True
-verbose=False
+plot         = False
+plotCorr     = False
+plotCoverage = True
+verbose      = False
 
 ##################################### FILE OPENING ####################################
 bbasedir = os.path.expanduser('~/Documents/Planet/beta_pic_c/')
@@ -31,8 +32,8 @@ basedir  = bbasedir+'2023-11-29/'
 
 obsfiles = os.listdir(basedir)
 fitsfiles = [f for f in obsfiles if ".fits" in f and not "M." in f]
-starfiles=[]
-planetfiles=[]
+starfiles     = []
+planetfiles   = []
 skyfilesL     = []
 skyfilesL_MJD = []
 
@@ -74,7 +75,7 @@ for fi in fitsfiles:
         
 skyfilesL_MJD = np.array(skyfilesL_MJD)
 
-planetfiles=sorted(planetfiles)
+planetfiles = sorted(planetfiles)
 
 
 ##################################### PROCESS STAR DATA ####################################
@@ -123,7 +124,9 @@ for ifile in planetfiles:
 
     cfdata = op_get_corrflux(bdata, shiftfile, plot=plot, verbose=verbose)
 
+    
     ##########################################################
+    
     
     basename = os.path.basename(starfile)
     basen    = os.path.splitext(basename)[0]
@@ -146,18 +149,26 @@ for ifile in planetfiles:
             cfdata['hdr']['ESO INS BCD2 ID']
     
     #########################################################
+    
+    
+    cfdata = op_compute_uv(hdr,cfdata,False)
+    if ifile == planetfiles[0]:
+        f = [basedir + fi for fi in planetfiles]
+        op_uv_coverage(f,cfdata, plotCoverage)
+        
+        
+    #########################################################
 
 
-    
-    cf = cfdata['CF']['CF_Binned']
-    wlen = cfdata['OI_WAVELENGTH']['EFF_WAVE_Binned']
-    
-    moycf=np.mean(cf,axis=1)
-    nframe = cf.shape[1]
-    nbase = moycf.shape[0]
-    ymax= np.max(moycf[1:])
-    ysmax=np.max(moycf[0])
     if plotCorr:
+        cf     = cfdata['CF']['CF_Binned']
+        wlen   = cfdata['OI_WAVELENGTH']['EFF_WAVE_Binned']
+        moycf  = np.mean(cf,axis=1)
+        nframe = cf.shape[1]
+        nbase  = moycf.shape[0]
+        ymax   = np.max(moycf[1:])
+        ysmax  = np.max(moycf[0])
+        
         fig1, ax1 = plt.subplots(nbase, 2, figsize=(8, 8), sharex=1, sharey=0)
         colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', 'forestgreen']
         
@@ -181,8 +192,8 @@ for ifile in planetfiles:
         plt.show()
     
     
-    
     #########################################################
+    
     outfilename = os.path.expanduser(bbasedir+f'{basen}_corrflux_oi.fits')
     hdr = cfdata['hdr']
     oiwavelength = op_gen_oiwavelength(cfdata, verbose=verbose)
@@ -191,4 +202,4 @@ for ifile in planetfiles:
     oivis        = op_gen_oivis(cfdata, cfin='CF_Binned', verbose=verbose, plot=plot)
     op_write_oifits(outfilename, hdr, oiwavelength, oirray, oitarget, oivis, oivis2=None, oit3=None)
 
-    
+  
