@@ -698,6 +698,9 @@ def op_uv_coverage(files,cfdata,plot):
     ######################### PLOT ################################
     if plot:
         plt.figure(figsize=(10, 10))
+        ax=plt.gca()
+        ax2 = plt.gca().twiny()
+        ax3 = plt.gca().twinx()
         colors = ['red','blue', 'lightgreen', 'orange', 'purple', 'cyan']
         nObs   = len(files)
         nBase  = len(data['u'][0])
@@ -722,36 +725,48 @@ def op_uv_coverage(files,cfdata,plot):
         
         
         plt.title("uv-coverage map", fontsize=18, fontweight='bold', pad=20)
-        plt.xlabel("U (Mλ - 10⁶ cycles/rad)", fontsize=14, fontweight='bold')
-        plt.ylabel("V (Mλ - 10⁶ cycles/rad)", fontsize=14, fontweight='bold')
+        ax.set_xlabel("U (Mλ - 10⁶ cycles/rad)", fontsize=14, fontweight='bold')
+        ax.set_ylabel("V (Mλ - 10⁶ cycles/rad)", fontsize=14, fontweight='bold')
         
-        # Twin axes for meters
-        ax2 = plt.gca().twiny()
-        ax2.set_xlim(-140, 140)
+        ax2.set_xlim(-150, 150)
         ax2.set_xlabel("U (m) ", fontsize=14, fontweight='bold')
         
-        ax3 = plt.gca().twinx()
-        ax3.set_ylim(-140, 140)
+        
+        ax3.set_ylim(-150, 150)
         ax3.set_ylabel("V (m) ", fontsize=14, fontweight='bold')
         
-        #limit anf grid
-        plt.xlim((-125,125))
-        plt.ylim((-125,125))
-        ax2.xaxis.set_major_locator(MultipleLocator(10))
-        ax3.yaxis.set_major_locator(MultipleLocator(10))
-        ax2.grid(True, which='both', linestyle='--', color='gray', linewidth=0.7)
-        ax3.grid(True, which='both', linestyle='--', color='gray', linewidth=0.7)
-        # Highlight x=0 and y=0 lines
-        plt.axhline(0, color='black', linewidth=1.5)  # horizontal line at y=0
-        plt.axvline(0, color='black', linewidth=1.5)  # vertical line at x=0
+        ax.set_xlim(ax2.get_xlim()[0] / wlen_ref , ax2.get_xlim()[1] / wlen_ref )
+        ax.set_ylim(ax3.get_ylim()[0] / wlen_ref , ax3.get_ylim()[1] / wlen_ref )
+        # Twin axes for meters
         
-        #indicate north
-        plt.annotate('N',xy=(0.10, 0.95), xycoords='axes fraction',fontsize=14, fontweight='bold', ha='center')
-        plt.arrow(0.10, 0.87, 0, 0.05, transform=plt.gca().transAxes,width=0.002, head_width=0.01, head_length=0.02,fc='k', ec='k', zorder=5)
+        
+        
+        #limit anf grid
+        # plt.xlim((-125,125))
+        # plt.ylim((-125,125))
+        ax2.xaxis.set_major_locator(MultipleLocator(20))
+        ax3.yaxis.set_major_locator(MultipleLocator(20))
+        ax.xaxis.set_major_locator(MultipleLocator(5))
+        ax.yaxis.set_major_locator(MultipleLocator(5))
+        ax.grid(True, which='both', linestyle='--', color='gray', linewidth=0.7)
+        #ax3.grid(True, which='both', linestyle='--', color='gray', linewidth=0.7)
+        # Highlight x=0 and y=0 lines
+        ax2.axhline(0, color='black', linewidth=1.5)  # horizontal line at y=0
+        ax2.axvline(0, color='black', linewidth=1.5)  # vertical line at x=0
+        
+        plt.annotate('N',xy=(0.05, 0.95), xycoords='axes fraction',fontsize=14, fontweight='bold', ha='center')
+        plt.arrow(0.05, 0.87, 0, 0.05, transform=plt.gca().transAxes,width=0.002, head_width=0.01, head_length=0.02,fc='k', ec='k', zorder=5)
         
         #indicate east
-        plt.annotate('E',xy=(0.03, 0.88), xycoords='axes fraction',fontsize=14, fontweight='bold', ha='center')
-        plt.arrow(0.10, 0.87, -0.05, 0, transform=plt.gca().transAxes,width=0.002, head_width=0.01, head_length=0.02,fc='k', ec='k', zorder=5)
+        plt.annotate('E',xy=(0.13, 0.88), xycoords='axes fraction',fontsize=14, fontweight='bold', ha='center')
+        plt.arrow(0.05, 0.87, 0.05, 0, transform=plt.gca().transAxes,width=0.002, head_width=0.01, head_length=0.02,fc='k', ec='k', zorder=5)
+        # #indicate north
+        # plt.annotate('N',xy=(0.10, 0.95), xycoords='axes fraction',fontsize=14, fontweight='bold', ha='center')
+        # plt.arrow(0.10, 0.87, 0, 0.05, transform=plt.gca().transAxes,width=0.002, head_width=0.01, head_length=0.02,fc='k', ec='k', zorder=5)
+        
+        # #indicate east
+        # plt.annotate('E',xy=(0.03, 0.88), xycoords='axes fraction',fontsize=14, fontweight='bold', ha='center')
+        # plt.arrow(0.10, 0.87, -0.05, 0, transform=plt.gca().transAxes,width=0.002, head_width=0.01, head_length=0.02,fc='k', ec='k', zorder=5)
         
         labels = ['UT1-UT2', 'UT1-UT3', 'UT1-UT4', 'UT2-UT3', 'UT2-UT4', 'UT3-UT4']
         handles = [plt.Line2D([], [], color=colors[i], label=labels[i]) for i in range(len(colors))]
