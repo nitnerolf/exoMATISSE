@@ -659,6 +659,7 @@ def op_compute_uv(hdr,cfdata,frame, plot):
     stardata['ra']   = hdr['RA']/15
     stardata['dec']  = hdr['DEC']
     
+    # Get the vector of all the baseline and compute uv Coords
     B=_op_compute_baseVect(hdr, loc)
     if frame :
         ndit = hdr['HIERARCH ESO DET NDIT']
@@ -674,31 +675,18 @@ def op_compute_uv(hdr,cfdata,frame, plot):
        
     else:
         stardata['lst']=hdr['LST']/3600
-    # Get the vector of all the baseline and compute uv Coords
         for i,bvect in enumerate(B):
             uvw=deepcopy(stardata)
             uvw=_op_calculate_uvw(uvw,bvect,loc)
             uCoord.append(uvw['u'])
             vCoord.append(uvw['v'])
     
-    # stardata['lst']  = hdr['LST']/3600
-    
-    # # Get the vector of all the baseline and compute uv Coords
-    # B = _op_compute_baseVect(hdr, loc)
-    # for bvect in B:
-    #     uvw = deepcopy(stardata)
-    #     uvw = _op_calculate_uvw(uvw,bvect,loc)
-    #     uCoord.append(uvw['u'])
-    #     vCoord.append(uvw['v'])
     cfdata['OI_BASELINES']['UCOORD'] = uCoord    
     cfdata['OI_BASELINES']['VCOORD'] = vCoord
     return cfdata  
 
 ##############################################
 # Compute uv_coverage
-
-
-
 def op_uv_coverage(uCoord,vCoord,cfdata,frame):
     """
     DESCRIPTION
@@ -708,7 +696,7 @@ def op_uv_coverage(uCoord,vCoord,cfdata,frame):
     PARAMETERS
         - files     : list of input file
         - cfdata    : datas of the correlated fluxes
-        - frame     :
+        - frame     : if computed frame per frame 
     """
     
     
