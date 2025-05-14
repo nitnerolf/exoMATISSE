@@ -36,7 +36,8 @@ verbose = False
 
 #bbasedir = '~/SynologyDrive/driveFlorentin/ExoMATISSE/beta_Pic_b/'
 bbasedir = os.path.expanduser('~/SynologyDrive/driveFlorentin/DATA/beta_Pic_b/')
-basedir  = bbasedir+'2022-11-08_Raw_MATISSE-LM_BetaPic/'
+#basedir  = bbasedir+'2022-11-08_Raw_MATISSE-LM_BetaPic/'
+basedir  = bbasedir+'2023-02-03/'
 
 outdir = os.path.expandvars('$HOME/beta_pic_b_MACAO/')
 starfiles = os.listdir(basedir)

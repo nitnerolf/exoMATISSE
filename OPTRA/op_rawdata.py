@@ -328,8 +328,6 @@ def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, instrument=op_MATISSE_
     bdata['OI_BASELINES']['INT_TIME']  = bdata['INTERF']['exptime']
     bdata['OI_BASELINES']['STA_INDEX'] = bdata['OI_ARRAY']['STA_INDEX'][instrument['scrB']]
     #print('Scrambling of baselines:', bdata['OI_ARRAY']['STA_INDEX'][instrument['scrB']])
-    
-    
     return bdata
 
 
@@ -356,7 +354,6 @@ def _op_get_location(hdr,plot):
         loc['elev'] = 2635
         loc['pos']=_op_positionsTelescope(hdr,loc,plot)
     except:
-        
         loc['name'] = "ESO, Cerro Paranal"
         loc['ntel'] = 4
         loc['lon'] = -70.40479659
