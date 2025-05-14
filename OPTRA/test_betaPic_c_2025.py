@@ -29,6 +29,9 @@ frame        = True
 ##################################### FILE OPENING ####################################
 bbasedir = os.path.expanduser('~/Documents/Planet/beta_pic_c/')
 basedir  = bbasedir+'2023-11-29/'
+########## Florentin's directory
+bbasedir = os.path.expandvars('$HOME/driveFlorentin/DATA/Beta_Pic_c/')
+basedir  = bbasedir+'2023-11-28_betaPic_c/'
 
 obsfiles = os.listdir(basedir)
 fitsfiles = [f for f in obsfiles if ".fits" in f and not "M." in f]

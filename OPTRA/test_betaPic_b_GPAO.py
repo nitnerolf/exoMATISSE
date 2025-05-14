@@ -37,7 +37,7 @@ verbose = False
 #bbasedir = '/Users/jscigliuto/Nextcloud/DATA/betaPicb/'
 #basedir = bbasedir+'betaPicb_rawdata_2024-11-17/'
 #bbasedir = '~/SynologyDrive/driveFlorentin/ExoMATISSE/beta_Pic_b/'
-bbasedir = os.path.expandvars('$HOME/SynologyDrive/driveFlorentin/DATA/beta_Pic_b/')
+bbasedir = os.path.expandvars('$HOME/driveFlorentin/DATA/beta_Pic_b/')
 #bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
 basedir  = bbasedir+'2024-11-17_MATISSE_betaPic_b/'
 
@@ -46,6 +46,14 @@ starfiles = os.listdir(basedir)
 #print(starfiles)
 fitsfiles = [f for f in starfiles if ".fits" in f and not "M." in f]
 #print(fitsfiles)
+
+caldir = os.path.expandvars('$HOME/driveFlorentin/DATA/CALIB2024/')
+
+ext = '.fits.gz'
+kappafile = caldir+'KAPPA_MATRIX_L_MED'+ext
+shiftfile = caldir+'SHIFT_L_MED'+ext
+flatfile  = caldir+'FLATFIELD_L_SLOW'+ext
+badfile   = caldir+'BADPIX_L_SLOW'+ext
 
 colors = ['#7a0e04', '#7a4f04', '#6a7a04', '#317a04', '#047d6f', '#04477d', '#45077a']
 
@@ -133,13 +141,6 @@ for ifile in starfiles:
             print('Matching sky file:', skyfile)
             break
 
-    caldir = os.path.expandvars('$HOME/SynologyDrive/driveFlorentin/DATA/CALIB2024/')
-    
-    ext = '.fits.gz'
-    kappafile = caldir+'KAPPA_MATRIX_L_MED'+ext
-    shiftfile = caldir+'SHIFT_L_MED'+ext
-    flatfile  = caldir+'FLATFIELD_L_SLOW'+ext
-    badfile   = caldir+'BADPIX_L_SLOW'+ext
 
     ##########################################################
 
