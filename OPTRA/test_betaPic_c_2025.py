@@ -25,7 +25,6 @@ plot         = False
 plotCorr     = False
 plotCoverage = True
 verbose      = False
-frame        = False
 plotSNR      = False
 ##################################### FILE OPENING ####################################
 bbasedir = os.path.expanduser('~/Documents/Planet/beta_pic_c/')
@@ -155,9 +154,9 @@ for ifile in tqdm(planetfiles,desc='Traitement des fichiers'):
     #########################################################
     
     if ifile == planetfiles[0]:
-        cfdata = op_compute_uv(cfdata,frame,plotCoverage)
+        cfdata = op_compute_uv(cfdata,plotCoverage)
     else: 
-        cfdata = op_compute_uv(cfdata,frame,False)
+        cfdata = op_compute_uv(cfdata,False)
         
     uCoord.append(cfdata['OI_BASELINES']['UCOORD'])
     vCoord.append(cfdata['OI_BASELINES']['VCOORD'])
@@ -212,4 +211,4 @@ for ifile in tqdm(planetfiles,desc='Traitement des fichiers'):
     oivis        = op_gen_oivis(cfdata, cfin='CF_Binned', verbose=verbose, plot=plot)
     op_write_oifits(outfilename, hdr, oiwavelength, oirray, oitarget, oivis, oivis2=None, oit3=None)
 
-op_uv_coverage(uCoord,vCoord,cfdata,frame)
+op_uv_coverage(uCoord,vCoord,cfdata)

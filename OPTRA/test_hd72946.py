@@ -33,7 +33,8 @@ plot         = False
 plotCorr     = False
 plotCoverage = True
 verbose      = False
-frame        = True
+plotSNR      = False
+
 ##################################### FILE OPENING ####################################
 bbasedir = os.path.expanduser('~/Documents/Planet/Hd72946/')
 basedir  = bbasedir+'2025-04-19/'
@@ -161,14 +162,15 @@ for ifile in tqdm(planetfiles,desc='Traitement des fichiers'):
     
     
     if ifile == planetfiles[0]:
-        cfdata = op_compute_uv(hdr,cfdata,frame,plotCoverage)
+        cfdata = op_compute_uv(cfdata,plotCoverage)
     else: 
-        cfdata = op_compute_uv(hdr,cfdata,frame,False)
+        cfdata = op_compute_uv(cfdata,False)
         
     uCoord.append(cfdata['OI_BASELINES']['UCOORD'])
     vCoord.append(cfdata['OI_BASELINES']['VCOORD'])
 
-        
+    cfdata=op_get_error_vis(cfdata,plot=plotSNR)
+    op_snr_theory(cfdata)
     #########################################################
 
 
@@ -285,15 +287,16 @@ for ifile in tqdm(starfiles,desc='Traitement des fichiers'):
     #########################################################
     
     if ifile == planetfiles[0]:
-        cfdata = op_compute_uv(hdr,cfdata,frame,plotCoverage)
+        cfdata = op_compute_uv(cfdata,plotCoverage)
     else: 
-        cfdata = op_compute_uv(hdr,cfdata,frame,False)
+        cfdata = op_compute_uv(cfdata,False)
         
     uCoord.append(cfdata['OI_BASELINES']['UCOORD'])
     vCoord.append(cfdata['OI_BASELINES']['VCOORD'])
     
         
-        
+    cfdata=op_get_error_vis(cfdata,plot=plotSNR)
+    op_snr_theory(cfdata)
     #########################################################
 
 
@@ -340,4 +343,4 @@ for ifile in tqdm(starfiles,desc='Traitement des fichiers'):
     op_write_oifits(outfilename, hdr, oiwavelength, oirray, oitarget, oivis, oivis2=None, oit3=None)
 
 
-op_uv_coverage(uCoord,vCoord,cfdata,frame)
+op_uv_coverage(uCoord,vCoord,cfdata)
