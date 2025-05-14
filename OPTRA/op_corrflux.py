@@ -158,6 +158,7 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
     rawdata['OI_WAVELENGTH'] = {}
     rawdata['OI_WAVELENGTH']['EFF_WAVE'] = wlen
     rawdata['OI_WAVELENGTH']['EFF_BAND'] = band
+    rawdata['OI_WAVELENGTH']['EFF_REF']  = rawdata['hdr']['HIERARCH ESO SEQ DIL WL0']
 
     return wlen
 
@@ -1051,7 +1052,7 @@ def op_corr_piston(data, cfin='CF_Binned', verbose=False, plot=False):
 
 ##############################################
 # Bin data
-def op_bin_data(data, binning=2, cfin='CF_achr_phase_corr', verbose=False, plot=False):
+def op_bin_data(data, binning=5, cfin='CF_achr_phase_corr', verbose=False, plot=False):
     wlen   = data['OI_WAVELENGTH']['EFF_WAVE']
     cfdem  = data['CF'][cfin]
     n_wlen = len(wlen)

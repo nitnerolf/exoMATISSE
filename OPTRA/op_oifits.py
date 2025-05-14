@@ -92,11 +92,11 @@ def op_gen_oiwavelength(cfdata, verbose=True, plot=False):
     #oiwavelength_table.meta['NAME']  = 'OI_WAVELENGTH'
     oiwavelength_table.meta['EXTNAME']  = 'OI_WAVELENGTH'
     oiwavelength_table.meta['EXTVER']  = 1
-    oiwavelength_table['EFF_WAVE'] = cfdata['OI_WAVELENGTH']['EFF_WAVE']
+    oiwavelength_table['EFF_WAVE'] = cfdata['OI_WAVELENGTH']['EFF_WAVE_Binned']
     print('Shape of EFF_WAVE:', oiwavelength_table['EFF_WAVE'].shape)
     
     oiwavelength_table['EFF_BAND']  = 0.0
-    oiwavelength_table['EFF_REF']   = 0.0
+    oiwavelength_table['EFF_REF']   = cfdata['OI_WAVELENGTH']['EFF_REF']
     oiwavelength_table['BANDWIDTH'] = 0.0
     oiwavelength_table['FOV']       = 0.0
     oiwavelength_table['FOVTYPE']   = 'RADIUS'
@@ -128,11 +128,15 @@ def op_gen_oivis(cfdata, cfin='CF_achr_phase_corr', verbose=True, plot=False):
     oivis_table['INT_TIME']  = np.repeat(cfdata['OI_BASELINES']['INT_TIME'], nbases)
     #print('Shape of complexvisxxx:', complexvis2.shape)
     oivis_table['VISAMP']    = np.abs(complexvis2)
-    oivis_table['VISAMPERR'] = 0.0
+    oivis_table['VISAMPERR'] = 0 #cfdata['OI_BASELINES']['VISAMPERR']
     oivis_table['VISPHI']    = np.angle(complexvis2)
-    oivis_table['VISPHIERR'] = 0.0
-    oivis_table['UCOORD']    = 0.0
-    oivis_table['VCOORD']    = 0.0
+    oivis_table['VISPHIERR'] = 0 #cfdata['OI_BASELINES']['VISAMPERR']
+    if np.shape(cfdata['OI_BASELINES']['UCOORD'])[0] == nbases*nframes :
+        oivis_table['UCOORD']    = cfdata['OI_BASELINES']['UCOORD']
+        oivis_table['VCOORD']    = cfdata['OI_BASELINES']['VCOORD']
+    else:
+        oivis_table['UCOORD']    = np.repeat(cfdata['OI_BASELINES']['UCOORD'],nframes)
+        oivis_table['VCOORD']    = np.repeat(cfdata['OI_BASELINES']['VCOORD'],nframes)
     #print('Shape of STA_INDEX:', np.tile(np.array(cfdata['OI_BASELINES']['STA_INDEX']), (nframes,1)).shape)
     oivis_table['STA_INDEX'] = np.tile(cfdata['OI_BASELINES']['STA_INDEX'], (nframes,1))
     oivis_table['FLAG']      = 0

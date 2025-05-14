@@ -26,6 +26,7 @@ import matplotlib.pyplot as plt
 from op_instruments import *
 from matplotlib.ticker import MultipleLocator
 from copy import deepcopy
+import numpy.linalg as lin
 
 
 ##############################################
@@ -343,23 +344,23 @@ def _op_get_location(hdr,plot):
         - hdr : header of a .fits file of an OBS
     """
     
-    loc=dict()
+    loc = dict()
     
     try:
 
         loc['name'] = hdr['ORIGIN']
         loc['ntel'] = hdr['HIERARCH ESO ISS CONF NTEL']
-        loc['lon'] = hdr['HIERARCH ESO ISS GEOLON']
-        loc['lat'] = hdr['HIERARCH ESO ISS GEOLAT']
+        loc['lon']  = hdr['HIERARCH ESO ISS GEOLON']
+        loc['lat']  = hdr['HIERARCH ESO ISS GEOLAT']
         loc['elev'] = 2635
-        loc['pos']=_op_positionsTelescope(hdr,loc,plot)
+        loc['pos']  = _op_positionsTelescope(hdr,loc,plot)
     except:
         loc['name'] = "ESO, Cerro Paranal"
         loc['ntel'] = 4
-        loc['lon'] = -70.40479659
-        loc['lat'] = -24.62794830
+        loc['lon']  = -70.40479659
+        loc['lat']  = -24.62794830
         loc['elev'] = 2635
-        loc['pos']=_op_positionsTelescope(hdr,loc,plot)
+        loc['pos']  = _op_positionsTelescope(hdr,loc,plot)
         
     return loc
 
@@ -379,19 +380,19 @@ def _op_calculate_uvw(data,bvect,loc):
         - bvect: base vector of observation."""
         
     data['ha'] = data['lst'] - data['ra']
-    degr = 180 / np.pi
-    hour = degr / 15
-    Bnorm=  lin.norm(bvect)
+    degr       = 180 / np.pi
+    hour       = degr / 15
+    Bnorm      =  lin.norm(bvect)
     
     #Baseline in alt-az coordinates
     Balt = np.arcsin(bvect[2] / (Bnorm)) * degr
-    Baz = np.arctan2(bvect[0], bvect[1]) * degr
+    Baz  = np.arctan2(bvect[0], bvect[1]) * degr
     
     #Baseline vecor in equatorial coordinates
     Bdec = np.arcsin(np.sin(Balt/degr) * np.sin(loc['lat']/degr) + np.cos(Balt/degr) * np.cos(loc['lat']/degr) * np.cos(Baz/degr)) * degr
     yBha = np.sin(Balt/degr) * np.cos(loc['lat']/degr) - np.cos(Balt/degr) * np.cos(Baz/degr) * np.sin(loc['lat']/degr)
     zBha = -1. * np.cos(Balt/degr) * np.sin(Baz/degr)
-    Bha = (np.arctan2(zBha,yBha) * hour + 24) % 24
+    Bha  = (np.arctan2(zBha,yBha) * hour + 24) % 24
     
     # baseline vector in the equatorial cartesian frame
     Lx = - (-Bnorm * np.cos(Bdec/degr) * np.cos(Bha/hour))
@@ -407,8 +408,8 @@ def _op_calculate_uvw(data,bvect,loc):
                  np.cos(data['dec']/degr) * np.sin(data['ha']/hour) * Ly +\
                  np.sin(data['dec']/degr) * Lz);
 
-    data['theta'] =np.arctan2(data['u'], data['v']) * degr
-    data['base'] = np.sqrt(data['u']**2 + data['v']**2)
+    data['theta'] = np.arctan2(data['u'], data['v']) * degr
+    data['base']  = np.sqrt(data['u']**2 + data['v']**2)
     data['delay'] = - data['w']
     
     return data
@@ -481,38 +482,74 @@ def _op_positionsTelescope(hdr,loc,plot):
                 pos[3] = -hdr[keys[1]]
                 pos[4] = -hdr[keys[2]]
                 pos[5] = hdr[keys[3]]
+                
                 tel_labels.append(pos[0])
                 tel_position.append((pos[3],pos[4]))
                 
-    ############## PLOT ##############
+    ############## PLOT MAP OF VLTI ##############
     if plot:
         labels = [pos[0] for pos in positions[1:]] 
         easts = [pos[3] for pos in positions[1:]]   
         norths= [pos[4] for pos in positions[1:]]    
-
+        
+        nu=-18.984 #degre
         
         plt.figure(figsize=(10, 10))
         
         colors = ['#1f77b4','#2ca02c', '#ff7f0e', '#9467bd', '#8c564b', '#17becf']
 
-        
-        for east, north, label in zip(easts, norths, labels):
-            
-            fc_color = 'red' if label in tel_labels else 'white'
-            fontsize = 15 if label.startswith('U') else 10
-            plt.text(east, north, label,fontsize=fontsize,ha='center', va='center', color='black',
-                                 bbox=dict(boxstyle="circle,pad=0.3", fc=fc_color, ec="black", lw=0.5))
-            
         for i in range(len(tel_position)-1):
             for j in range(i+1,len(tel_position)):
-                plt.plot([tel_position[i][0],tel_position[j][0]], [tel_position[i][1],tel_position[j][1]], color=colors[(i * len(tel_position) + j) % len(colors)], linewidth=2)
+                plt.plot([tel_position[i][0],tel_position[j][0]], [tel_position[i][1],tel_position[j][1]], color=colors[(i * len(tel_position) + j) % len(colors)], linewidth=2,zorder=0)
                 
+        for east, north, label in zip(easts, norths, labels):
+            is_ut = label.startswith('U')
+            is_lab = label.startswith('LA')
+            diameter = 8 if is_ut else 1.8
+            radius = diameter/2 #Pour fit au mieux les noms
+            fc_color = 'red' if label in tel_labels else 'white'
+            fontsize = 13 if is_ut or is_lab else 11
+            
+            if is_lab:
+                # Size of the lab 
+                rect_width = 14  # (m)
+                rect_height = 9  # (m)
+                
+                
+                rect_origin = np.array([east,north]) - np.array([rect_width/2-1.9, rect_height/2+2.1])
+                
+                rectangle = plt.Rectangle(
+                    rect_origin, rect_width, rect_height,
+                    angle=-nu,
+                    facecolor='lightgray', edgecolor='black', lw=1, zorder=0
+                )   
+                plt.gca().add_patch(rectangle)
+                plt.text(east, north, label, fontsize=fontsize, ha='center', va='center', color='black', zorder=2,rotation=-nu)
+           
+            elif is_ut:
+                circle = plt.Circle((east, north), radius=radius, facecolor=fc_color, edgecolor='black', lw=0.5, zorder=1)
+                plt.gca().add_patch(circle)
+       
+                plt.text(east, north, label, fontsize=fontsize, ha='center', va='center', color='black', zorder=2,rotation=-nu)
+                
+            else:
+            
+                 circle = plt.Circle((east, north), radius=radius, facecolor=fc_color, edgecolor='black', lw=0.5, zorder=1)
+                 plt.gca().add_patch(circle)
+        
+                 plt.text(east-1, north+2.5, label, fontsize=fontsize, ha='center', va='center', color='black', zorder=2,rotation=-nu,)
+            
+            
+        
+        
         plt.title(f"Map of the {loc['name']} interferometer (coordinate E/N)")
         plt.xlabel("Longitude (E)")
         plt.ylabel("Latitude (N)")
-        plt.xlim((-60,160))
-        plt.ylim((-110,110))
+        plt.xlim((-55,155))
+        plt.ylim((-105,105))
         plt.grid(True)
+        # plt.gca().xaxis.set_major_locator(MultipleLocator(10))
+        # plt.gca().yaxis.set_major_locator(MultipleLocator(10))
         
         #indicate north
         plt.annotate('N',xy=(0.05, 0.95), xycoords='axes fraction',fontsize=14, fontweight='bold', ha='center')
@@ -546,15 +583,17 @@ def _op_get_baseVect(station1,station2,loc):
     for tel in loc['pos']:
         if tel[0] == station1: 
             B1 = [tel[3], tel[4], tel[5]]
-            BP1, BQ1 = tel[1], tel[2]
+            BP1 = tel[1] 
+            BQ1 = tel[2]
         if tel[0] == station2:
-            B2 = [tel[3], tel[4], tel[5]]
-            BP2, BQ2 = tel[1], tel[2]
+            B2  = [tel[3], tel[4], tel[5]]
+            BP2 = tel[1] 
+            BQ2 = tel[2]
         if tel[0] == "LAB":
             #Compute delay lines
-            lab = [tel[3], tel[4], tel[5]]
-            DL1 = abs(BQ1-tel[1]) + abs(BP1-tel[1])
-            DL2 = abs(BQ2-tel[1]) + abs(BP2-tel[1])
+            lab      = [tel[3], tel[4], tel[5]]
+            DL1      = abs(BQ1-tel[1]) + abs(BP1-tel[1])
+            DL2      = abs(BQ2-tel[1]) + abs(BP2-tel[1])
             fixDelay = DL2-DL1
             
     return np.array([B2[0]-B1[0],B2[1]-B1[1],B2[2]-B1[2]])
@@ -583,7 +622,7 @@ def _op_compute_baseVect(hdr,loc):
         stations.append(hdr[key])  
     ntel = len(stations)
     
-    # Get all baseline
+    # Get all baselines
     for itel1 in range(ntel-1):
         for itel2 in range(itel1+1,ntel):
             base_allvect.append(_op_get_baseVect(stations[itel1], stations[itel2], loc))
@@ -592,104 +631,162 @@ def _op_compute_baseVect(hdr,loc):
 
 ##############################################
 # Compute uv coordinates
-def op_compute_uv(file, plot):
+def op_compute_uv(hdr,cfdata,frame, plot):
     """
     DESCRIPTION
         Computes UV coordinates with a fits file given as input. 
         You can then compare them with the Baselines and angles in the Header 
 
     PARAMETERS
-        - file    : input file
-        - plot    : boolean
+        - header      : iheader of an OB file
+        - cfdata      : ldata of the correlated fluxes
+        - frame       : boolean to compute frame per frame
+        - plot        : boolean
     """
     
     #initialisation
-    stardata = dict()
-    hdr = None   
-    data=[]
-    with fits.open(file) as fh:
-        hdr = fh[0].header
+    stardata = dict()  
+    uCoord = []
+    vCoord = []
         
     # get location and star data from the header   
-    loc=_op_get_location(hdr, plot)
-    date=hdr["DATE-OBS"]
-    stardata['date']=date[0].split('T')[0]
-    stardata['ra']=hdr['RA']/15
-    stardata['dec']=hdr['DEC']
-    stardata['lst']=hdr['LST']/3600
+    loc = _op_get_location(hdr, plot)
+    date = hdr["DATE-OBS"]
+    stardata['date'] = date[0].split('T')[0]
+    stardata['ra']   = hdr['RA']/15
+    stardata['dec']  = hdr['DEC']
     
     # Get the vector of all the baseline and compute uv Coords
     B=_op_compute_baseVect(hdr, loc)
-    for bvect in B:
-        uvw=deepcopy(stardata)
-        uvw=_op_calculate_uvw(uvw,bvect,loc)
-        data.append(uvw)
-    return data  
+    if frame :
+        ndit = hdr['HIERARCH ESO DET NDIT']
+        dit = hdr['HIERARCH ESO DET SEQ1 DIT']
+        LST=[(hdr['LST']+i*dit/ndit)/3600 for i in range(ndit)]
+        for i,bvect in enumerate(B):
+            for lst in LST :
+                stardata['lst']=lst
+                uvw=deepcopy(stardata)
+                uvw=_op_calculate_uvw(uvw,bvect,loc)
+                uCoord.append(uvw['u'])
+                vCoord.append(uvw['v'])
+       
+    else:
+        stardata['lst']=hdr['LST']/3600
+        for i,bvect in enumerate(B):
+            uvw=deepcopy(stardata)
+            uvw=_op_calculate_uvw(uvw,bvect,loc)
+            uCoord.append(uvw['u'])
+            vCoord.append(uvw['v'])
+    
+    cfdata['OI_BASELINES']['UCOORD'] = uCoord    
+    cfdata['OI_BASELINES']['VCOORD'] = vCoord
+    return cfdata  
 
 ##############################################
 # Compute uv_coverage
-def op_uv_coverage(files,plot):
+def op_uv_coverage(uCoord,vCoord,cfdata,frame):
     """
     DESCRIPTION
         Computes the UV coverage with all the fits files of an OBS given as input.
         You can then compare it with Aspro data 
 
     PARAMETERS
-        - files    : list of input file
-        - plot    : boolean
+        - files     : list of input file
+        - cfdata    : datas of the correlated fluxes
+        - frame     : if computed frame per frame 
     """
     
-    data = []
-    for file in files:
-        data.append(op_compute_uv(file,False))
-        
-        
-    if plot:
-        plt.figure(figsize=(10, 10))
-        colors = ['red','blue', 'lightgreen', 'orange', 'purple', 'cyan']
-        nObs=len(data)
-        nBase=len(data[0])
-        for iBase in range(nBase):
-            u=[]
-            v=[]
-            for iObs in range(nObs):
-               u.append(data[iObs][iBase]['u'])
-               v.append(data[iObs][iBase]['v'])
     
-            u=np.array(u)
-            v=np.array(v)
-            
-            plt.plot(u, v, color=colors[iBase], linewidth=2)
-            plt.plot(-u, -v, color=colors[iBase], linewidth=2)
-            
-        plt.title("uv-coverage map")
-        plt.xlabel("u (m)")
-        plt.ylabel("v (m)")
-        
-        #limit anf grid
-        plt.xlim((-125,125))
-        plt.ylim((-125,125))
-        plt.gca().xaxis.set_major_locator(MultipleLocator(10))
-        plt.gca().yaxis.set_major_locator(MultipleLocator(10))
-        plt.grid(True, which='major', linestyle='--', color='gray', linewidth=0.7)
+    
+    wlen     = cfdata['OI_WAVELENGTH']['EFF_WAVE_Binned']
+    wlen_ref = cfdata['hdr']['HIERARCH ESO SEQ DIL WL0']
 
-        # Highlight x=0 and y=0 lines
-        plt.axhline(0, color='black', linewidth=1.5)  # horizontal line at y=0
-        plt.axvline(0, color='black', linewidth=1.5)  # vertical line at x=0
+    ######################### PLOT ################################
+    
+    plt.figure(figsize=(10, 10))
+    ax=plt.gca()
+    ax2 = plt.gca().twiny()
+    ax3 = plt.gca().twinx()
+    colors = ['red','blue', 'lightgreen', 'orange', 'purple', 'cyan']
+    nObs   = len(uCoord)
+    nBase  = 6
+    nFrame = len(uCoord[0])//nBase
+    for iBase in range(nBase):
+        u = []
+        v = []
+        for iObs in range(nObs):
+            if frame:
+                for i in range(0,nFrame):
+                   u.append(uCoord[iObs][i+nFrame*iBase])
+                   v.append(vCoord[iObs][i+nFrame*iBase])
+            else :
+                u.append(uCoord[iObs][iBase])
+                v.append(vCoord[iObs][iBase])
+          
+        u = np.array(u)
+        v = np.array(v)
         
-        #indicate north
-        plt.annotate('N',xy=(0.10, 0.95), xycoords='axes fraction',fontsize=14, fontweight='bold', ha='center')
-        plt.arrow(0.10, 0.87, 0, 0.05, transform=plt.gca().transAxes,width=0.002, head_width=0.01, head_length=0.02,fc='k', ec='k', zorder=5)
+        plt.scatter(u, v, color=colors[iBase],hatch='x',lw=0.5)
+        plt.scatter(-u, -v, color=colors[iBase],hatch='x',lw=0.5)
+        plt.plot(u, v, color=colors[iBase], lw=2)
+        plt.plot(-u, -v, color=colors[iBase], lw=2)
         
-        #indicate east
-        plt.annotate('E',xy=(0.03, 0.88), xycoords='axes fraction',fontsize=14, fontweight='bold', ha='center')
-        plt.arrow(0.10, 0.87, -0.05, 0, transform=plt.gca().transAxes,width=0.002, head_width=0.01, head_length=0.02,fc='k', ec='k', zorder=5)
+        # spatial frequencies 
+        for i in range(0,len(u),len(u)//5):
+            plt.plot(u[i]/wlen*1e-6*wlen_ref, v[i]/wlen*1e-6*wlen_ref, color=colors[iBase], lw=2)
+            plt.plot(-u[i]/wlen*1e-6*wlen_ref, -v[i]/wlen*1e-6*wlen_ref, color=colors[iBase], lw=2)
+    
+    
+    plt.title("uv-coverage map", fontsize=18, fontweight='bold', pad=20)
+    ax.set_xlabel("U (Mλ - 10⁶ cycles/rad)", fontsize=14, fontweight='bold')
+    ax.set_ylabel("V (Mλ - 10⁶ cycles/rad)", fontsize=14, fontweight='bold')
+    
+    
+    ax2.set_xlim(-150, 150)
+    ax2.set_xlabel("U (m) ", fontsize=14, fontweight='bold')
+    ax2.invert_xaxis()
+    
+    ax3.set_ylim(-150, 150)
+    ax3.set_ylabel("V (m) ", fontsize=14, fontweight='bold')
+    
+    ax.set_xlim(ax2.get_xlim()[0] / wlen_ref , ax2.get_xlim()[1] / wlen_ref )
+    ax.set_ylim(ax3.get_ylim()[0] / wlen_ref , ax3.get_ylim()[1] / wlen_ref )
+    # Twin axes for meters
+    
+    
+    
+    #limit anf grid
+    # plt.xlim((-125,125))
+    # plt.ylim((-125,125))
+    ax2.xaxis.set_major_locator(MultipleLocator(20))
+    ax3.yaxis.set_major_locator(MultipleLocator(20))
+    ax.xaxis.set_major_locator(MultipleLocator(5))
+    ax.yaxis.set_major_locator(MultipleLocator(5))
+    ax.grid(True, which='both', linestyle='--', color='gray', linewidth=0.7)
+    #ax3.grid(True, which='both', linestyle='--', color='gray', linewidth=0.7)
+    # Highlight x=0 and y=0 lines
+    ax2.axhline(0, color='black', linewidth=1.5)  # horizontal line at y=0
+    ax2.axvline(0, color='black', linewidth=1.5)  # vertical line at x=0
+    
+    # plt.annotate('N',xy=(0.05, 0.95), xycoords='axes fraction',fontsize=14, fontweight='bold', ha='center')
+    # plt.arrow(0.05, 0.87, 0, 0.05, transform=plt.gca().transAxes,width=0.002, head_width=0.01, head_length=0.02,fc='k', ec='k', zorder=5)
+    
+    # #indicate east
+    # plt.annotate('E',xy=(0.13, 0.88), xycoords='axes fraction',fontsize=14, fontweight='bold', ha='center')
+    # plt.arrow(0.05, 0.87, 0.05, 0, transform=plt.gca().transAxes,width=0.002, head_width=0.01, head_length=0.02,fc='k', ec='k', zorder=5)
+    #indicate north
+    plt.annotate('N',xy=(0.10, 0.95), xycoords='axes fraction',fontsize=14, fontweight='bold', ha='center')
+    plt.arrow(0.10, 0.87, 0, 0.05, transform=plt.gca().transAxes,width=0.002, head_width=0.01, head_length=0.02,fc='k', ec='k', zorder=5)
+    
+    #indicate east
+    plt.annotate('E',xy=(0.03, 0.88), xycoords='axes fraction',fontsize=14, fontweight='bold', ha='center')
+    plt.arrow(0.10, 0.87, -0.05, 0, transform=plt.gca().transAxes,width=0.002, head_width=0.01, head_length=0.02,fc='k', ec='k', zorder=5)
+    
+    labels = ['UT1-UT2', 'UT1-UT3', 'UT1-UT4', 'UT2-UT3', 'UT2-UT4', 'UT3-UT4']
+    handles = [plt.Line2D([], [], color=colors[i], label=labels[i]) for i in range(len(colors))]
+    plt.legend(handles=handles, loc='lower right')
+    
+    plt.tight_layout()
+    plt.show()
         
-        labels = ['UT1-UT2', 'UT1-UT3', 'UT1-UT4', 'UT2-UT3', 'UT2-UT4', 'UT3-UT4']
-        handles = [plt.Line2D([], [], color=colors[i], label=labels[i]) for i in range(len(colors))]
-        plt.legend(handles=handles, loc='lower right')
-        
-        plt.tight_layout()
-        plt.show()
-        
-    return data
+    return cfdata

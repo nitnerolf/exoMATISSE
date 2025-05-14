@@ -41,11 +41,11 @@ op_MATISSE_L = {'name':        'MATISSE_L',
                 'scrP':        [1,2,4,3],
                 'scrB':        [[2,3],[0,1],[1,2],[1,3],[0,2],[0,3]],
                 'bcd_offset':  [1,2,3,4,5,6],
-                'ron':         20}
+                'ron':         15}
 
 op_MATISSE_N = {'ntel': 4, 'scrP':[3,4,2,1], 'scrB':[[4,3],[2,1],[3,2],[4,2],[3,1],[4,1]],
                 'bcd_offset':[1,2,3,4,5,6],
-                'ron':1000}
+                'ron':75}
 
 #################################################
 # Instrument-specific parameters for GRAVITY
