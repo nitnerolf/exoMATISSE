@@ -25,6 +25,9 @@ from op_instruments import *
 from scipy import interpolate
 import math
 from scipy.optimize import minimize
+from scipy.signal import savgol_filter
+from scipy.ndimage   import uniform_filter1d
+import astropy.constants as cst 
 
 ##############################################
 # Apodization function
@@ -810,7 +813,7 @@ def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax
                 ax1[i_base,1].plot(wlen, phiObs, color=colors[i_base])
                 ax1[i_base,1].set_ylabel(f'phase {i_base+1}')
                 ax1[i_base,1].set_ylim(-np.pi, np.pi)
-
+                
             data['CF']['CF_chr_phase_corr'][i_base+1, i_frame] = cfcorr
 
     if plot:
@@ -1083,3 +1086,208 @@ def op_bin_data(data, binning=5, cfin='CF_achr_phase_corr', verbose=False, plot=
         plt.show()
 
     return data
+
+def op_get_error_vis(data,cfin='CF_Binned', window_length = 19, polyorder = 11, WL_err = 25,plot=False):
+    wlen   = data['OI_WAVELENGTH']['EFF_WAVE_Binned']
+    cf  = data['CF'][cfin][1:]
+    nbases    = cf.shape[0]
+    nframes   = cf.shape[1]
+    visAmpErr = np.zeros_like(cf)
+    visPhiErr = np.zeros_like(cf)
+    # window_length = 19
+    # polyorder     = 11
+    # WL_err        = 25
+    colors = [ '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', 'forestgreen']
+    for iBase in range(nbases):
+        
+        if plot:
+            fig1, ax1 = plt.subplots(nframes, 2, figsize=(8, 8), sharex=1, sharey=0)
+        if nframes < 10 : # IF GRAV4MAT
+            for iFrame in range(nframes):
+                amp  = np.abs(cf[iBase][iFrame]) 
+                phi  = np.angle(cf[iBase][iFrame])
+                
+                #Smoothing Function
+                smooth_amp = savgol_filter(amp, window_length, polyorder)
+                smooth_phi = savgol_filter(phi, window_length, polyorder)
+                
+                sq_amp = np.abs(amp-smooth_amp)**2
+                sq_phi = np.abs(phi-smooth_phi)**2
+                
+                local_mean_sq = uniform_filter1d(sq_amp, size=WL_err, mode='nearest')
+                visAmpErr[iBase, iFrame, :] = np.sqrt(local_mean_sq)
+    
+                local_mean_sq_phi = uniform_filter1d(sq_phi, size=WL_err, mode='nearest')
+                visPhiErr[iBase, iFrame, :] = np.sqrt(local_mean_sq_phi)
+                
+                if plot:
+                    ax1[iFrame,0].plot(wlen, smooth_amp, color='black',alpha=0.9)
+                    ax1[iFrame,0].set_ylim(0,np.max(amp)*1.1)
+                    ax1[iFrame,0].set_ylabel(f'frame {iFrame+1} AMP')
+                    ax1[iFrame,1].plot(wlen, np.degrees(smooth_phi), color='black',alpha=0.9)
+                    ax1[iFrame,1].set_ylabel(f'frame {iFrame+1} PHI (°)')
+                    ax1[iFrame,1].set_ylim(-15,15)
+                    ax1[iFrame,0].plot(wlen,  amp, color=colors[iFrame],alpha=0.3)
+                    ax1[iFrame,1].plot(wlen, np.degrees(phi), color=colors[iFrame],alpha=0.3)
+                        
+                    plt.suptitle(f'CF data and smoothened data for error base = {iBase+1} \n windowlength = {window_length}, polyorder = {polyorder}, WL_err = {WL_err}')
+                    # plt.savefig(os.path.expanduser(bbasedir+'Result/Smoothing/'+f'Smoothed_{window_length}_{polyorder}_{WL_err}.png'))
+                    plt.tight_layout()
+                    
+        else : 
+            for iFrame in range(0,nframes,nframes//10):
+                if iFrame not in (range(nframes-9,nframes)):
+                    amp = np.abs(cf[iBase][iFrame:(iFrame+10)]) 
+                    phi = np.angle(cf[iBase][iFrame:(iFrame+10)])
+                    
+                    #Mean over the Frame
+                    mean_amp = np.mean(amp,axis=0)
+                    mean_phi = np.mean(phi,axis=0)
+                    
+                    sq_amp = np.abs(amp-mean_amp[None,:])**2
+                    sq_phi = np.abs(phi-mean_phi[None,:])**2
+                    
+                    mean_sq = np.mean(sq_amp,axis=0)
+                    visAmpErr[iBase, iFrame:iFrame+10, :] = np.sqrt(mean_sq)
+                    
+                    mean_sq_phi = np.mean(sq_phi,axis=0)
+                    visPhiErr[iBase, iFrame:iFrame+10, :] = np.sqrt(mean_sq_phi)
+                    
+                    if plot:
+                        ax1[iFrame,0].plot(wlen, mean_amp, color='black',alpha=0.9)
+                        ax1[iFrame,0].set_ylim(0,np.max(amp)*1.1)
+                        ax1[iFrame,0].set_ylabel(f'frame {iFrame+1} AMP')
+                        ax1[iFrame,1].plot(wlen, np.degrees(mean_phi), color='black',alpha=0.9)
+                        ax1[iFrame,1].set_ylabel(f'frame {iFrame+1} PHI (°)')
+                        ax1[iFrame,1].set_ylim(-15,15)
+                        
+                        for i in range(iFrame,iFrame+10):
+                            ax1[iFrame,0].plot(wlen,  amp[i], color=colors[iFrame],alpha=0.3)
+                            ax1[iFrame,1].plot(wlen, np.degrees(phi[i]), color=colors[iFrame],alpha=0.3)
+                            
+                        plt.suptitle('CF data and smoothened data for error ')
+                        plt.tight_layout()
+                        
+        
+            
+        if plot:
+            # plt.savefig(os.path.expanduser(bbasedir+'Result/Smoothing/'+f'Smoothed_base{iBase+1}_{window_length}_{polyorder}_{WL_err}.png'))
+            plt.show()
+        
+                
+    parameters = (window_length,polyorder,WL_err)           
+    
+    op_snr(wlen,cf,visAmpErr,visPhiErr,parameters)
+    visAmpErr=np.reshape(np.swapaxes(visAmpErr, 0,1), (visAmpErr.shape[0]* visAmpErr.shape[1],visAmpErr.shape[2]))
+    visPhiErr=np.reshape(np.swapaxes(visPhiErr, 0,1), (visPhiErr.shape[0]* visPhiErr.shape[1],visPhiErr.shape[2]))
+    data['OI_BASELINES']['VISAMPERR']=visAmpErr
+    data['OI_BASELINES']['VISPHIERR']=visPhiErr
+    return data
+
+
+def op_snr(wlen,vis,visAmpErr,visPhiErr,parameters,plot=True):
+    visAmp = np.abs(vis)
+    # visPhi = np.angle(vis)
+    snr_amp = visAmp/visAmpErr-1 #TATULLI 2007
+    snr_phi = np.abs(1/visPhiErr)
+    
+    mean_snr = np.mean(snr_amp,axis=1)
+    mean_snr_phi = np.mean(snr_phi,axis=1)
+    if plot :
+        nbases = len(vis)
+        nframes = len(vis[0])
+        colors = [ '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', 'forestgreen']
+        
+        
+        fig1, ax1 = plt.subplots(nbases, 2, figsize=(8, 8), sharex=1, sharey=0)
+        for ibase in range(nbases):
+
+            ax1[ibase,0].plot(wlen, mean_snr[ibase,:], color='black',alpha=0.9)
+            ax1[ibase,0].set_ylim(0,np.max(snr_amp[ibase,...])*1.01)
+            ax1[ibase,0].set_ylabel(f'base {ibase+1} AMP')
+            ax1[ibase,1].plot(wlen, mean_snr_phi[ibase,:], color='black',alpha=0.9)
+            
+            ax1[ibase,1].set_ylabel(f'base {ibase+1} PHI (°)')
+            ax1[ibase,1].set_ylim(0,np.max(snr_phi[ibase,...])*1.01)
+            for iframe in range(nframes):
+                ax1[ibase,0].plot(wlen,  snr_amp[ibase,iframe,:], color=colors[ibase],alpha=0.3)
+                ax1[ibase,1].plot(wlen, snr_phi[ibase,iframe,:], color=colors[ibase],alpha=0.3)
+            
+        plt.suptitle(f'SNR \n windowlength = {parameters[0]}, polyorder = {parameters[1]}, WL_err = {parameters[2]} ')
+        plt.tight_layout()
+        # plt.savefig(os.path.expanduser(bbasedir+'Result/SNR/'+f'SNR_{window_length}_{polyorder}_{WL_err}.png'))
+        plt.show()
+    
+    return snr_amp,snr_phi
+        
+
+def op_snr_theory(data,cfin = 'CF_Binned'):
+    wlen   = data['OI_WAVELENGTH']['EFF_WAVE_Binned']
+    cf  = data['CF'][cfin][0]/4
+    nframes = cf.shape[0]
+    
+    def temperature_profile(z):
+        return np.where(z < 11000, 288.15 - 0.0065 * z , 216.65)
+    
+    def planck(Wavelength, T):
+        h = cst.h.value
+        c = cst.c.value
+        k_B = cst.k_B.value
+        return (2 * h * c**2 / Wavelength**5) / (np.exp(h * c / (Wavelength * k_B * T)) - 1)
+    
+    D       = 8
+    obs     = 1.2
+    DITs    = np.ones_like(wlen)*0.125
+    texp   = np.ones_like(wlen)*10
+    Dwlen   = np.ones_like(wlen)*3.5e-6/30
+    pinhole = 1.5 * 3.5e-6 / D
+    collecting_surface = (np.pi/4) * (D**2 - obs**2)
+    T_ground = 298.15
+    N_pix = 72*3
+    em_sky  = 0.1
+    t_ow    = 0.99
+    t_oc    = 0.99
+    obs_alt = 2635#m
+    max_alt = 20000#m
+    ratio  = 0.93
+    nT     = 4
+    Vstar  = 1
+    Vinst  = 0.85
+    alphaI = 2/3
+    #US Standard Atmosphere
+    z_grid = np.linspace(obs_alt, max_alt, 500)
+    T_grid = temperature_profile(z_grid)
+    dz= z_grid[1] - z_grid[0]
+
+    # Sky background radiation
+    rad_tot= np.zeros(len(wlen))
+    for  T in zip( T_grid):
+        rad_tot += planck(wlen, T) * em_sky * dz* (t_ow * t_oc)/(max_alt-obs_alt)
+    
+
+    #Sky background radiation on floor
+    #bckg_sky_received = planck(wlen, T_ground) * em_sky * (t_ow * t_oc)  
+    # Optical background
+    bckg_opt =  (1 - t_ow**31)  * planck(wlen, T_ground) * t_oc**20
+    # Total received thermal noise
+    bckg_tot_recu = rad_tot + bckg_opt #+bckg_sky_received
+    
+    Bckg_lr = wlen / (cst.h.value * cst.c.value) * DITs * Dwlen * bckg_tot_recu * np.pi/4* pinhole**2 * collecting_surface
+    nIb = alphaI * Bckg_lr
+    # n_star = 0.002 * 1e-26 / (cst.h.value * wlen ) * collecting_surface * texp * Dwlen * ratio 
+    # nI = alphaI * n_star
+    RON = 15
+    F_RON = (RON * cst.h.value * cst.c.value / wlen) / (collecting_surface * texp * Dwlen * ratio)
+    nI = alphaI * cf
+    snr = nI * Vstar * Vinst / np.sqrt( nT * nIb + nT * nI + N_pix * F_RON)
+    fig1, ax1 = plt.subplots(nframes, 1, figsize=(4, 8), sharex=1, sharey=0)
+    for i in range(nframes):
+        ax1[i].plot(wlen,np.abs(snr[i]))
+        ax1[i].set_ylabel(f'frame Amp {i+1}')
+        
+    
+    plt.suptitle(f'theorical SNR \n ')
+    plt.tight_layout()
+    
+    plt.show()
+    return snr

@@ -631,14 +631,13 @@ def _op_compute_baseVect(hdr,loc):
 
 ##############################################
 # Compute uv coordinates
-def op_compute_uv(hdr,cfdata,frame, plot):
+def op_compute_uv(cfdata,frame, plot):
     """
     DESCRIPTION
         Computes UV coordinates with a fits file given as input. 
         You can then compare them with the Baselines and angles in the Header 
 
     PARAMETERS
-        - header      : iheader of an OB file
         - cfdata      : ldata of the correlated fluxes
         - frame       : boolean to compute frame per frame
         - plot        : boolean
@@ -650,6 +649,7 @@ def op_compute_uv(hdr,cfdata,frame, plot):
     vCoord = []
         
     # get location and star data from the header   
+    hdr = cfdata['hdr']
     loc = _op_get_location(hdr, plot)
     date = hdr["DATE-OBS"]
     stardata['date'] = date[0].split('T')[0]
@@ -699,7 +699,7 @@ def op_uv_coverage(uCoord,vCoord,cfdata,frame):
     
     
     wlen     = cfdata['OI_WAVELENGTH']['EFF_WAVE_Binned']
-    wlen_ref = cfdata['hdr']['HIERARCH ESO SEQ DIL WL0']
+    wlen_ref = cfdata['hdr']['HIERARCH ESO SEQ DIL WL0']*1e-6
 
     ######################### PLOT ################################
     
@@ -733,24 +733,28 @@ def op_uv_coverage(uCoord,vCoord,cfdata,frame):
         
         # spatial frequencies 
         for i in range(0,len(u),len(u)//5):
-            plt.plot(u[i]/wlen*1e-6*wlen_ref, v[i]/wlen*1e-6*wlen_ref, color=colors[iBase], lw=2)
-            plt.plot(-u[i]/wlen*1e-6*wlen_ref, -v[i]/wlen*1e-6*wlen_ref, color=colors[iBase], lw=2)
-    
-    
+            plt.plot(u[i]/wlen*wlen_ref, v[i]/wlen*wlen_ref, color=colors[iBase], lw=2)
+            plt.plot(-u[i]/wlen*wlen_ref, -v[i]/wlen*wlen_ref, color=colors[iBase], lw=2)
+            
+
     plt.title("uv-coverage map", fontsize=18, fontweight='bold', pad=20)
     ax.set_xlabel("U (Mλ - 10⁶ cycles/rad)", fontsize=14, fontweight='bold')
     ax.set_ylabel("V (Mλ - 10⁶ cycles/rad)", fontsize=14, fontweight='bold')
     
-    
-    ax2.set_xlim(-150, 150)
+    ulim = np.max(np.abs(uCoord))*1.15
+    vlim = np.max(np.abs(vCoord))*1.15
+
+    lim = np.max([ulim,vlim])
+
+    ax2.set_xlim(-lim, lim)
     ax2.set_xlabel("U (m) ", fontsize=14, fontweight='bold')
     ax2.invert_xaxis()
     
-    ax3.set_ylim(-150, 150)
+    ax3.set_ylim(-lim, lim)
     ax3.set_ylabel("V (m) ", fontsize=14, fontweight='bold')
     
-    ax.set_xlim(ax2.get_xlim()[0] / wlen_ref , ax2.get_xlim()[1] / wlen_ref )
-    ax.set_ylim(ax3.get_ylim()[0] / wlen_ref , ax3.get_ylim()[1] / wlen_ref )
+    ax.set_xlim(ax2.get_xlim()[0] / (wlen_ref * 1e6) , ax2.get_xlim()[1] / (wlen_ref * 1e6) )
+    ax.set_ylim(ax3.get_ylim()[0] / (wlen_ref * 1e6) , ax3.get_ylim()[1] / (wlen_ref * 1e6) )
     # Twin axes for meters
     
     
