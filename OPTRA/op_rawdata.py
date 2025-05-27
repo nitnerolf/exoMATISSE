@@ -599,8 +599,8 @@ def _op_get_baseVect(station1,station2,loc):
         if tel[0] == "LAB":
             #Compute delay lines
             lab      = [tel[3], tel[4], tel[5]]
-            DL1      = abs(BQ1-tel[1]) + abs(BP1-tel[1])
-            DL2      = abs(BQ2-tel[2]) + abs(BP2-tel[2])
+            DL1      = abs(BQ1-tel[2]) + abs(BP1-tel[1])
+            DL2      = abs(BQ2-tel[2]) + abs(BP2-tel[1])
             fixDelay = DL2-DL1
             
     return np.array([B2[0]-B1[0],B2[1]-B1[1],B2[2]-B1[2]])

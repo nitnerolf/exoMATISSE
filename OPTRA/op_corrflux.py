@@ -368,7 +368,7 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False):
 
     colors = COLORS7D
 
-    if verbose:
+    if plot:
         for i in range(np.shape(peaks)[0]):
             plt.plot(peaks[i,:], np.arange(np.shape(peaks)[1]),color=colors[i])
             plt.plot(peaks[i,:]+peakswd[i,:]/2, np.arange(np.shape(peaks)[1]),color=colors[i])
@@ -815,7 +815,7 @@ def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax
             corr  = np.exp(1j * phase_layer_air_slope[i_base, i_frame])
             cfcorr = cfobs * np.conj(corr)
             
-            if plot and i_frame == 3:
+            if plot :
                 phiObs= np.angle(cfobs)
                 phi   = np.angle(corr)
                 corrphi = np.angle(cfcorr)
