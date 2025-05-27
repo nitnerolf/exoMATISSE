@@ -632,7 +632,7 @@ def _op_compute_baseVect(hdr,loc):
 
 ##############################################
 # Compute uv coordinates
-def op_compute_uv(cfdata,frame, plot):
+def op_compute_uv(cfdata, plot):
     """
     DESCRIPTION
         Computes UV coordinates with a fits file given as input. 
@@ -640,7 +640,6 @@ def op_compute_uv(cfdata,frame, plot):
 
     PARAMETERS
         - cfdata      : ldata of the correlated fluxes
-        - frame       : boolean to compute frame per frame
         - plot        : boolean
     """
     
@@ -659,25 +658,18 @@ def op_compute_uv(cfdata,frame, plot):
     
     # Get the vector of all the baseline and compute uv Coords
     B=_op_compute_baseVect(hdr, loc)
-    if frame :
-        ndit = hdr['HIERARCH ESO DET NDIT']
-        dit = hdr['HIERARCH ESO DET SEQ1 DIT']
-        LST=[(hdr['LST']+i*dit/ndit)/3600 for i in range(ndit)]
-        for i,bvect in enumerate(B):
-            for lst in LST :
-                stardata['lst']=lst
-                uvw=deepcopy(stardata)
-                uvw=_op_calculate_uvw(uvw,bvect,loc)
-                uCoord.append(uvw['u'])
-                vCoord.append(uvw['v'])
-       
-    else:
-        stardata['lst']=hdr['LST']/3600
-        for i,bvect in enumerate(B):
+
+    ndit = hdr['HIERARCH ESO DET NDIT']
+    dit = hdr['HIERARCH ESO DET SEQ1 DIT']
+    LST=[(hdr['LST']+i*dit/ndit)/3600 for i in range(ndit)]
+    for i,bvect in enumerate(B):
+        for lst in LST :
+            stardata['lst']=lst
             uvw=deepcopy(stardata)
             uvw=_op_calculate_uvw(uvw,bvect,loc)
             uCoord.append(uvw['u'])
             vCoord.append(uvw['v'])
+       
     
     cfdata['OI_BASELINES']['UCOORD'] = uCoord    
     cfdata['OI_BASELINES']['VCOORD'] = vCoord
@@ -685,7 +677,7 @@ def op_compute_uv(cfdata,frame, plot):
 
 ##############################################
 # Compute uv_coverage
-def op_uv_coverage(uCoord,vCoord,cfdata,frame):
+def op_uv_coverage(uCoord,vCoord,cfdata):
     """
     DESCRIPTION
         Computes the UV coverage with all the fits files of an OBS given as input.
@@ -694,7 +686,7 @@ def op_uv_coverage(uCoord,vCoord,cfdata,frame):
     PARAMETERS
         - files     : list of input file
         - cfdata    : datas of the correlated fluxes
-        - frame     : if computed frame per frame 
+        
     """
     
     
@@ -716,14 +708,11 @@ def op_uv_coverage(uCoord,vCoord,cfdata,frame):
         u = []
         v = []
         for iObs in range(nObs):
-            if frame:
-                for i in range(0,nFrame):
-                   u.append(uCoord[iObs][i+nFrame*iBase])
-                   v.append(vCoord[iObs][i+nFrame*iBase])
-            else :
-                u.append(uCoord[iObs][iBase])
-                v.append(vCoord[iObs][iBase])
-          
+            
+            for i in range(0,nFrame):
+               u.append(uCoord[iObs][i+nFrame*iBase])
+               v.append(vCoord[iObs][i+nFrame*iBase])
+            
         u = np.array(u)
         v = np.array(v)
         
