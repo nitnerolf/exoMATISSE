@@ -248,19 +248,25 @@ def op_read_oifits_sequence(basedir, filelist):
         dit.append(ihdu[0].header['ESO DET SEQ1 DIT'])
         
         ivis    = ihdu['OI_VIS'].data['VISAMP'] * np.exp(1j * ihdu['OI_VIS'].data['VISPHI'])
-        ivis2   = ihdu['OI_VIS2'].data['VIS2DATA']
+        try:
+            ivis2   = ihdu['OI_VIS2'].data['VIS2DATA']
+        except:
+            noOiVis2=1;
+            print('No OI_VIS2 table found')
         nbase   = 6;
         nframes = np.shape(ivis)[0]//nbase
         nwlen   = np.shape(ivis)[1]
         ivisr   = ivis.reshape((nframes,nbase,nwlen))
-        ivis2r   = ivis2.reshape((nframes,nbase,nwlen))
+        if noOiVis2 != 1:
+            ivis2r   = ivis2.reshape((nframes,nbase,nwlen))
         print('ivis shape: ', np.shape(ivisr))
         
         imedvis = np.median(np.abs(ivis), axis=-1)
         print('imedvis : ', imedvis)
         
         vis.append(ivisr)
-        vis2.append(ivis2r)
+        if noOiVis2 != 1:
+            vis2.append(ivis2r)
         hdus.append(ihdu)    
         ihdu.close()
     #vis = np.array(vis)

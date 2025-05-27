@@ -24,6 +24,7 @@ from scipy         import *
 from scipy         import stats
 
 bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
+bbasedir = os.path.expanduser('~/driveFlorentin/DATA/beta_Pic_b/')
 basedir  = bbasedir+'2022-11-09_OIFITS/'
 #basedir  = bbasedir+'2024-11-18_OIFITS/'
 basename = os.path.basename(os.path.normpath(basedir))
@@ -46,7 +47,7 @@ starfiles = [f for f in BCDfiles if "CAL" in f]
 #print(wlen)
 #print(ihdu)
 
-hdus, vis, wlen, band, dit = op_read_oifits_sequence(basedir, ININfiles)
+hdus, vis, vis2, wlen, band, dit = op_read_oifits_sequence(basedir, ININfiles)
 nfiles  = np.shape(vis)[0]
 nframes = np.shape(vis)[1]
 nbase   = np.shape(vis)[2]

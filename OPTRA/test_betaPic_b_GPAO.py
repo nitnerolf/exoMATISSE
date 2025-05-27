@@ -37,8 +37,9 @@ verbose = False
 #bbasedir = '/Users/jscigliuto/Nextcloud/DATA/betaPicb/'
 #basedir = bbasedir+'betaPicb_rawdata_2024-11-17/'
 #bbasedir = '~/SynologyDrive/driveFlorentin/ExoMATISSE/beta_Pic_b/'
-bbasedir = os.path.expandvars('$HOME/SynologyDrive/driveFlorentin/DATA/beta_Pic_b/')
+#bbasedir = os.path.expandvars('$HOME/SynologyDrive/driveFlorentin/DATA/beta_Pic_b/')
 #bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
+bbasedir = os.path.expandvars('$HOME/driveFlorentin/DATA/beta_Pic_b/')
 basedir  = bbasedir+'2024-11-17_MATISSE_betaPic_b/'
 
 outdir = os.path.expandvars('$HOME/beta_pic_b_GPAO/')
@@ -133,7 +134,8 @@ for ifile in starfiles:
             print('Matching sky file:', skyfile)
             break
 
-    caldir = os.path.expandvars('$HOME/SynologyDrive/driveFlorentin/DATA/CALIB2024/')
+    #caldir = os.path.expandvars('$HOME/SynologyDrive/driveFlorentin/DATA/CALIB2024/')
+    caldir = os.path.expandvars('$HOME/driveFlorentin/DATA/CALIB2024/')
     
     ext = '.fits.gz'
     kappafile = caldir+'KAPPA_MATRIX_L_MED'+ext
