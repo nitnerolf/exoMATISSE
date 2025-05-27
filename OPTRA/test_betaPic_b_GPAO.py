@@ -22,9 +22,10 @@ import os
 from scipy.ndimage import median_filter
 from scipy         import *
 from scipy         import stats
+from tqdm import tqdm
 
 #plt.ion()
-plot = 0
+plot = True
 plotFringes = plot
 plotPhi     = plot
 plotDsp     = plot
@@ -32,7 +33,10 @@ plotRaw     = plot
 plotCorr    = plot
 plotPist    = plot
 
-verbose = False
+verbose = plot
+plotCoverage = plot
+plotSNR      = plot
+frame        = plot
 
 #bbasedir = '/Users/jscigliuto/Nextcloud/DATA/betaPicb/'
 #basedir = bbasedir+'betaPicb_rawdata_2024-11-17/'
@@ -65,7 +69,7 @@ skyfilesL     = []
 skyfilesL_MJD = []
 darkfiles     = []
 
-for fi in fitsfiles:
+for fi in tqdm(fitsfiles,desc='Tri des fichiers'):
     #print(fi)
     fh = fits.open(basedir+fi)
     #op_print_fits_header(fh)
@@ -77,17 +81,15 @@ for fi in fitsfiles:
     try:
         chip = hdr['ESO DET CHIP NAME']
     except:
-        do_nothing=1
+        print('No CHIP in header')
     try:
         dit  = hdr['ESO DET SEQ1 DIT']
     except:
-        do_nothing=1
-        #print('No DIT in header')
+        print('No DIT in header')
     try:
         ndit = hdr['ESO DET NDIT']
     except:
-        do_nothing=1
-    #print(fi, inst, catg, type, chip, dit, ndit)
+        print('No NDIT in header')
     if catg == 'SCIENCE' and type == 'OBJECT' and chip == 'HAWAII-2RG' :
         #print("science file!")
         obsfilesL.append(fi)
@@ -101,8 +103,7 @@ for fi in fitsfiles:
         skyfilesL.append(fi)
         skyfilesL_MJD.append(hdr['MJD-OBS'])
     else:
-        do_nothing = 1
-        #print('Not a science or sky file:', fi)
+        print('Not a science or sky file:', fi)
 
 skyfilesL_MJD = np.array(skyfilesL_MJD)
 starfiles = sorted(obsfilesL)
@@ -110,6 +111,7 @@ starfiles = sorted(obsfilesL)
 print('Starfiles:', starfiles)
 print('Skyfiles:', skyfilesL)
 
+uCoord = []; vCoord = []
 
 for ifile in starfiles:
     starfile = basedir + ifile
@@ -119,6 +121,7 @@ for ifile in starfiles:
     hdr = fh[0].header
     fh.close()
     mjd_obs = hdr['MJD-OBS']
+    u=[];v=[]
     
     # associate the two sky files matching properties of the star file
     mjdiff = np.abs(skyfilesL_MJD - mjd_obs)
@@ -149,6 +152,8 @@ for ifile in starfiles:
 
     ##########################################################
 
+    cfdata = op_get_corrflux(bdata, shiftfile, plot=plotCorr, verbose=verbose)
+
     print('Shape of bdata:', bdata['INTERF']['data'].shape)
 
     if plotFringes:
@@ -159,8 +164,6 @@ for ifile in starfiles:
 
         plt.show()
         
-    cfdata = op_get_corrflux(bdata, shiftfile, plot=plotCorr, verbose=verbose)
-
     wlen = cfdata['OI_WAVELENGTH']['EFF_WAVE']
     #print(wlen)
 
@@ -185,7 +188,23 @@ for ifile in starfiles:
     cfdata['hdr']['ESO INS BCD1 ID']                          +\
     cfdata['hdr']['ESO INS BCD2 ID']
         
-    if 1:
+    #########################################################
+    
+    if ifile == starfiles[0]:
+        cfdata = op_compute_uv(cfdata,frame,plotCoverage)
+    else: 
+        cfdata = op_compute_uv(cfdata,frame,False)
+        
+    uCoord.append(cfdata['OI_BASELINES']['UCOORD'])
+    vCoord.append(cfdata['OI_BASELINES']['VCOORD'])
+    # if ifile == planetfiles[0]:
+    #     f = [basedir + fi for fi in planetfiles]
+    #     op_uv_coverage(f,cfdata,frame, plotCoverage)
+        
+    cfdata=op_get_error_vis(cfdata,plot=plotSNR)
+    op_snr_theory(cfdata)
+    #########################################################
+    if 0:
         cfdata, vis2, mask = op_extract_simplevis2(cfdata, verbose=verbose, plot=0)
         
     if plotDsp:
@@ -291,50 +310,3 @@ for ifile in starfiles:
     #oivis2       = op_gen_oivis2(cfdem, v2in='simplevis2', verbose=verbose, plot=False)
     oivis2=None
     op_write_oifits(outfilename, hdr, oiwavelength, oirray, oitarget, oivis, oivis2=oivis2, oit3=None)
-
-    '''
-    #scfdata = op_sortout_peaks(cfdata, verbose=True)
-    #scfdata = cfdata
-
-    iframe = 0
-    import matplotlib.animation as animation
-    fig, ax = plt.subplots()
-    #lines = [ax.plot([], [], color=colors[i])[0] for i in range(1)]
-    lines  = [ax.plot([], [], color=colors[i])[0] for i in np.arange(7)]
-    #lines2 = [ax.plot([], [], '--', color=colors[i])[0] for i in np.arange(7)]
-    #ax.set_xlim(0, cfdata['CF']['CF'].shape[2])
-    ax.set_xlim(np.min(wlen), np.max(wlen))
-    ax.set_ylim(-np.pi, np.pi)
-    ax.set_title('Phase as a function of the wavelength for CF Data')
-    def init():
-        for line in lines:
-            line.set_data([], [])
-        return lines
-    def update(frame):
-        for i, line in enumerate(lines):
-            if i == 5:
-                #line.set_data(wlen, np.angle(cfdata['CF']['CF'][i, frame, :]  * np.conjugate(cfdata['CF']['mod_phasor'][2, frame, :])))
-                
-                # CF 1 phi 5 -> 6
-                # CF 2 phi 0 -> 1
-                # CF 3 phi 3 -> 4
-                # CF 4 phi 4 -> 5
-                # CF 5 phi 1 -> 2
-                # CF 6 phi 2 -> 3
-                line.set_data(wlen, np.angle(cfdata['CF']['CF_demod'][i, frame, :]))
-                
-                #lines2[i].set_data(wlen, np.angle(cfdata['CF']['mod_phasor'][i-1, frame, :]))
-                
-        return lines
-    ani = animation.FuncAnimation(fig, update, frames=cfdata['CF']['CF'].shape[1], init_func=init, blit=True)
-    plt.show()
-    if plotDsp:
-        plt.figure(5)
-        for i in np.arange(6)+1:
-            if i == 5:
-                plt.plot(np.abs(cfdata['CF']['CF'][i,iframe,:]) / np.abs(cfdata['CF']['CF'][0,0,:])*3,color=colors[i])
-                plt.plot(np.max(np.abs(cfdata['CF']['data'][i,iframe,:,:]),axis=1) / np.abs(cfdata['CF']['CF'][0,0,:])*3*7,':',color=colors[i])
-        plt.ylim(-0.2,1.2)
-        plt.title('This one should resemble a visibility curve')
-    plt.show()
-    '''

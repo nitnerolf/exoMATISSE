@@ -352,7 +352,7 @@ def _op_get_location(hdr,plot):
         loc['ntel'] = hdr['HIERARCH ESO ISS CONF NTEL']
         loc['lon']  = hdr['HIERARCH ESO ISS GEOLON']
         loc['lat']  = hdr['HIERARCH ESO ISS GEOLAT']
-        loc['elev'] = 2635
+        loc['elev'] = hdr['HIERARCH ESO ISS GEOELEV'] # should be close to 2635m
         loc['pos']  = _op_positionsTelescope(hdr,loc,plot)
     except:
         loc['name'] = "ESO, Cerro Paranal"
@@ -361,6 +361,7 @@ def _op_get_location(hdr,plot):
         loc['lat']  = -24.62794830
         loc['elev'] = 2635
         loc['pos']  = _op_positionsTelescope(hdr,loc,plot)
+        print('No location found in header, using default location: Paranal')
         
     return loc
 
@@ -388,7 +389,7 @@ def _op_calculate_uvw(data,bvect,loc):
     Balt = np.arcsin(bvect[2] / (Bnorm)) * degr
     Baz  = np.arctan2(bvect[0], bvect[1]) * degr
     
-    #Baseline vecor in equatorial coordinates
+    #Baseline vector in equatorial coordinates
     Bdec = np.arcsin(np.sin(Balt/degr) * np.sin(loc['lat']/degr) + np.cos(Balt/degr) * np.cos(loc['lat']/degr) * np.cos(Baz/degr)) * degr
     yBha = np.sin(Balt/degr) * np.cos(loc['lat']/degr) - np.cos(Balt/degr) * np.cos(Baz/degr) * np.sin(loc['lat']/degr)
     zBha = -1. * np.cos(Balt/degr) * np.sin(Baz/degr)

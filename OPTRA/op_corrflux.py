@@ -396,7 +396,7 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
         plt.figure(3)
         for i in np.arange(7):
             plt.plot(np.abs(bdata['CF']['data'][i,iframe,iwlen,:]),color=colors[i])
-        plt.plot(np.abs(cfdata['CF']['bckg'][iframe,iwlen,:]))
+        plt.plot(np.abs(bdata['CF']['bckg'][iframe,iwlen,:]))
         plt.yscale('log')
         plt.title('Modulus of Complex Values for CF Data and Background')
         
@@ -1087,6 +1087,8 @@ def op_bin_data(data, binning=5, cfin='CF_achr_phase_corr', verbose=False, plot=
 
     return data
 
+##############################################
+# 
 def op_get_error_vis(data,cfin='CF_Binned', window_length = 19, polyorder = 11, WL_err = 25,plot=False):
     wlen   = data['OI_WAVELENGTH']['EFF_WAVE_Binned']
     cf  = data['CF'][cfin][1:]
@@ -1184,8 +1186,9 @@ def op_get_error_vis(data,cfin='CF_Binned', window_length = 19, polyorder = 11, 
     data['OI_BASELINES']['VISPHIERR']=visPhiErr
     return data
 
-
-def op_snr(wlen,vis,visAmpErr,visPhiErr,parameters,plot=True):
+##############################################
+# 
+def op_snr(wlen,vis,visAmpErr,visPhiErr,parameters,plot=False):
     visAmp = np.abs(vis)
     # visPhi = np.angle(vis)
     snr_amp = visAmp/visAmpErr-1 #TATULLI 2007
@@ -1219,9 +1222,10 @@ def op_snr(wlen,vis,visAmpErr,visPhiErr,parameters,plot=True):
         plt.show()
     
     return snr_amp,snr_phi
-        
-
-def op_snr_theory(data,cfin = 'CF_Binned'):
+    
+##############################################
+#   
+def op_snr_theory(data,cfin = 'CF_Binned', plot=False):
     wlen   = data['OI_WAVELENGTH']['EFF_WAVE_Binned']
     cf  = data['CF'][cfin][0]/4
     nframes = cf.shape[0]
@@ -1280,14 +1284,15 @@ def op_snr_theory(data,cfin = 'CF_Binned'):
     F_RON = (RON * cst.h.value * cst.c.value / wlen) / (collecting_surface * texp * Dwlen * ratio)
     nI = alphaI * cf
     snr = nI * Vstar * Vinst / np.sqrt( nT * nIb + nT * nI + N_pix * F_RON)
-    fig1, ax1 = plt.subplots(nframes, 1, figsize=(4, 8), sharex=1, sharey=0)
-    for i in range(nframes):
-        ax1[i].plot(wlen,np.abs(snr[i]))
-        ax1[i].set_ylabel(f'frame Amp {i+1}')
+    if plot:
+        fig1, ax1 = plt.subplots(nframes, 1, figsize=(4, 8), sharex=1, sharey=0)
+        for i in range(nframes):
+            ax1[i].plot(wlen,np.abs(snr[i]))
+            ax1[i].set_ylabel(f'frame Amp {i+1}')
+            
         
-    
-    plt.suptitle(f'theorical SNR \n ')
-    plt.tight_layout()
-    
-    plt.show()
+        plt.suptitle(f'theorical SNR \n ')
+        plt.tight_layout()
+        
+        plt.show()
     return snr

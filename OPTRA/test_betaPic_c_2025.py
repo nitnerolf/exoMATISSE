@@ -25,8 +25,7 @@ plot         = False
 plotCorr     = False
 plotCoverage = True
 verbose      = False
-frame        = False
-plotSNR      = False
+frame        = True
 ##################################### FILE OPENING ####################################
 bbasedir = os.path.expanduser('~/Documents/Planet/beta_pic_c/')
 basedir  = bbasedir+'2023-11-29/'
@@ -67,9 +66,7 @@ for fi in tqdm(fitsfiles,desc='Tri des fichiers'):
     if catg == 'SCIENCE' and type == 'OBJECT' and chip == 'HAWAII-2RG' :
         #print("science file!")
         planetfiles.append(fi)
-# %%
         
-
     if catg == 'CALIB' and type == 'STD' and chip == 'HAWAII-2RG':
         #print("calibrator file!")
         starfiles.append(fi)# C'est une autre obs
@@ -158,15 +155,16 @@ for ifile in tqdm(planetfiles,desc='Traitement des fichiers'):
     #########################################################
     
     if ifile == planetfiles[0]:
-        cfdata = op_compute_uv(cfdata,frame,plotCoverage)
+        cfdata = op_compute_uv(hdr,cfdata,frame,plotCoverage)
     else: 
-        cfdata = op_compute_uv(cfdata,frame,False)
+        cfdata = op_compute_uv(hdr,cfdata,frame,False)
         
     uCoord.append(cfdata['OI_BASELINES']['UCOORD'])
     vCoord.append(cfdata['OI_BASELINES']['VCOORD'])
     # if ifile == planetfiles[0]:
     #     f = [basedir + fi for fi in planetfiles]
     #     op_uv_coverage(f,cfdata,frame, plotCoverage)
+        
         
     cfdata=op_get_error_vis(cfdata,plot=plotSNR)
     op_snr_theory(cfdata)
@@ -208,7 +206,7 @@ for ifile in tqdm(planetfiles,desc='Traitement des fichiers'):
     #########################################################
     
     outfilename = os.path.expanduser(bbasedir+f'{basen}_corrflux_oi.fits')
-    
+    hdr = cfdata['hdr']
     oiwavelength = op_gen_oiwavelength(cfdata, verbose=verbose)
     oitarget     = op_gen_oitarget(cfdata, verbose=True, plot=plot)
     oirray       = op_gen_oiarray(cfdata, verbose=True, plot=plot)
