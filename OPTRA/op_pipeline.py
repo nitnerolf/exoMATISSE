@@ -44,10 +44,7 @@ def op_sort_files(data_dir):
 
     for fi in fitsfiles:
         #print(fi)
-        fh = fits.open(basedir+fi)
-        #op_print_fits_header(fh)
-        hdr = fh[0].header
-        fh.close()
+        hdr = fits.getheader(basedir+fi)
         catg = hdr['ESO DPR CATG']
         type = hdr['ESO DPR TYPE']
         mjd  = hdr['MJD-OBS']
@@ -64,19 +61,22 @@ def op_sort_files(data_dir):
             #print("sky file!")
             data['sky'].append(fi)
             data['sky_MJD'].append(hdr['MJD-OBS'])
+        else:
+            print("File type not recognized!")
 
     print('Starfiles:', data['obs'])
-    print('Skyfiles:', data['sky'])
+    print('Skyfiles:',  data['sky'])
 
     return data
 
 ########################################################
 
-def op_assign_sky():
+def op_assign_sky(starfiles, skyfiles):
     """
     Assign sky to a given target
     """
-    pass
+    keys_to_match = ['INSTRUME','ESO DET CHIP NAME','ESO DET SEQ1 DIT']
+        
 
 ########################################################
 

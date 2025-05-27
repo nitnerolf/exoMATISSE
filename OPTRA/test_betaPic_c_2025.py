@@ -26,9 +26,13 @@ plotCorr     = False
 plotCoverage = True
 verbose      = False
 frame        = True
+plotSNR      = False
 ##################################### FILE OPENING ####################################
 bbasedir = os.path.expanduser('~/Documents/Planet/beta_pic_c/')
 basedir  = bbasedir+'2023-11-29/'
+########## Florentin's directory
+bbasedir = os.path.expandvars('$HOME/driveFlorentin/DATA/Beta_Pic_c/')
+basedir  = bbasedir+'2023-11-28_betaPic_c/'
 
 obsfiles = os.listdir(basedir)
 fitsfiles = [f for f in obsfiles if ".fits" in f and not "M." in f]
@@ -163,6 +167,8 @@ for ifile in tqdm(planetfiles,desc='Traitement des fichiers'):
     #     op_uv_coverage(f,cfdata,frame, plotCoverage)
         
         
+    cfdata=op_get_error_vis(cfdata,plot=plotSNR)
+    op_snr_theory(cfdata)
     #########################################################
 
 
@@ -208,4 +214,4 @@ for ifile in tqdm(planetfiles,desc='Traitement des fichiers'):
     oivis        = op_gen_oivis(cfdata, cfin='CF_Binned', verbose=verbose, plot=plot)
     op_write_oifits(outfilename, hdr, oiwavelength, oirray, oitarget, oivis, oivis2=None, oit3=None)
 
-op_uv_coverage(uCoord,vCoord,cfdata,frame)
+op_uv_coverage(uCoord,vCoord,cfdata)

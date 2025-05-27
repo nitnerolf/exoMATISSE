@@ -126,17 +126,15 @@ def op_gen_oivis(cfdata, cfin='CF_achr_phase_corr', verbose=True, plot=False):
     oivis_table['TIME']      = np.repeat(cfdata['OI_BASELINES']['TIME'], nbases)
     oivis_table['MJD']       = np.repeat(cfdata['OI_BASELINES']['MJD'],  nbases)
     oivis_table['INT_TIME']  = np.repeat(cfdata['OI_BASELINES']['INT_TIME'], nbases)
-    #print('Shape of complexvisxxx:', complexvis2.shape)
+    print('Shape of complexvisxxx:', complexvis2.shape)
     oivis_table['VISAMP']    = np.abs(complexvis2)
-    oivis_table['VISAMPERR'] = 0 #cfdata['OI_BASELINES']['VISAMPERR']
+    oivis_table['VISAMPERR'] = cfdata['OI_BASELINES']['VISAMPERR']
     oivis_table['VISPHI']    = np.angle(complexvis2)
-    oivis_table['VISPHIERR'] = 0 #cfdata['OI_BASELINES']['VISAMPERR']
-    if np.shape(cfdata['OI_BASELINES']['UCOORD'])[0] == nbases*nframes :
-        oivis_table['UCOORD']    = cfdata['OI_BASELINES']['UCOORD']
-        oivis_table['VCOORD']    = cfdata['OI_BASELINES']['VCOORD']
-    else:
-        oivis_table['UCOORD']    = np.repeat(cfdata['OI_BASELINES']['UCOORD'],nframes)
-        oivis_table['VCOORD']    = np.repeat(cfdata['OI_BASELINES']['VCOORD'],nframes)
+    oivis_table['VISPHIERR'] = cfdata['OI_BASELINES']['VISPHIERR']
+    
+    oivis_table['UCOORD']    = cfdata['OI_BASELINES']['UCOORD']
+    oivis_table['VCOORD']    = cfdata['OI_BASELINES']['VCOORD']
+   
     #print('Shape of STA_INDEX:', np.tile(np.array(cfdata['OI_BASELINES']['STA_INDEX']), (nframes,1)).shape)
     oivis_table['STA_INDEX'] = np.tile(cfdata['OI_BASELINES']['STA_INDEX'], (nframes,1))
     oivis_table['FLAG']      = 0

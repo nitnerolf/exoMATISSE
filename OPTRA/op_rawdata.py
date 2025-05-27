@@ -329,8 +329,6 @@ def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, instrument=op_MATISSE_
     bdata['OI_BASELINES']['INT_TIME']  = bdata['INTERF']['exptime']
     bdata['OI_BASELINES']['STA_INDEX'] = bdata['OI_ARRAY']['STA_INDEX'][instrument['scrB']]
     #print('Scrambling of baselines:', bdata['OI_ARRAY']['STA_INDEX'][instrument['scrB']])
-    
-    
     return bdata
 
 
@@ -354,16 +352,16 @@ def _op_get_location(hdr,plot):
         loc['ntel'] = hdr['HIERARCH ESO ISS CONF NTEL']
         loc['lon']  = hdr['HIERARCH ESO ISS GEOLON']
         loc['lat']  = hdr['HIERARCH ESO ISS GEOLAT']
-        loc['elev'] = 2635
+        loc['elev'] = hdr['HIERARCH ESO ISS GEOELEV'] # should be close to 2635m
         loc['pos']  = _op_positionsTelescope(hdr,loc,plot)
     except:
-        
         loc['name'] = "ESO, Cerro Paranal"
         loc['ntel'] = 4
         loc['lon']  = -70.40479659
         loc['lat']  = -24.62794830
         loc['elev'] = 2635
         loc['pos']  = _op_positionsTelescope(hdr,loc,plot)
+        print('No location found in header, using default location: Paranal')
         
     return loc
 
@@ -391,7 +389,7 @@ def _op_calculate_uvw(data,bvect,loc):
     Balt = np.arcsin(bvect[2] / (Bnorm)) * degr
     Baz  = np.arctan2(bvect[0], bvect[1]) * degr
     
-    #Baseline vecor in equatorial coordinates
+    #Baseline vector in equatorial coordinates
     Bdec = np.arcsin(np.sin(Balt/degr) * np.sin(loc['lat']/degr) + np.cos(Balt/degr) * np.cos(loc['lat']/degr) * np.cos(Baz/degr)) * degr
     yBha = np.sin(Balt/degr) * np.cos(loc['lat']/degr) - np.cos(Balt/degr) * np.cos(Baz/degr) * np.sin(loc['lat']/degr)
     zBha = -1. * np.cos(Balt/degr) * np.sin(Baz/degr)
@@ -634,16 +632,14 @@ def _op_compute_baseVect(hdr,loc):
 
 ##############################################
 # Compute uv coordinates
-def op_compute_uv(hdr,cfdata,frame, plot):
+def op_compute_uv(cfdata, plot):
     """
     DESCRIPTION
         Computes UV coordinates with a fits file given as input. 
         You can then compare them with the Baselines and angles in the Header 
 
     PARAMETERS
-        - header      : iheader of an OB file
         - cfdata      : ldata of the correlated fluxes
-        - frame       : boolean to compute frame per frame
         - plot        : boolean
     """
     
@@ -653,6 +649,7 @@ def op_compute_uv(hdr,cfdata,frame, plot):
     vCoord = []
         
     # get location and star data from the header   
+    hdr = cfdata['hdr']
     loc = _op_get_location(hdr, plot)
     date = hdr["DATE-OBS"]
     stardata['date'] = date[0].split('T')[0]
@@ -661,25 +658,18 @@ def op_compute_uv(hdr,cfdata,frame, plot):
     
     # Get the vector of all the baseline and compute uv Coords
     B=_op_compute_baseVect(hdr, loc)
-    if frame :
-        ndit = hdr['HIERARCH ESO DET NDIT']
-        dit = hdr['HIERARCH ESO DET SEQ1 DIT']
-        LST=[(hdr['LST']+i*dit/ndit)/3600 for i in range(ndit)]
-        for i,bvect in enumerate(B):
-            for lst in LST :
-                stardata['lst']=lst
-                uvw=deepcopy(stardata)
-                uvw=_op_calculate_uvw(uvw,bvect,loc)
-                uCoord.append(uvw['u'])
-                vCoord.append(uvw['v'])
-       
-    else:
-        stardata['lst']=hdr['LST']/3600
-        for i,bvect in enumerate(B):
+
+    ndit = hdr['HIERARCH ESO DET NDIT']
+    dit = hdr['HIERARCH ESO DET SEQ1 DIT']
+    LST=[(hdr['LST']+i*dit/ndit)/3600 for i in range(ndit)]
+    for i,bvect in enumerate(B):
+        for lst in LST :
+            stardata['lst']=lst
             uvw=deepcopy(stardata)
             uvw=_op_calculate_uvw(uvw,bvect,loc)
             uCoord.append(uvw['u'])
             vCoord.append(uvw['v'])
+       
     
     cfdata['OI_BASELINES']['UCOORD'] = uCoord    
     cfdata['OI_BASELINES']['VCOORD'] = vCoord
@@ -687,7 +677,7 @@ def op_compute_uv(hdr,cfdata,frame, plot):
 
 ##############################################
 # Compute uv_coverage
-def op_uv_coverage(uCoord,vCoord,cfdata,frame):
+def op_uv_coverage(uCoord,vCoord,cfdata):
     """
     DESCRIPTION
         Computes the UV coverage with all the fits files of an OBS given as input.
@@ -696,13 +686,13 @@ def op_uv_coverage(uCoord,vCoord,cfdata,frame):
     PARAMETERS
         - files     : list of input file
         - cfdata    : datas of the correlated fluxes
-        - frame     : if computed frame per frame 
+        
     """
     
     
     
     wlen     = cfdata['OI_WAVELENGTH']['EFF_WAVE_Binned']
-    wlen_ref = cfdata['hdr']['HIERARCH ESO SEQ DIL WL0']
+    wlen_ref = cfdata['hdr']['HIERARCH ESO SEQ DIL WL0']*1e-6
 
     ######################### PLOT ################################
     
@@ -718,14 +708,11 @@ def op_uv_coverage(uCoord,vCoord,cfdata,frame):
         u = []
         v = []
         for iObs in range(nObs):
-            if frame:
-                for i in range(0,nFrame):
-                   u.append(uCoord[iObs][i+nFrame*iBase])
-                   v.append(vCoord[iObs][i+nFrame*iBase])
-            else :
-                u.append(uCoord[iObs][iBase])
-                v.append(vCoord[iObs][iBase])
-          
+            
+            for i in range(0,nFrame):
+               u.append(uCoord[iObs][i+nFrame*iBase])
+               v.append(vCoord[iObs][i+nFrame*iBase])
+            
         u = np.array(u)
         v = np.array(v)
         
@@ -736,24 +723,28 @@ def op_uv_coverage(uCoord,vCoord,cfdata,frame):
         
         # spatial frequencies 
         for i in range(0,len(u),len(u)//5):
-            plt.plot(u[i]/wlen*1e-6*wlen_ref, v[i]/wlen*1e-6*wlen_ref, color=colors[iBase], lw=2)
-            plt.plot(-u[i]/wlen*1e-6*wlen_ref, -v[i]/wlen*1e-6*wlen_ref, color=colors[iBase], lw=2)
-    
-    
+            plt.plot(u[i]/wlen*wlen_ref, v[i]/wlen*wlen_ref, color=colors[iBase], lw=2)
+            plt.plot(-u[i]/wlen*wlen_ref, -v[i]/wlen*wlen_ref, color=colors[iBase], lw=2)
+            
+
     plt.title("uv-coverage map", fontsize=18, fontweight='bold', pad=20)
     ax.set_xlabel("U (Mλ - 10⁶ cycles/rad)", fontsize=14, fontweight='bold')
     ax.set_ylabel("V (Mλ - 10⁶ cycles/rad)", fontsize=14, fontweight='bold')
     
-    
-    ax2.set_xlim(-150, 150)
+    ulim = np.max(np.abs(uCoord))*1.15
+    vlim = np.max(np.abs(vCoord))*1.15
+
+    lim = np.max([ulim,vlim])
+
+    ax2.set_xlim(-lim, lim)
     ax2.set_xlabel("U (m) ", fontsize=14, fontweight='bold')
     ax2.invert_xaxis()
     
-    ax3.set_ylim(-150, 150)
+    ax3.set_ylim(-lim, lim)
     ax3.set_ylabel("V (m) ", fontsize=14, fontweight='bold')
     
-    ax.set_xlim(ax2.get_xlim()[0] / wlen_ref , ax2.get_xlim()[1] / wlen_ref )
-    ax.set_ylim(ax3.get_ylim()[0] / wlen_ref , ax3.get_ylim()[1] / wlen_ref )
+    ax.set_xlim(ax2.get_xlim()[0] / (wlen_ref * 1e6) , ax2.get_xlim()[1] / (wlen_ref * 1e6) )
+    ax.set_ylim(ax3.get_ylim()[0] / (wlen_ref * 1e6) , ax3.get_ylim()[1] / (wlen_ref * 1e6) )
     # Twin axes for meters
     
     
