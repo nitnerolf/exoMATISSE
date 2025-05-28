@@ -124,7 +124,7 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
     # Compute wavelength map from shift map
     fh        = fits.open(shift_map)
     shift_map = fh['SHIFT_MAP'].data
-    disp      = shift_map['DISP']
+    disp      = shift_map['DISP'].astype(float)
     if verbose:
         print('shape of disp:', np.shape(disp))
         print('disp:', disp)
@@ -132,27 +132,25 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
         print('disp1:', disp[1])
     
     corner = rawdata['INTERF']['corner']
-    px     = corner[1]+np.arange(np.shape(rawdata['INTERF']['data'])[1])
+    px     = corner[1]+np.arange(np.shape(rawdata['INTERF']['data'])[1]).astype(float)
     wlen   = disp[0][0] + disp[0][1]*px + disp[0][2]*px**2 + disp[0][3]*px**3 + disp[0][4]*px**4
-    wlen2   = disp[1][0] + disp[1][1]*px + disp[1][2]*px**2 + disp[0][3]*px**3 + disp[0][4]*px**4
+    wlen2   = disp[1][0] + disp[1][1]*px + disp[1][2]*px**2 + disp[1][3]*px**3 + disp[1][4]*px**4
     
     if verbose:
         print('Corner',corner)
         print('px',px)
         print('Disp',disp)
-    
         print('Wavelength',wlen)
+        print('Wavelength 2',wlen2)
     
     # FIXME: Set the bandwidth of wavelength table
     band = np.diff(wlen)*5
-    
-    if verbose:
-        print(disp)
-        print(wlen)
         
     if plot:
         plt.figure()
-        plt.plot(wlen)
+        plt.plot(px,wlen)
+        plt.xlabel('Pixel Index')
+        plt.ylabel('Wavelength (m)')
         plt.show()
     
     rawdata['OI_WAVELENGTH'] = {}
@@ -350,7 +348,7 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
 
     #########################################################
     # Get the wavelength
-    wlen = op_get_wlen(shiftfile, fdata, verbose=verbose)
+    wlen = op_get_wlen(shiftfile, fdata, verbose=verbose, plot=False)
     if verbose:
         print(wlen)
 
@@ -753,7 +751,7 @@ def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax
     #data, cfdem = op_reorder_baselines(data)
     cfdem = data['CF'][cfin]
     print('cfdem shape:', cfdem.shape)
-    n_bases = np.shape(cfdem)[0]-1
+    n_bases  = np.shape(cfdem)[0] - 1
     n_frames = np.shape(cfdem)[1]
     n_wlen_0 = np.shape(cfdem)[2]
     n_wlen = len(wlen)
@@ -773,6 +771,7 @@ def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax
 
         for i_frame in range(n_frames):
             # Model the phase introduced by the extra layer of air
+            print('Base:', i_base, 'Frame:', i_frame)
             phase_layer_air[i_base, i_frame] = 2 * np.pi * (n_air-1) * dPath[i_base, i_frame] / (wlen)
             wl_mask_lin = (wlen > wlmin) & (wlen < wlmax)
             wlm         = wlen[wl_mask_lin]
@@ -789,12 +788,13 @@ def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax
                 phiObs= np.angle(cfobs)
                 phi   = np.angle(corr)
                 corrphi = np.angle(cfcorr)
-                ax1[i_base,0].plot(wlen, corrphi, color=colors[i_base])\
-                    
-                ax1[i_base,1].plot(wlen, phi, color=colors[i_base])
-                ax1[i_base,1].plot(wlen, phiObs, color=colors[i_base])
-                ax1[i_base,1].set_ylabel(f'phase {i_base+1}')
+                ax1[i_base,1].plot(wlen, corrphi, color=colors[i_base])
                 ax1[i_base,1].set_ylim(-np.pi, np.pi)
+                    
+                ax1[i_base,0].plot(wlen, phi, ':', color=colors[i_base])
+                ax1[i_base,0].plot(wlen, phiObs, color=colors[i_base])
+                ax1[i_base,0].set_ylabel(f'phase {i_base+1}')
+                ax1[i_base,0].set_ylim(-np.pi, np.pi)
 
             data['CF']['CF_chr_phase_corr'][i_base+1, i_frame] = cfcorr
 
