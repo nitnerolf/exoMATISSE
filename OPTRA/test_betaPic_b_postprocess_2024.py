@@ -23,18 +23,19 @@ from scipy.ndimage import median_filter
 from scipy         import *
 from scipy         import stats
 
-bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
+#bbasedir = os.path.expanduser('~/Documents/ExoMATISSE/beta_Pic_b/')
+bbasedir = os.path.expandvars('$HOME/beta_pic_b_GPAO/')
 #basedir  = bbasedir+'2022-11-09_OIFITS/'
 basedir  = bbasedir+'2024-11-18_OIFITS/'
 basename = os.path.basename(os.path.normpath(basedir))
 print(basename)
 starfiles = os.listdir(basedir)
 timebin = 0.5  #in hours
-bcd = "OUTOUT"
+#bcd = "OUTOUT"
 #bcd = "ININ"
 #bcd = "INOUT"
 #bcd = "OUTIN"
-#bcd=''
+§bcd=''
 fitsfiles = [f for f in starfiles if "oi.fits" in f]
 BCDfiles  = [f for f in fitsfiles if bcd in f]
 ININfiles = [f for f in BCDfiles if "SCI" in f]
