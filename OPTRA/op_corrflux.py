@@ -160,8 +160,8 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
         plt.show()
     
     rawdata['OI_WAVELENGTH'] = {}
-    rawdata['OI_WAVELENGTH']['EFF_WAVE'] = wlen
-    rawdata['OI_WAVELENGTH']['EFF_BAND'] = band
+    rawdata['OI_WAVELENGTH']['EFF_WAVE'] = wlen * 1e-6 # Convert to meters
+    rawdata['OI_WAVELENGTH']['EFF_BAND'] = band * 1e-6 # Convert to meters
     rawdata['OI_WAVELENGTH']['EFF_REF']  = rawdata['hdr']['HIERARCH ESO SEQ DIL WL0']
 
     return wlen
@@ -169,7 +169,7 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
 ##############################################
 # get the peaks position
 def op_get_peaks_position(fftdata, instrument=op_MATISSE_L, verbose=True):
-    wlen = fftdata['OI_WAVELENGTH']['EFF_WAVE']
+    wlen = fftdata['OI_WAVELENGTH']['EFF_WAVE'] *1e6 # Convert to micrometers
     
     print('Instrument',instrument)
     if instrument['name'] == 'MATISSE_L':
@@ -247,7 +247,7 @@ def op_extract_CF(fftdata, peaks, peakswd, verbose=True, plot=False):
 ##############################################
 # demodulate MATISSE fringes
 def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
-    wlen = CFdata['OI_WAVELENGTH']['EFF_WAVE']
+    wlen = CFdata['OI_WAVELENGTH']['EFF_WAVE'] * 1e6  # Convert to micrometers
     
     if verbose:
         print('Demodulating correlated flux...')
