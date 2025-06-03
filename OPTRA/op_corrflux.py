@@ -44,7 +44,7 @@ def op_apodize(data, verbose=True,plot=False, frac=0.85):
         print('computing apodizing window...')
     intf  = stats.trim_mean(data['INTERF']['data'],axis=0, proportiontocut=0.05)
     n     = np.shape(intf)[1]
-    #argmx = np.argmax(stats.trim_mean(intf, axis=0, proportiontocut=0.05))
+    argmx = np.argmax(stats.trim_mean(intf, axis=0, proportiontocut=0.05))
     #argmx=n//2
     argmx=272
     if verbose:
@@ -162,9 +162,9 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
     rawdata['OI_WAVELENGTH'] = {}
     rawdata['OI_WAVELENGTH']['EFF_WAVE'] = wlen * 1e-6 # Convert to meters
     rawdata['OI_WAVELENGTH']['EFF_BAND'] = band * 1e-6 # Convert to meters
-    rawdata['OI_WAVELENGTH']['EFF_REF']  = rawdata['hdr']['HIERARCH ESO SEQ DIL WL0']
+    rawdata['OI_WAVELENGTH']['EFF_REF']  = rawdata['hdr']['HIERARCH ESO SEQ DIL WL0'] * 1e-6
 
-    return wlen
+    return wlen * 1e-6
 
 ##############################################
 # get the peaks position
@@ -312,9 +312,17 @@ def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
 
 ##############################################
 # Function to compute correlated flux
-def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False):
+def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False ):
     if verbose:
         print('Computing correlated flux...')
+        
+    #########################################################
+    # Get the wavelength
+    wlen = op_get_wlen(shiftfile, bdata, verbose=verbose)
+    if verbose:
+        print(wlen)
+        
+        
     #########################################################
     # Apodization
     bdata = op_apodize(bdata, verbose=verbose, plot=plot)
@@ -353,11 +361,7 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False):
 
         #plt.show()
 
-    #########################################################
-    # Get the wavelength
-    wlen = op_get_wlen(shiftfile, bdata, verbose=verbose)
-    if verbose:
-        print(wlen)
+    
 
 
     #########################################################
@@ -428,7 +432,7 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False):
         
     #########################################################
     # Correct the phase for air path
-    bdata, phase_layer_air_slope = op_corr_n_air(wlen, bdata, n_air, dPath, wlmin=3.3e-6, wlmax=3.7e-6, verbose=verbose, plot=plot)
+    bdata, phase_layer_air_slope = op_corr_n_air( bdata, n_air, dPath, wlmin=3.3e-6, wlmax=3.7e-6, verbose=verbose, plot=plot)
     
     #########################################################
     # Get the piston    
@@ -687,7 +691,7 @@ def op_get_amb_conditions(data, verbose=True):
 
 ##############################################
 # Function to compute the air refractive index
-def op_air_index(wl, T, P, h, N_CO2=423, bands='all'):
+def op_air_index(wlen, T, P, h, N_CO2=435, bands='all'):
     """ Compute the refractive index as a function of wavelength at a given temperature,
         pressure, relative humidity and CO2 concentration, using Equation (5) of Voronin & Zheltikov (2017).
         
@@ -695,7 +699,7 @@ def op_air_index(wl, T, P, h, N_CO2=423, bands='all'):
         Sci. Rep. 7, 46111; doi: 10.1038/srep46111 (2017).
         
         Inputs:
-        - wl: array of wavelengths in microns,
+        - wlen: array of wavelengths in meters,
         - T: temperature in °C,
         - P: pressure in hPa,
         - h: relative humidity,
@@ -705,6 +709,7 @@ def op_air_index(wl, T, P, h, N_CO2=423, bands='all'):
         Output:
         - n_air: array of refractive indices at each wl value.
 """
+    wl = wlen * 1e6 # m -> µm
 
     ## Characteristic wavelengths (microns)
     wl_abs1 = 1e-3 * np.array([15131, 4290.9, 2684.9, 2011.3, 47862, 6719.0, 2775.6, 1835.6,
@@ -754,7 +759,7 @@ def op_air_index(wl, T, P, h, N_CO2=423, bands='all'):
     N_gas[14] = N_H2O
     
     ## Critical plasma density (m-3)
-    N_cr = const.m_e.value * const.eps0.value * (2 * np.pi * const.c.value / (const.e.value * wl*1e-6))**2
+    N_cr = const.m_e.value * const.eps0.value * (2 * np.pi * const.c.value / (const.e.value * wlen))**2
    
     ## Selection of absorption bands
     if bands == 'all':
@@ -773,12 +778,13 @@ def op_air_index(wl, T, P, h, N_CO2=423, bands='all'):
 
 ##############################################
 # Function to correct for the chromatic phase
-def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e-6, verbose=False, plot=True):
+def op_corr_n_air( data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e-6, verbose=False, plot=True):
     if verbose:
         print('Correcting for the chromatic phase...')
 
     #data, cfdem = op_reorder_baselines(data)
     cfdem = data['CF'][cfin]
+    wlen = data['OI_WAVELENGTH']['EFF_WAVE']
     if verbose:
         print('cfdem shape:', cfdem.shape)
     n_bases = np.shape(cfdem)[0]-1
@@ -793,7 +799,7 @@ def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax
     phase_layer_air = np.zeros((6, n_frames, n_wlen))
     slope = np.zeros((6, n_frames))
     phase_layer_air_slope = np.zeros((6, n_frames, n_wlen))
-    wlen *= 1e-6 #µm -> m
+    # wlen *= 1e-6 #µm -> m
     
     if plot:
         fig1, ax1 = plt.subplots(6, 2, figsize=(8, 8), sharex=1, sharey=0)
@@ -830,7 +836,7 @@ def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax
 
     if plot:
         plt.show()
-    wlen *= 1e6   
+      
     return data, phase_layer_air_slope
 
 
@@ -890,8 +896,19 @@ def op_get_piston_fft(data, cfin='CF_Binned', verbose=False, plot=True):
             fft_cf = np.fft.fftshift(np.fft.fft(cf_interp))
             OPDs   = np.fft.fftshift(np.fft.fftfreq(cf_interp.shape[0], step))
 
+            dsp = np.abs(fft_cf)
+            mx = np.argmax(dsp)
             #OPD determination
-            OPD = OPDs[np.argmax(np.abs(fft_cf))]
+            OPD0 = OPDs[mx]
+            OPDp1 = OPDs[mx+1]
+            OPDm1 = OPDs[mx-1]
+            
+            peak0 = dsp[mx]
+            peakp1 = dsp[mx+1]
+            peakm1 = dsp[mx-1]
+            
+            OPD = (OPD0 * peak0 + OPDp1 * peakp1 + OPDm1 * peakm1)/(peak0 + peakp1 + peakm1)
+            
             OPD_lst[i_base, i_frame] = OPD
         
 
