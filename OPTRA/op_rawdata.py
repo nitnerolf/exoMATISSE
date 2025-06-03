@@ -28,7 +28,10 @@ from matplotlib.ticker import MultipleLocator
 from copy import deepcopy
 import numpy.linalg as lin
 from op_parameters import *
-
+from astroquery.simbad import Simbad
+from astropy.coordinates import SkyCoord
+from astropy.time import Time
+import astropy.units as u
 ##############################################
 # Function to interpolate bad pixels
 # 
@@ -655,14 +658,65 @@ def op_compute_uv(cfdata, plot):
     stardata = dict()  
     uCoord = []
     vCoord = []
+    wCoord = []
         
     # get location and star data from the header   
     hdr = cfdata['hdr']
     loc = _op_get_location(hdr, plot)
     date = hdr["DATE-OBS"]
     stardata['date'] = date[0].split('T')[0]
-    stardata['ra']   = hdr['RA']/15
-    stardata['dec']  = hdr['DEC']
+    
+    ra_j2000 = hdr['RA']
+    dec_j2000 = hdr['DEC']
+    
+    try:
+        pmra  = hdr['PMRA']
+        pmdec = hdr['PMDEC']
+        
+        mjd = hdr['MJD-OBS']
+        date_obs = Time(mjd,format = 'mjd').decimalyear 
+        j2000 = Time('J2000').decimalyear
+        delta_t = date_obs -  j2000 # in decimal year
+        
+        
+        ra_obs  = ra_j2000 + pmra * delta_t 
+        dec_obs = dec_j2000 + pmdec * delta_t
+        
+    except KeyError:
+        
+        coord = SkyCoord(ra_j2000, dec_j2000, unit=(u.deg, u.deg),frame='fk5', equinox = Time("J2000"))
+        Simbad.add_votable_fields('otype', 'pmra', 'pmdec')
+        result = Simbad.query_region(coord)
+    
+        if result is not None:
+            # Filter object : Star '*'
+            mask = [('*' in otype) for otype in result['otype']]
+            result = result[mask]
+            ra_list  = result['ra']
+            dec_list = result['dec']
+            coord_query = SkyCoord(ra_list,dec_list, unit=(u.deg, u.deg),frame='fk5', equinox = Time("J2000"))
+            separations = coord_query.separation(coord)
+            amin = np.argmin(separations)
+            
+            pmra  = result['pmra'][amin] / (1000 * 3600) #mas/yr to deg/yr
+            pmdec = result['pmdec'][amin] / (1000 * 3600) #mas/yr to deg/yr
+            
+            mjd = hdr['MJD-OBS']
+            date_obs = Time(mjd,format = 'mjd').decimalyear 
+            j2000 = Time('J2000').decimalyear
+            delta_t = date_obs -  j2000 # in decimal year
+            
+            
+            ra_obs  = ra_j2000 + pmra * delta_t 
+            dec_obs = dec_j2000 + pmdec * delta_t
+        
+        else:
+            print("les coordonnees RA-DEC sont au J2000")
+            ra_obs  = ra_j2000 
+            dec_obs = dec_j2000
+    
+    stardata['ra']   = ra_obs/15
+    stardata['dec']  = dec_obs
     
     # Get the vector of all the baseline and compute uv Coords
     B=_op_compute_baseVect(hdr, loc)
@@ -677,10 +731,12 @@ def op_compute_uv(cfdata, plot):
             uvw=_op_calculate_uvw(uvw,bvect,loc)
             uCoord.append(uvw['u'])
             vCoord.append(uvw['v'])
+            wCoord.append(uvw['w'])
        
     
     cfdata['OI_BASELINES']['UCOORD'] = uCoord    
     cfdata['OI_BASELINES']['VCOORD'] = vCoord
+    cfdata['OI_BASELINES']['WCOORD'] = wCoord
     return cfdata  
 
 ##############################################
@@ -700,7 +756,7 @@ def op_uv_coverage(uCoord,vCoord,cfdata,instrument = op_MATISSE_L):
     
     
     wlen     = cfdata['OI_WAVELENGTH']['EFF_WAVE']
-    wlen_ref = cfdata['hdr']['HIERARCH ESO SEQ DIL WL0']*1e-6
+    wlen_ref = cfdata['OI_WAVELENGTH']['EFF_REF']
 
     ######################### PLOT ################################
     
