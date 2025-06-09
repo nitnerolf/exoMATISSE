@@ -311,7 +311,7 @@ def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
 
 ##############################################
 # Function to compute correlated flux
-def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
+def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False, corr_opd=False):
     if verbose:
         print('Computing correlated flux...')
     #########################################################
@@ -408,36 +408,40 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False):
     # Reorder baselines
     bdata, cfdata_reordered = op_reorder_baselines(bdata)
     
-    #########################################################
-    # Get the air refractive index
-    Temp, Pres, hum, dPath    = op_get_amb_conditions(bdata)
-    if verbose:
-        print('Temp:', Temp, 'Pres:', Pres, 'hum:', hum)
-    n_air = op_air_index(wlen, Temp, Pres, hum, N_CO2=423, bands='all')
-    if verbose:
-        print('n_air:', n_air)
+    if corr_opd == True:
+        #########################################################
+        # Get the air refractive index
+        Temp, Pres, hum, dPath    = op_get_amb_conditions(bdata)
+        if verbose:
+            print('Temp:', Temp, 'Pres:', Pres, 'hum:', hum)
+        n_air = op_air_index(wlen, Temp, Pres, hum, N_CO2=423, bands='all')
+        if verbose:
+            print('n_air:', n_air)
+            
+        #########################################################
+        # Correct the phase for air path
+        bdata, phase_layer_air_slope = op_corr_n_air(wlen, bdata, n_air, dPath, wlmin=3.3e-6, wlmax=3.7e-6, verbose=verbose, plot=plot)
         
-    #########################################################
-    # Correct the phase for air path
-    bdata, phase_layer_air_slope = op_corr_n_air(wlen, bdata, n_air, dPath, wlmin=3.3e-6, wlmax=3.7e-6, verbose=verbose, plot=plot)
-    
-    #########################################################
-    # Get the piston    
-    bdata, OPD_list = op_get_piston_fft(bdata, cfin='CF_chr_phase_corr', verbose=verbose, plot=plot)
-    
-    #########################################################
-    # Correct the piston
-    bdata = op_corr_piston(bdata, cfin='CF_chr_phase_corr', verbose=verbose, plot=plot)
+        #########################################################
+        # Get the piston    
+        bdata, OPD_list = op_get_piston_fft(bdata, cfin='CF_chr_phase_corr', verbose=verbose, plot=plot)
+        
+        #########################################################
+        # Correct the piston
+        bdata = op_corr_piston(bdata, cfin='CF_chr_phase_corr', verbose=verbose, plot=plot)
 
-    #########################################################
-    # Correct for residual phase
-    totvis = np.sum(bdata['CF']['CF_piston_corr'],axis=-1)
-    cvis = bdata['CF']['CF_piston_corr'] * np.exp(-1j * np.angle(totvis[...,None]))
-    bdata['CF']['CF_piston_corr2'] = cvis
+        #########################################################
+        # Correct for residual phase
+        totvis = np.sum(bdata['CF']['CF_piston_corr'],axis=-1)
+        cvis = bdata['CF']['CF_piston_corr'] * np.exp(-1j * np.angle(totvis[...,None]))
+        bdata['CF']['CF_piston_corr2'] = cvis
 
-    #########################################################
-    # Bin the data
-    cfbin = op_bin_data(bdata, cfin='CF_piston_corr2', verbose=verbose, plot=plot)
+        #########################################################
+        # Bin the data
+        cfbin = op_bin_data(bdata, cfin='CF_piston_corr2', verbose=verbose, plot=plot)
+    else:
+        cfbin = op_bin_data(bdata, cfin='CF_reord', verbose=verbose, plot=plot)
+        
     #return cfdem
     #return cfreord
     return cfbin
@@ -897,7 +901,7 @@ def op_get_piston_fft(data, cfin='CF_Binned', verbose=False, plot=True):
 
 #################################################
 # Function to get the piston slope on the correlated flux phase
-def op_get_piston_slope(data, cfin='CF_Binned', wlenmin=3.5e-6, wlenmax=3.9e-6, verbose=False, plot=False):
+def op_get_piston_slope(data, cfin='CF_Binned', wlenmin=3.1e-6, wlenmax=3.8e-6, verbose=False, plot=False):
     if verbose:
         print('Calculating piston slope...')
 
@@ -942,7 +946,7 @@ def op_get_piston_slope(data, cfin='CF_Binned', wlenmin=3.5e-6, wlenmax=3.9e-6, 
 
 ####################################################
 # Function to get the final piston using a chi2 minimization
-def op_get_piston_chi2(data, init_guess, cfin='CF_Binned', verbose=False, plot=False):
+def op_get_piston_chi2(data, init_guess, wlenmin=3.2e-6, wlenmax=3.8e-6, cfin='CF_Binned', verbose=False, plot=False):
     if verbose:
         print('Calculating piston using chi2 minimization...')
 
@@ -951,9 +955,12 @@ def op_get_piston_chi2(data, init_guess, cfin='CF_Binned', verbose=False, plot=F
     else:
         wlen         = data['OI_WAVELENGTH']['EFF_WAVE']
         
+    wl_mask = (wlen > wlenmin) & (wlen < wlenmax)
+    wlenm   = wlen[wl_mask]
     wlenMean     = np.mean(wlen)
     # cf           = data['CF']['CF_achr_phase_corr']
     cf           = data['CF'][cfin]
+    cfm  = cf[...,...,wl_mask]
     n_bases      = cf.shape[0]
     n_frames     = cf.shape[1]
     pistons      = np.zeros((n_bases, n_frames))
