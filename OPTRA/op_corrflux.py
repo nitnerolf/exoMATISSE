@@ -25,9 +25,10 @@ from op_instruments import *
 from scipy import interpolate
 import math
 from scipy.optimize import minimize
-from scipy.signal import savgol_filter
 from scipy.ndimage   import uniform_filter1d
 import astropy.constants as cst 
+from astropy.convolution import convolve, Gaussian1DKernel
+from op_parameters import *
 
 ##############################################
 # Apodization function
@@ -43,7 +44,7 @@ def op_apodize(data, verbose=True,plot=False, frac=0.85):
         print('computing apodizing window...')
     intf  = stats.trim_mean(data['INTERF']['data'],axis=0, proportiontocut=0.05)
     n     = np.shape(intf)[1]
-    #argmx = np.argmax(stats.trim_mean(intf, axis=0, proportiontocut=0.05))
+    argmx = np.argmax(stats.trim_mean(intf, axis=0, proportiontocut=0.05))
     #argmx=n//2
     argmx=272
     if verbose:
@@ -159,16 +160,16 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
         plt.show()
     
     rawdata['OI_WAVELENGTH'] = {}
-    rawdata['OI_WAVELENGTH']['EFF_WAVE'] = wlen
-    rawdata['OI_WAVELENGTH']['EFF_BAND'] = band
-    rawdata['OI_WAVELENGTH']['EFF_REF']  = rawdata['hdr']['HIERARCH ESO SEQ DIL WL0']
+    rawdata['OI_WAVELENGTH']['EFF_WAVE'] = wlen * 1e-6 # Convert to meters
+    rawdata['OI_WAVELENGTH']['EFF_BAND'] = band * 1e-6 # Convert to meters
+    rawdata['OI_WAVELENGTH']['EFF_REF']  = rawdata['hdr']['HIERARCH ESO SEQ DIL WL0'] * 1e-6
 
-    return wlen
+    return wlen * 1e-6
 
 ##############################################
 # get the peaks position
 def op_get_peaks_position(fftdata, instrument=op_MATISSE_L, verbose=True):
-    wlen = fftdata['OI_WAVELENGTH']['EFF_WAVE']
+    wlen = fftdata['OI_WAVELENGTH']['EFF_WAVE'] *1e6 # Convert to micrometers
     
     print('Instrument',instrument)
     if instrument['name'] == 'MATISSE_L':
@@ -246,7 +247,7 @@ def op_extract_CF(fftdata, peaks, peakswd, verbose=True, plot=False):
 ##############################################
 # demodulate MATISSE fringes
 def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
-    wlen = CFdata['OI_WAVELENGTH']['EFF_WAVE']
+    wlen = CFdata['OI_WAVELENGTH']['EFF_WAVE'] * 1e6  # Convert to micrometers
     
     if verbose:
         print('Demodulating correlated flux...')
@@ -296,7 +297,7 @@ def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
     
     if plot:
         iframe = 0
-        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+        colors = COLORS7D
         plt.figure(4)
         for i in np.arange(6):
             plt.plot(np.angle(phasor[i,iframe,:]),color=colors[i])
@@ -311,9 +312,17 @@ def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
 
 ##############################################
 # Function to compute correlated flux
-def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False, corr_opd=False):
+def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, corr_opd=False ):
     if verbose:
         print('Computing correlated flux...')
+        
+    #########################################################
+    # Get the wavelength
+    wlen = op_get_wlen(shiftfile, bdata, verbose=verbose)
+    if verbose:
+        print(wlen)
+        
+        
     #########################################################
     # Apodization
     bdata = op_apodize(bdata, verbose=verbose, plot=plot)
@@ -352,11 +361,7 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False, corr_opd=False)
 
         #plt.show()
 
-    #########################################################
-    # Get the wavelength
-    wlen = op_get_wlen(shiftfile, bdata, verbose=verbose)
-    if verbose:
-        print(wlen)
+    
 
 
     #########################################################
@@ -365,7 +370,7 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False, corr_opd=False)
     if verbose:
         print(wlen)
 
-    colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+    colors = COLORS7D
 
     if plot:
         for i in range(np.shape(peaks)[0]):
@@ -373,6 +378,14 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False, corr_opd=False)
             plt.plot(peaks[i,:]+peakswd[i,:]/2, np.arange(np.shape(peaks)[1]),color=colors[i])
             plt.plot(peaks[i,:]-peakswd[i,:]/2, np.arange(np.shape(peaks)[1]),color=colors[i])
         plt.show()
+        
+    # peaks = op_sortout_peaks(peaks,bdata)
+    
+    # for i in range(np.shape(peaks)[0]):
+    #     plt.plot(peaks[i,:], np.arange(np.shape(peaks)[1]),color=colors[i])
+    #     plt.plot(peaks[i,:]+peakswd[i,:]/2, np.arange(np.shape(peaks)[1]),color=colors[i])
+    #     plt.plot(peaks[i,:]-peakswd[i,:]/2, np.arange(np.shape(peaks)[1]),color=colors[i])
+    # plt.show()
 
     #########################################################
     # Extract the correlated flux
@@ -430,21 +443,34 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False, corr_opd=False)
         # Correct the piston
         bdata = op_corr_piston(bdata, cfin='CF_chr_phase_corr', verbose=verbose, plot=plot)
 
-        #########################################################
-        # Correct for residual phase
-        totvis = np.sum(bdata['CF']['CF_piston_corr'],axis=-1)
-        cvis = bdata['CF']['CF_piston_corr'] * np.exp(-1j * np.angle(totvis[...,None]))
-        bdata['CF']['CF_piston_corr2'] = cvis
+    #########################################################
+    # Correct for residual phase
+    totvis = np.sum(bdata['CF']['CF_piston_corr'],axis=-1)
+    cvis = bdata['CF']['CF_piston_corr'] * np.exp(-1j * np.angle(totvis[...,None]))
+    bdata['CF']['CF_piston_corr2'] = cvis
+
+    #########################################################
+    # Get the error and the snr
+    bdata=op_get_error_vis(bdata,cfin='CF_piston_corr2',plot=plot)
+    
+    #########################################################
+    # Get the semi theorical snr
+    op_snr_theory(bdata,plot=plot)
 
         #########################################################
         # Bin the data
-        cfbin = op_bin_data(bdata, cfin='CF_piston_corr2', verbose=verbose, plot=plot)
-    else:
-        cfbin = op_bin_data(bdata, cfin='CF_reord', verbose=verbose, plot=plot)
         
+    if bindata: 
+        bdata = op_bin_data(bdata, cfin='CF_piston_corr2', verbose=verbose, plot=plot)
+    else:
+        bdata = op_bin_data(bdata, cfin='CF_reord', verbose=verbose, plot=plot)
+        
+    
+    
+   
     #return cfdem
     #return cfreord
-    return cfbin
+    return bdata
 
 ##############################################
 # Function to sort out peaks
@@ -464,91 +490,78 @@ def op_get_corrflux(bdata, shiftfile, verbose=False, plot=False, corr_opd=False)
 #
 # The BCD inverts S1 <-> S2 and S3 <-> S4
 # 
-def op_sortout_peaks(peaksin, verbose=False):
+def op_sortout_peaks(peaksin, bdata, instrument=op_MATISSE_L, verbose=False):
     if verbose:
         print('Sorting out peaks...')
         
-    bcd1 = peaksin['hdr']['HIERARCH ESO INS BCD1 ID']
-    bcd2 = peaksin['hdr']['HIERARCH ESO INS BCD2 ID']
-    det  = peaksin['hdr']['HIERARCH ESO DET CHIP NAME']
+    bcd1 = bdata['hdr']['HIERARCH ESO INS BCD1 ID']
+    bcd2 = bdata['hdr']['HIERARCH ESO INS BCD2 ID']
+    det  = bdata['hdr']['HIERARCH ESO DET CHIP NAME']
     
     if verbose:
         print('BCD1:', bcd1)
         print('BCD2:', bcd2)
     
-    tel= peaksin['OPTICAL_TRAIN']['INDEX']
+    tel= bdata['OPTICAL_TRAIN']['INDEX']
     ntel    = len(tel)
     nbases  = ntel*(ntel-1)//2
-    telname = peaksin['OPTICAL_TRAIN']['TEL_NAME']
+    telname = bdata['OPTICAL_TRAIN']['TEL_NAME']
     if verbose:
         print('Telescope names:', telname)
-    DL_number = peaksin['OPTICAL_TRAIN']['VALUE1']
-    IP_number = peaksin['OPTICAL_TRAIN']['VALUE2']
+    DL_number = bdata['OPTICAL_TRAIN']['VALUE1']
+    IP_number = bdata['OPTICAL_TRAIN']['VALUE2']
     
     #########################################
     # Internal beams scrambling
-    # See MATISSE document: MATISSE-TP-TN-003
-    if det   == 'HAWAII-2RG': #  MATISSE_L
-        beamscr  = (4,3,2,1)
-        band="L"
-    elif det == 'AQUARIUS': #  MATISSE_N
-        beamscr  = (1,2,3,4)
-        band="N"
-    else:
-        error('Instrument not recognized')
+    basescr  = instrument['scrB']
+    band     = instrument['band']
+    
+    
         
-    bcdin_  = np.array((2,1,0,0))
-    bcdout_ = np.array((1,2,0,0))
-    bcd_in  = np.array((0,0,4,3))
-    bcd_out = np.array((0,0,3,4))
+    base_unscr = [l for _,l in sorted(zip(basescr[::],peaksin[1:]))]
+    # coding = (1,3,6,7)
+   
+    # ibase=0
+    # peakscr = np.zeros(nbases)
+    peaks_unscr = peaksin[0]
+    peaks_unscr= np.append([peaksin[0]],base_unscr,axis = 0)
     
-    bcdscr  = np.array((0,0,0,0))
-    if bcd1 == "IN":
-        bcdscr += bcdin_
-    else:
-        bcdscr += bcdout_
-    if bcd2 == "IN":
-        bcdscr += bcd_in
-    else:
-        bcdscr += bcd_out
-    
-    if verbose:
-        for i in range(4):
-            print("tel",tel[i], telname[i], "DL",DL_number[i], "IP", IP_number[i], "beamscr", beamscr[i], "bcdscr", bcdscr[i], "beam", tel[bcdscr[beamscr[i]-1]-1])
-    
-    coding = (1,3,6,7)
-    
-    ibase=0
-    peakscr = np.zeros(nbases)
-    for itel in np.arange(ntel-1):
-        for jtel in np.arange(ntel - itel - 1) + itel + 1:
-            telnamei = telname[tel[bcdscr[beamscr[itel]-1]-1]-1]
-            telnamej = telname[tel[bcdscr[beamscr[jtel]-1]-1]-1]
-            teli = coding[bcdscr[beamscr[itel]-1]-1]
-            telj = coding[bcdscr[beamscr[jtel]-1]-1]
-            lng = telj-teli
-            if verbose:
-                print("base",ibase+1, "telescopes", itel, "and", jtel, "tel1",telnamei,"tel2",telnamej, "peak",lng)
-            peakscr[ibase] = -lng
-            ibase+=1
-            
-    peakunscr_tmp = np.arange(nbases)
-    peakunscr = np.zeros(nbases)
-    for i in np.arange(nbases):
-        for j in np.arange(nbases):
-            if int(np.abs(peakscr[j])-1) == i:
-                peakunscr[i] = np.sign(peakscr[j]) * (j+1)
-    if verbose:
-        print("peakscr",peakscr)
-        print("peakunscr",peakunscr)
-    for i in np.arange(nbases):
-        if peakunscr[i] > 0:
-            peaksin['CF']['CF'][i+1,...] = peaksin['CF']['CF'][int(peakunscr[i]),...]
-        else:
-            peaksin['CF']['CF'][i+1,...] = -peaksin['CF']['CF'][int(-peakunscr[i]),...]
+    # for i in range(nbases):
+    #     if peakunscr[i] > 0:
+    #         peaksin['CF']['CF'][i+1,...] = peaksin['CF']['CF'][int(peakunscr[i]),...]
+    #     else:
+    #         peaksin['CF']['CF'][i+1,...] = -peaksin['CF']['CF'][int(-peakunscr[i]),...]
             
             
-    return peaksin
+    # for itel in range(ntel - 1):
+    #     for jtel in range(itel + 1, ntel):
+    #         telnamei = telname[tel[bcdscr[beamscr[itel]-1]-1]-1]
+    #         telnamej = telname[tel[bcdscr[beamscr[jtel]-1]-1]-1]
+    #         teli = coding[bcdscr[beamscr[itel]-1]-1]
+    #         telj = coding[bcdscr[beamscr[jtel]-1]-1]
+    #         lng = telj-teli
+    #         if verbose:
+    #             print("base",ibase+1, "telescopes", itel, "and", jtel, "tel1",telnamei,"tel2",telnamej, "peak",lng)
+    #         peakscr[ibase] = -lng
+    #         ibase+=1
+            
+    # # peakunscr_tmp = np.arange(nbases)
+    # peakunscr = np.zeros(nbases)
+    # for i in np.arange(nbases):
+    #     for j in np.arange(nbases):
+    #         if int(np.abs(peakscr[j])-1) == i:
+    #             peakunscr[i] = np.sign(peakscr[j]) * (j+1)
+    # if verbose:
+    #     print("peakscr",peakscr)
+    #     print("peakunscr",peakunscr)
+    # for i in np.arange(nbases):
+    #     if peakunscr[i] > 0:
+    #         peaksin['CF']['CF'][i+1,...] = peaksin['CF']['CF'][int(peakunscr[i]),...]
+    #     else:
+    #         peaksin['CF']['CF'][i+1,...] = -peaksin['CF']['CF'][int(-peakunscr[i]),...]
+            
+            
+    return peaks_unscr
 
 ##############################################
 # reorder baselines 
@@ -682,7 +695,7 @@ def op_get_amb_conditions(data, verbose=True):
 
 ##############################################
 # Function to compute the air refractive index
-def op_air_index(wl, T, P, h, N_CO2=423, bands='all'):
+def op_air_index(wlen, T, P, h, N_CO2=435, bands='all'):
     """ Compute the refractive index as a function of wavelength at a given temperature,
         pressure, relative humidity and CO2 concentration, using Equation (5) of Voronin & Zheltikov (2017).
         
@@ -690,7 +703,7 @@ def op_air_index(wl, T, P, h, N_CO2=423, bands='all'):
         Sci. Rep. 7, 46111; doi: 10.1038/srep46111 (2017).
         
         Inputs:
-        - wl: array of wavelengths in microns,
+        - wlen: array of wavelengths in meters,
         - T: temperature in °C,
         - P: pressure in hPa,
         - h: relative humidity,
@@ -700,6 +713,7 @@ def op_air_index(wl, T, P, h, N_CO2=423, bands='all'):
         Output:
         - n_air: array of refractive indices at each wl value.
 """
+    wl = wlen * 1e6 # m -> µm
 
     ## Characteristic wavelengths (microns)
     wl_abs1 = 1e-3 * np.array([15131, 4290.9, 2684.9, 2011.3, 47862, 6719.0, 2775.6, 1835.6,
@@ -749,7 +763,7 @@ def op_air_index(wl, T, P, h, N_CO2=423, bands='all'):
     N_gas[14] = N_H2O
     
     ## Critical plasma density (m-3)
-    N_cr = const.m_e.value * const.eps0.value * (2 * np.pi * const.c.value / (const.e.value * wl*1e-6))**2
+    N_cr = const.m_e.value * const.eps0.value * (2 * np.pi * const.c.value / (const.e.value * wlen))**2
    
     ## Selection of absorption bands
     if bands == 'all':
@@ -768,28 +782,32 @@ def op_air_index(wl, T, P, h, N_CO2=423, bands='all'):
 
 ##############################################
 # Function to correct for the chromatic phase
-def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e-6, verbose=False, plot=True):
+def op_corr_n_air( data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e-6, verbose=False, plot=True):
     if verbose:
         print('Correcting for the chromatic phase...')
 
     #data, cfdem = op_reorder_baselines(data)
     cfdem = data['CF'][cfin]
-    print('cfdem shape:', cfdem.shape)
+    wlen = data['OI_WAVELENGTH']['EFF_WAVE']
+    if verbose:
+        print('cfdem shape:', cfdem.shape)
     n_bases = np.shape(cfdem)[0]-1
     n_frames = np.shape(cfdem)[1]
     n_wlen_0 = np.shape(cfdem)[2]
     n_wlen = len(wlen)
-    print('n_bases:', n_bases, 'n_frames:', n_frames, 'n_wlen_0:', n_wlen_0, 'n_wlen:', n_wlen)
+    
+    if verbose:
+        print('n_bases:', n_bases, 'n_frames:', n_frames, 'n_wlen_0:', n_wlen_0, 'n_wlen:', n_wlen)
 
     data['CF']['CF_chr_phase_corr'] = np.copy(cfdem)
     phase_layer_air = np.zeros((6, n_frames, n_wlen))
     slope = np.zeros((6, n_frames))
     phase_layer_air_slope = np.zeros((6, n_frames, n_wlen))
-    wlen *= 1e-6 #µm -> m
+    # wlen *= 1e-6 #µm -> m
     
     if plot:
         fig1, ax1 = plt.subplots(6, 2, figsize=(8, 8), sharex=1, sharey=0)
-    colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+    colors = COLORS7D
 
     for i_base in np.arange(6):
 
@@ -807,13 +825,13 @@ def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax
             corr  = np.exp(1j * phase_layer_air_slope[i_base, i_frame])
             cfcorr = cfobs * np.conj(corr)
             
-            if plot:
+            if plot :
                 phiObs= np.angle(cfobs)
                 phi   = np.angle(corr)
                 corrphi = np.angle(cfcorr)
                 ax1[i_base,0].plot(wlen, corrphi, color=colors[i_base])\
                     
-                ax1[i_base,1].plot(wlen, phi, color=colors[i_base])
+                ax1[i_base,1].plot(wlen, phi, color=colors[i_base],alpha = 0.3)
                 ax1[i_base,1].plot(wlen, phiObs, color=colors[i_base])
                 ax1[i_base,1].set_ylabel(f'phase {i_base+1}')
                 ax1[i_base,1].set_ylim(-np.pi, np.pi)
@@ -822,7 +840,7 @@ def op_corr_n_air(wlen, data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax
 
     if plot:
         plt.show()
-        
+      
     return data, phase_layer_air_slope
 
 
@@ -850,18 +868,19 @@ def op_get_piston_fft(data, cfin='CF_Binned', verbose=False, plot=True):
         
     step      = np.min(np.abs(dsigma))
     sigma_lin = np.arange(min(sigma), max(sigma), step)
-
-    print('cf shape:', cf.shape)
+    if verbose:
+        print('cf shape:', cf.shape)
     n_base  = np.shape(cf)[0]
     n_frame = np.shape(cf)[1]
     n_wlen  = np.shape(cf)[2]
-    print('n_base:', n_base, 'n_frame:', n_frame, 'n_wlen:', n_wlen)
+    if verbose:
+        print('n_base:', n_base, 'n_frame:', n_frame, 'n_wlen:', n_wlen)
 
     data['CF']['CF_sigma'] = np.zeros((cf.shape[0],cf.shape[1],sigma_lin.shape[0]), dtype=complex)
     OPD_lst = np.zeros((n_base,n_frame))
     if plot:
         fig, ax = plt.subplots(n_base, 1, figsize=(8, 8))
-        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+        colors = COLORS7D
 
     for i_base in range(n_base):
         for i_frame in range(n_frame):
@@ -881,8 +900,19 @@ def op_get_piston_fft(data, cfin='CF_Binned', verbose=False, plot=True):
             fft_cf = np.fft.fftshift(np.fft.fft(cf_interp))
             OPDs   = np.fft.fftshift(np.fft.fftfreq(cf_interp.shape[0], step))
 
+            dsp = np.abs(fft_cf)
+            mx = np.argmax(dsp)
             #OPD determination
-            OPD = OPDs[np.argmax(np.abs(fft_cf))]
+            OPD0 = OPDs[mx]
+            OPDp1 = OPDs[mx+1]
+            OPDm1 = OPDs[mx-1]
+            
+            peak0 = dsp[mx]
+            peakp1 = dsp[mx+1]
+            peakm1 = dsp[mx-1]
+            
+            OPD = (OPD0 * peak0 + OPDp1 * peakp1 + OPDm1 * peakm1)/(peak0 + peakp1 + peakm1)
+            
             OPD_lst[i_base, i_frame] = OPD
         
 
@@ -929,7 +959,7 @@ def op_get_piston_slope(data, cfin='CF_Binned', wlenmin=3.1e-6, wlenmax=3.8e-6, 
             
     if plot:
         fig, ax = plt.subplots(7, 1, figsize=(8, 8))
-        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+        colors = COLORS7D
         for i_base in range(n_bases):
             ax[i_base].plot(wlen, ord_og[i_base,0]+slopes[i_base,0]*wlen, color=colors[i_base])
             ax[i_base].plot(wlen, np.angle(cf[i_base, 0]), color=colors[i_base], linestyle='--', alpha=0.4)
@@ -1000,7 +1030,7 @@ def op_get_piston_chi2(data, init_guess, wlenmin=3.2e-6, wlenmax=3.8e-6, cfin='C
 
     if plot:
         fig, ax = plt.subplots(7, 2, figsize=(8, 8))
-        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+        colors = COLORS7D
         for i_base in range(n_bases):
             ax[i_base,0].plot(pistons[i_base], color=colors[i_base], marker='*', linestyle='dashed', label='Final')
             ax[i_base,0].plot(init_guess[i_base], color=colors[i_base], marker='*', label='Initial')
@@ -1052,7 +1082,7 @@ def op_corr_piston(data, cfin='CF_Binned', verbose=False, plot=False):
             data['CF']['CF_piston_corr'][i_base+1, i_frame] = cf_corr
     
     if plot:
-        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
+        colors = COLORS7D
         fig, ax = plt.subplots(n_bases, 1, figsize=(8, 8))
         for i_base in range(n_bases):
             ax[i_base].plot(np.angle(data['CF']['CF_piston_corr'][i_base, 0]), color=colors[i_base])
@@ -1094,19 +1124,24 @@ def op_bin_data(data, binning=5, cfin='CF_achr_phase_corr', verbose=False, plot=
 
     return data
 
+
 ##############################################
 # 
-def op_get_error_vis(data,cfin='CF_Binned', window_length = 19, polyorder = 11, WL_err = 25,plot=False):
-    wlen   = data['OI_WAVELENGTH']['EFF_WAVE_Binned']
+def op_get_error_vis(data,cfin='CF_piston_corr2',plot=False):
+    colors = COLORS6D
+    wlen   = data['OI_WAVELENGTH']['EFF_WAVE']
+
     cf  = data['CF'][cfin][1:]
     nbases    = cf.shape[0]
     nframes   = cf.shape[1]
     visAmpErr = np.zeros_like(cf)
     visPhiErr = np.zeros_like(cf)
-    # window_length = 19
-    # polyorder     = 11
-    # WL_err        = 25
-    colors = [ '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', 'forestgreen']
+    
+    # Parameters of the smoothing / RMS
+    width = 31 
+    dev = width/(2*np.sqrt(2*np.log10(2)))
+    kernel = Gaussian1DKernel(dev)
+    
     for iBase in range(nbases):
         
         if plot:
@@ -1117,17 +1152,17 @@ def op_get_error_vis(data,cfin='CF_Binned', window_length = 19, polyorder = 11, 
                 phi  = np.angle(cf[iBase][iFrame])
                 
                 #Smoothing Function
-                smooth_amp = savgol_filter(amp, window_length, polyorder)
-                smooth_phi = savgol_filter(phi, window_length, polyorder)
+                smooth_amp = convolve(amp,kernel,normalize_kernel = True)
+                smooth_phi = convolve(phi,kernel,normalize_kernel = True)
                 
                 sq_amp = np.abs(amp-smooth_amp)**2
                 sq_phi = np.abs(phi-smooth_phi)**2
                 
-                local_mean_sq = uniform_filter1d(sq_amp, size=WL_err, mode='nearest')
-                visAmpErr[iBase, iFrame, :] = np.sqrt(local_mean_sq)
+                local_mean_sq = uniform_filter1d(sq_amp, size=width, mode='nearest')
+                visAmpErr[iBase, iFrame, :] = np.sqrt(local_mean_sq/width)
     
-                local_mean_sq_phi = uniform_filter1d(sq_phi, size=WL_err, mode='nearest')
-                visPhiErr[iBase, iFrame, :] = np.sqrt(local_mean_sq_phi)
+                local_mean_sq_phi = uniform_filter1d(sq_phi, size=width, mode='nearest')
+                visPhiErr[iBase, iFrame, :] = np.sqrt(local_mean_sq_phi/width)
                 
                 if plot:
                     ax1[iFrame,0].plot(wlen, smooth_amp, color='black',alpha=0.9)
@@ -1139,7 +1174,7 @@ def op_get_error_vis(data,cfin='CF_Binned', window_length = 19, polyorder = 11, 
                     ax1[iFrame,0].plot(wlen,  amp, color=colors[iFrame],alpha=0.3)
                     ax1[iFrame,1].plot(wlen, np.degrees(phi), color=colors[iFrame],alpha=0.3)
                         
-                    plt.suptitle(f'CF data and smoothened data for error base = {iBase+1} \n windowlength = {window_length}, polyorder = {polyorder}, WL_err = {WL_err}')
+                    plt.suptitle(f'CF data and smoothened data for error base = {iBase+1} \n width = {width}')
                     # plt.savefig(os.path.expanduser(bbasedir+'Result/Smoothing/'+f'Smoothed_{window_length}_{polyorder}_{WL_err}.png'))
                     plt.tight_layout()
                     
@@ -1184,122 +1219,121 @@ def op_get_error_vis(data,cfin='CF_Binned', window_length = 19, polyorder = 11, 
             plt.show()
         
                 
-    parameters = (window_length,polyorder,WL_err)           
+           
     
-    op_snr(wlen,cf,visAmpErr,visPhiErr,parameters)
+    op_snr(wlen,cf,visAmpErr,visPhiErr,width,True)
     visAmpErr=np.reshape(np.swapaxes(visAmpErr, 0,1), (visAmpErr.shape[0]* visAmpErr.shape[1],visAmpErr.shape[2]))
     visPhiErr=np.reshape(np.swapaxes(visPhiErr, 0,1), (visPhiErr.shape[0]* visPhiErr.shape[1],visPhiErr.shape[2]))
-    data['OI_BASELINES']['VISAMPERR']=visAmpErr
-    data['OI_BASELINES']['VISPHIERR']=visPhiErr
+    data['OI_BASELINES']['VISAMPERR']=np.real(visAmpErr)
+    data['OI_BASELINES']['VISPHIERR']=np.real(visPhiErr)
     return data
+
 
 ##############################################
 # 
-def op_snr(wlen,vis,visAmpErr,visPhiErr,parameters,plot=False):
+def op_snr(wlen,vis,visAmpErr,visPhiErr,width,plot=False):
     visAmp = np.abs(vis)
-    # visPhi = np.angle(vis)
     snr_amp = visAmp/visAmpErr-1 #TATULLI 2007
     snr_phi = np.abs(1/visPhiErr)
     
     mean_snr = np.mean(snr_amp,axis=1)
     mean_snr_phi = np.mean(snr_phi,axis=1)
+    
     if plot :
         nbases = len(vis)
         nframes = len(vis[0])
-        colors = [ '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', 'forestgreen']
-        
-        
+        colors = COLORS6D
         fig1, ax1 = plt.subplots(nbases, 2, figsize=(8, 8), sharex=1, sharey=0)
         for ibase in range(nbases):
 
             ax1[ibase,0].plot(wlen, mean_snr[ibase,:], color='black',alpha=0.9)
-            ax1[ibase,0].set_ylim(0,np.max(snr_amp[ibase,...])*1.01)
+            ax1[ibase,0].set_ylim(0,np.max(mean_snr)*1.05)
             ax1[ibase,0].set_ylabel(f'base {ibase+1} AMP')
             ax1[ibase,1].plot(wlen, mean_snr_phi[ibase,:], color='black',alpha=0.9)
             
             ax1[ibase,1].set_ylabel(f'base {ibase+1} PHI (°)')
-            ax1[ibase,1].set_ylim(0,np.max(snr_phi[ibase,...])*1.01)
-            for iframe in range(nframes):
-                ax1[ibase,0].plot(wlen,  snr_amp[ibase,iframe,:], color=colors[ibase],alpha=0.3)
-                ax1[ibase,1].plot(wlen, snr_phi[ibase,iframe,:], color=colors[ibase],alpha=0.3)
+            ax1[ibase,1].set_ylim(0,np.max(mean_snr_phi)*1.05)
+            # for iframe in range(nframes):
+            #     ax1[ibase,0].plot(wlen,  snr_amp[ibase,iframe,:], color=colors[ibase],alpha=0.3)
+            #     ax1[ibase,1].plot(wlen, snr_phi[ibase,iframe,:], color=colors[ibase],alpha=0.3)
             
-        plt.suptitle(f'SNR \n windowlength = {parameters[0]}, polyorder = {parameters[1]}, WL_err = {parameters[2]} ')
+        plt.suptitle(f'SNR \n width = {width}')
         plt.tight_layout()
         # plt.savefig(os.path.expanduser(bbasedir+'Result/SNR/'+f'SNR_{window_length}_{polyorder}_{WL_err}.png'))
         plt.show()
-    
     return snr_amp,snr_phi
-    
+
 ##############################################
-#   
-def op_snr_theory(data,cfin = 'CF_Binned', plot=False):
-    wlen   = data['OI_WAVELENGTH']['EFF_WAVE_Binned']
-    cf  = data['CF'][cfin][0]/4
-    nframes = cf.shape[0]
-    
-    def temperature_profile(z):
-        return np.where(z < 11000, 288.15 - 0.0065 * z , 216.65)
-    
-    def planck(Wavelength, T):
-        h = cst.h.value
-        c = cst.c.value
-        k_B = cst.k_B.value
-        return (2 * h * c**2 / Wavelength**5) / (np.exp(h * c / (Wavelength * k_B * T)) - 1)
-    
-    D       = 8
-    obs     = 1.2
-    DITs    = np.ones_like(wlen)*0.125
-    texp   = np.ones_like(wlen)*10
-    Dwlen   = np.ones_like(wlen)*3.5e-6/30
-    pinhole = 1.5 * 3.5e-6 / D
-    collecting_surface = (np.pi/4) * (D**2 - obs**2)
-    T_ground = 298.15
-    N_pix = 72*3
-    em_sky  = 0.1
-    t_ow    = 0.99
-    t_oc    = 0.99
-    obs_alt = 2635#m
-    max_alt = 20000#m
-    ratio  = 0.93
-    nT     = 4
-    Vstar  = 1
-    Vinst  = 0.85
-    alphaI = 2/3
-    #US Standard Atmosphere
-    z_grid = np.linspace(obs_alt, max_alt, 500)
-    T_grid = temperature_profile(z_grid)
-    dz= z_grid[1] - z_grid[0]
+#          
 
-    # Sky background radiation
-    rad_tot= np.zeros(len(wlen))
-    for  T in zip( T_grid):
-        rad_tot += planck(wlen, T) * em_sky * dz* (t_ow * t_oc)/(max_alt-obs_alt)
-    
-
-    #Sky background radiation on floor
-    #bckg_sky_received = planck(wlen, T_ground) * em_sky * (t_ow * t_oc)  
-    # Optical background
-    bckg_opt =  (1 - t_ow**31)  * planck(wlen, T_ground) * t_oc**20
-    # Total received thermal noise
-    bckg_tot_recu = rad_tot + bckg_opt #+bckg_sky_received
-    
-    Bckg_lr = wlen / (cst.h.value * cst.c.value) * DITs * Dwlen * bckg_tot_recu * np.pi/4* pinhole**2 * collecting_surface
-    nIb = alphaI * Bckg_lr
-    # n_star = 0.002 * 1e-26 / (cst.h.value * wlen ) * collecting_surface * texp * Dwlen * ratio 
-    # nI = alphaI * n_star
-    RON = 15
-    F_RON = (RON * cst.h.value * cst.c.value / wlen) / (collecting_surface * texp * Dwlen * ratio)
-    nI = alphaI * cf
-    snr = nI * Vstar * Vinst / np.sqrt( nT * nIb + nT * nI + N_pix * F_RON)
+def op_snr_theory(data,cfin = 'CF_piston_corr2',plot= False):
+    plot = True
     if plot:
-        fig1, ax1 = plt.subplots(nframes, 1, figsize=(4, 8), sharex=1, sharey=0)
-        for i in range(nframes):
-            ax1[i].plot(wlen,np.abs(snr[i]))
-            ax1[i].set_ylabel(f'frame Amp {i+1}')
-            
+        wlen   = data['OI_WAVELENGTH']['EFF_WAVE']
+        cf  = data['CF'][cfin][0]/4
+        nframes = cf.shape[0]
         
-        plt.suptitle(f'theorical SNR \n ')
-        plt.tight_layout()
+        def temperature_profile(z):
+            return np.where(z < 11000, 288.15 - 0.0065 * z , 216.65)
         
-        plt.show()
+        def planck(Wavelength, T):
+            h = cst.h.value
+            c = cst.c.value
+            k_B = cst.k_B.value
+            return (2 * h * c**2 / Wavelength**5) / (np.exp(h * c / (Wavelength * k_B * T)) - 1)
+        ndit    = 6
+        D       = 8
+        obs     = 1.2
+        DITs    = np.ones_like(wlen)*0.125
+        texp   = np.ones_like(wlen)*10
+        Dwlen   = np.ones_like(wlen)*3.5e-6/30
+        pinhole = 1.5 * 3.5e-6 / D
+        collecting_surface = (np.pi/4) * (D**2 - obs**2)
+        T_ground = 298.15
+        N_pix = 72*3
+        em_sky  = 0.1
+        t_ow    = 0.99
+        t_oc    = 0.99
+        obs_alt = 2635#m
+        max_alt = 20000#m
+        ratio  = 0.93
+        nT     = 4
+        Vstar  = 1
+        Vinst  = 0.85
+        alphaI = 2/3
+        #US Standard Atmosphere
+        z_grid = np.linspace(obs_alt, max_alt, 500)
+        T_grid = temperature_profile(z_grid)
+        dz= z_grid[1] - z_grid[0]
+        
+        # Sky background radiation
+        rad_tot= np.zeros(len(wlen))
+        for  T in zip( T_grid):
+            rad_tot += planck(wlen, T) * em_sky * dz* (t_ow * t_oc)/(max_alt-obs_alt)
+        
+        
+        #Sky background radiation on floor
+        #bckg_sky_received = planck(wlen, T_ground) * em_sky * (t_ow * t_oc)  
+        # Optical background
+        bckg_opt =  (1 - t_ow**31)  * planck(wlen, T_ground) * t_oc**20
+        # Total received thermal noise
+        bckg_tot_recu = rad_tot + bckg_opt #+bckg_sky_received
+        
+        Bckg_lr = wlen / (cst.h.value * cst.c.value) * DITs * Dwlen * bckg_tot_recu * np.pi/4* pinhole**2 * collecting_surface
+        nIb = alphaI * Bckg_lr
+        # n_star = 0.002 * 1e-26 / (cst.h.value * wlen ) * collecting_surface * texp * Dwlen * ratio 
+        # nI = alphaI * n_star
+        RON = 15
+        F_RON = (RON * cst.h.value * cst.c.value / wlen) / (collecting_surface * texp * Dwlen * ratio)
+        nI = alphaI * cf
+        snr = nI * Vstar * Vinst / np.sqrt( nT * nIb + nT * nI + N_pix * F_RON)*np.sqrt(ndit)
+        
+        if plot:
+            fig1, ax1 = plt.subplots(nframes, 1, figsize=(4, 8), sharex=1, sharey=0)
+            for i in range(nframes):
+                ax1[i].plot(wlen,np.abs(snr[i]))
+                ax1[i].set_ylabel(f'frame Amp {i+1}')   
+            plt.suptitle('theorical SNR \n ')
+            plt.tight_layout()
+            plt.show()
     return snr

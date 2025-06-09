@@ -19,7 +19,7 @@ from astropy.table import Table
 from astropy.time import Time
 from astropy.coordinates import SkyCoord
 from astropy import units as u
-
+from op_parameters import *
 ##############################################
 # 
 def op_gen_oiarray(cfdata, verbose=True, plot=False):
@@ -34,9 +34,16 @@ def op_gen_oiarray(cfdata, verbose=True, plot=False):
     oiarray_table['STATION'] = np.array([''], dtype='S16')
     '''
     
-    #oiarray_table.meta['NAME']  = 'OI_ARRAY'
+    # oiarray_table.meta['NAME']  = 'OI_ARRAY'
     oiarray_table.meta['EXTNAME'] = 'OI_ARRAY'
     oiarray_table.meta['EXTVER']  = 1
+    oiarray_table.meta['ARRAYX']       = cfdata['hdr']['HIERARCH ESO ISS GEOLON']
+    oiarray_table.meta['ARRAYY']       = cfdata['hdr']['HIERARCH ESO ISS GEOLAT']
+    oiarray_table.meta['ARRAYZ']       = cfdata['hdr']['HIERARCH ESO ISS GEOELEV']
+    oiarray_table.meta['ARRNAME']      = cfdata['hdr']['TELESCOP']
+    oiarray_table.meta['FRAME']        = "WGS84"
+    oiarray_table.meta['OI_REVN']      = REVN
+    
     oiarray_table['TEL_NAME']     = cfdata['OI_ARRAY']['TEL_NAME']
     oiarray_table['STA_NAME']     = cfdata['OI_ARRAY']['STA_NAME']
     oiarray_table['STA_INDEX']    = cfdata['OI_ARRAY']['STA_INDEX']
@@ -59,11 +66,12 @@ def op_gen_oitarget(cfdata, verbose=True, plot=False):
     #oitarget_table.meta['NAME']  = 'OI_TARGET'
     oitarget_table.meta['EXTNAME']  = 'OI_TARGET'
     oitarget_table.meta['EXTVER']  = 1
-    oitarget_table['TARGET_ID'] = [1]
+    oitarget_table.meta['OI_REVN']   = REVN
+    oitarget_table['TARGET_ID'] = np.int16([1])
     oitarget_table['TARGET']    = cfdata['hdr']['ESO OBS TARG NAME']
     oitarget_table['RAEP0']     = cfdata['hdr']['RA']
     oitarget_table['DECEP0']    = cfdata['hdr']['DEC']
-    oitarget_table['EQUINOX']   = cfdata['hdr']['EQUINOX']
+    oitarget_table['EQUINOX']   = np.float32(cfdata['hdr']['EQUINOX'])
     oitarget_table['RA_ERR']    = 0.0
     oitarget_table['DEC_ERR']   = 0.0
     oitarget_table['SYSVEL']    = cfdata['hdr']['RADECSYS']
@@ -73,8 +81,8 @@ def op_gen_oitarget(cfdata, verbose=True, plot=False):
     oitarget_table['PMDEC']     = 0.0
     oitarget_table['PMRA_ERR']  = 0.0
     oitarget_table['PMDEC_ERR'] = 0.0
-    oitarget_table['PARALLAX']  = 0.0
-    oitarget_table['PARA_ERR']  = 0.0
+    oitarget_table['PARALLAX']  = np.float32(0.0)
+    oitarget_table['PARA_ERR']  = np.float32(0.0)
     oitarget_table['SPECTYP']   = 'UNKNOWN'
     oitarget_table['CATEGORY']  = cfdata['hdr']['ESO DPR CATG']
        
@@ -82,20 +90,22 @@ def op_gen_oitarget(cfdata, verbose=True, plot=False):
 
 ##############################################
 # 
-def op_gen_oiwavelength(cfdata, verbose=True, plot=False):
+def op_gen_oiwavelength(cfdata, wlen_fin = 'EFF_WAVE_Binned' ,verbose=True, plot=False):
     print('Generating OI_WAVELENGTH...')
     """
     Save the wavelength information in OIFITS format
     """
     # Create the OI_WAVELENGTH table
     oiwavelength_table = Table()
-    #oiwavelength_table.meta['NAME']  = 'OI_WAVELENGTH'
+    # oiwavelength_table.meta['NAME']  = 'OI_WAVELENGTH'
     oiwavelength_table.meta['EXTNAME']  = 'OI_WAVELENGTH'
     oiwavelength_table.meta['EXTVER']  = 1
-    oiwavelength_table['EFF_WAVE'] = cfdata['OI_WAVELENGTH']['EFF_WAVE_Binned']
+    oiwavelength_table.meta['OI_REVN']   = REVN
+    oiwavelength_table.meta['INSNAME']   = cfdata['hdr']['INSTRUME']
+    oiwavelength_table['EFF_WAVE'] = np.float32(cfdata['OI_WAVELENGTH'][wlen_fin])
     print('Shape of EFF_WAVE:', oiwavelength_table['EFF_WAVE'].shape)
     
-    oiwavelength_table['EFF_BAND']  = 0.0
+    oiwavelength_table['EFF_BAND']  = np.float32(0.0)
     oiwavelength_table['EFF_REF']   = cfdata['OI_WAVELENGTH']['EFF_REF']
     oiwavelength_table['BANDWIDTH'] = 0.0
     oiwavelength_table['FOV']       = 0.0
@@ -120,12 +130,17 @@ def op_gen_oivis(cfdata, cfin='CF_achr_phase_corr', verbose=True, plot=False):
     #oivis_table.meta['NAME']  = 'OI_VIS'
     oivis_table.meta['EXTNAME']  = 'OI_VIS'
     oivis_table.meta['EXTVER']  = 1
+    oivis_table.meta['DATE-OBS']  = cfdata['hdr']['DATE-OBS']
+    oivis_table.meta['OI_REVN']   = REVN
+    oivis_table.meta['INSNAME']   = cfdata['hdr']['INSTRUME']
+    oivis_table.meta['AMPTYPE']   = AMPTYPE
+    oivis_table.meta['PHITYPE']   = PHITYPE
     oivis_table['TARGET_ID'] = np.repeat(cfdata['OI_BASELINES']['TARGET_ID'], nbases)
     print('Shape of target_IDxxx:', oivis_table['TARGET_ID'].shape)
     oivis_table['TARGET']    = cfdata['hdr']['HIERARCH ESO OBS TARG NAME']
     oivis_table['TIME']      = np.repeat(cfdata['OI_BASELINES']['TIME'], nbases)
     oivis_table['MJD']       = np.repeat(cfdata['OI_BASELINES']['MJD'],  nbases)
-    oivis_table['INT_TIME']  = np.repeat(cfdata['OI_BASELINES']['INT_TIME'], nbases)
+    oivis_table['INT_TIME']  = np.float64(np.repeat(cfdata['OI_BASELINES']['INT_TIME'], nbases))
     print('Shape of complexvisxxx:', complexvis2.shape)
     oivis_table['VISAMP']    = np.abs(complexvis2)
     oivis_table['VISAMPERR'] = cfdata['OI_BASELINES']['VISAMPERR']
@@ -137,7 +152,7 @@ def op_gen_oivis(cfdata, cfin='CF_achr_phase_corr', verbose=True, plot=False):
    
     #print('Shape of STA_INDEX:', np.tile(np.array(cfdata['OI_BASELINES']['STA_INDEX']), (nframes,1)).shape)
     oivis_table['STA_INDEX'] = np.tile(cfdata['OI_BASELINES']['STA_INDEX'], (nframes,1))
-    oivis_table['FLAG']      = 0
+    oivis_table['FLAG']      = np.bool_(np.zeros_like(cfdata['OI_BASELINES']['VISAMPERR']))
     
     return oivis_table
 
@@ -163,7 +178,7 @@ def op_gen_oivis2(cfdata, v2in='simplevis2', verbose=True, plot=False):
     oivis_table['TARGET']    = cfdata['hdr']['HIERARCH ESO OBS TARG NAME']
     oivis_table['TIME']      = np.repeat(cfdata['OI_BASELINES']['TIME'], nbases)
     oivis_table['MJD']       = np.repeat(cfdata['OI_BASELINES']['MJD'],  nbases)
-    oivis_table['INT_TIME']  = np.repeat(cfdata['OI_BASELINES']['INT_TIME'], nbases)
+    oivis_table['INT_TIME']  = np.float32(np.repeat(cfdata['OI_BASELINES']['INT_TIME'], nbases))
     #print('Shape of complexvisxxx:', complexvis2.shape)
     oivis_table['VIS2DATA']  = cfdata['VIS2'][v2in]
     oivis_table['VIS2ERR']   = 0.0
@@ -185,6 +200,7 @@ def op_write_oifits(filename, hdr, oiwavelength, oirray=None, oitarget=None, oiv
     # Create the OIFITS file
     oifits = fits.HDUList()
     oifits.append(fits.PrimaryHDU())
+    hdr['PROCSOFT'] = PIPELINE_NAME + ' ' + PIPELINE_VERSION
     oifits[0].header = hdr
     
     # Create the OI_ARRAY table
@@ -246,19 +262,25 @@ def op_read_oifits_sequence(basedir, filelist):
         dit.append(ihdu[0].header['ESO DET SEQ1 DIT'])
         
         ivis    = ihdu['OI_VIS'].data['VISAMP'] * np.exp(1j * ihdu['OI_VIS'].data['VISPHI'])
-        ivis2   = ihdu['OI_VIS2'].data['VIS2DATA']
+        try:
+            ivis2   = ihdu['OI_VIS2'].data['VIS2DATA']
+        except:
+            noOiVis2=1;
+            print('No OI_VIS2 table found')
         nbase   = 6;
         nframes = np.shape(ivis)[0]//nbase
         nwlen   = np.shape(ivis)[1]
         ivisr   = ivis.reshape((nframes,nbase,nwlen))
-        ivis2r   = ivis2.reshape((nframes,nbase,nwlen))
+        if noOiVis2 != 1:
+            ivis2r   = ivis2.reshape((nframes,nbase,nwlen))
         print('ivis shape: ', np.shape(ivisr))
         
         imedvis = np.median(np.abs(ivis), axis=-1)
         print('imedvis : ', imedvis)
         
         vis.append(ivisr)
-        vis2.append(ivis2r)
+        if noOiVis2 != 1:
+            vis2.append(ivis2r)
         hdus.append(ihdu)    
         ihdu.close()
     #vis = np.array(vis)

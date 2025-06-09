@@ -25,8 +25,9 @@ plot         = False
 plotCorr     = False
 plotCoverage = True
 verbose      = False
-frame        = True
 plotSNR      = False
+bindata      = False
+
 ##################################### FILE OPENING ####################################
 bbasedir = os.path.expanduser('~/Documents/Planet/beta_pic_c/')
 basedir  = bbasedir+'2023-11-29/'
@@ -127,7 +128,7 @@ for ifile in tqdm(planetfiles,desc='Traitement des fichiers'):
 
     ##########################################################
 
-    cfdata = op_get_corrflux(bdata, shiftfile, plot=plot, verbose=verbose)
+    cfdata = op_get_corrflux(bdata, shiftfile, bindata = bindata, plot=plot, verbose=verbose)
 
     
     ##########################################################
@@ -156,9 +157,9 @@ for ifile in tqdm(planetfiles,desc='Traitement des fichiers'):
     #########################################################
     
     if ifile == planetfiles[0]:
-        cfdata = op_compute_uv(hdr,cfdata,frame,plotCoverage)
+        cfdata = op_compute_uv(cfdata,frame,plotCoverage)
     else: 
-        cfdata = op_compute_uv(hdr,cfdata,frame,False)
+        cfdata = op_compute_uv(cfdata,frame,False)
         
     uCoord.append(cfdata['OI_BASELINES']['UCOORD'])
     vCoord.append(cfdata['OI_BASELINES']['VCOORD'])
@@ -166,15 +167,13 @@ for ifile in tqdm(planetfiles,desc='Traitement des fichiers'):
     #     f = [basedir + fi for fi in planetfiles]
     #     op_uv_coverage(f,cfdata,frame, plotCoverage)
         
-        
-    cfdata=op_get_error_vis(cfdata,plot=plotSNR)
-    op_snr_theory(cfdata)
+
     #########################################################
 
 
     if plotCorr:
-        cf     = cfdata['CF']['CF_Binned']
-        wlen   = cfdata['OI_WAVELENGTH']['EFF_WAVE_Binned']
+        cf     = cfdata['CF']['CF_piston_corr2']
+        wlen   = cfdata['OI_WAVELENGTH']['EFF_WAVE']
         moycf  = np.mean(cf,axis=1)
         nframe = cf.shape[1]
         nbase  = moycf.shape[0]
@@ -205,13 +204,19 @@ for ifile in tqdm(planetfiles,desc='Traitement des fichiers'):
     
     
     #########################################################
-    
+    if bindata:
+        cfin = 'CF_Binned'  
+        wlen_fin = 'EFF_WAVE_Binned'
+    else: 
+        cfin = 'CF_piston_corr2'
+        wlen_fin = 'EFF_WAVE'
     outfilename = os.path.expanduser(bbasedir+f'{basen}_corrflux_oi.fits')
+
     hdr = cfdata['hdr']
-    oiwavelength = op_gen_oiwavelength(cfdata, verbose=verbose)
+    oiwavelength = op_gen_oiwavelength(cfdata, wlen_fin = wlen_fin, verbose=verbose)
     oitarget     = op_gen_oitarget(cfdata, verbose=True, plot=plot)
     oirray       = op_gen_oiarray(cfdata, verbose=True, plot=plot)
-    oivis        = op_gen_oivis(cfdata, cfin='CF_Binned', verbose=verbose, plot=plot)
+    oivis        = op_gen_oivis(cfdata, cfin=cfin, verbose=verbose, plot=plot)
     op_write_oifits(outfilename, hdr, oiwavelength, oirray, oitarget, oivis, oivis2=None, oit3=None)
 
 op_uv_coverage(uCoord,vCoord,cfdata)
