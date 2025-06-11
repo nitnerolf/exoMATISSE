@@ -602,9 +602,9 @@ def _op_get_baseVect(station1,station2,loc):
         if tel[0] == "LAB":
             #Compute delay lines
             lab      = [tel[3], tel[4], tel[5]]
-            DL1      = abs(BQ1-tel[2]) + abs(BP1-tel[1])
-            DL2      = abs(BQ2-tel[2]) + abs(BP2-tel[1])
-            fixDelay = DL2-DL1
+            A1L      = abs(BQ1-tel[2]) + abs(BP1-tel[1])
+            A2L      = abs(BQ2-tel[2]) + abs(BP2-tel[1])
+            fixDelay = A2L-A1L
             
     return np.array([B2[0]-B1[0],B2[1]-B1[1],B2[2]-B1[2]])
             
@@ -620,19 +620,13 @@ def _op_compute_baseVect(hdr,loc,instrument=op_MATISSE_L):
         - hdr    : input header
         - loc        : location of the interferometer
     """
-    keys = []
-    photscr = instrument['scrP']  
-    for i in photscr:
-     #initialisation  
-         keys.append(f"HIERARCH ESO ISS CONF STATION{i}")
     stations=[]
+    for i in np.arange(instrument['ntel']):
+        stations.append(hdr[f"HIERARCH ESO ISS CONF STATION{i+1}"])
     base_allvect=[]
-    for key in keys:
-        stations.append(hdr[key])  
     basescr  = instrument['scrB']
     # Get all baselines
     for itel1,itel2 in basescr:
-        
         base_allvect.append(_op_get_baseVect(stations[itel1], stations[itel2], loc))
     
     
@@ -659,7 +653,7 @@ def op_compute_uv(cfdata, plot):
     uCoord = []
     vCoord = []
     wCoord = []
-        
+    
     # get location and star data from the header   
     hdr = cfdata['hdr']
     loc = _op_get_location(hdr, plot)
@@ -722,7 +716,7 @@ def op_compute_uv(cfdata, plot):
     B=_op_compute_baseVect(hdr, loc)
 
     ndit = hdr['HIERARCH ESO DET NDIT']
-    dit = hdr['HIERARCH ESO DET SEQ1 DIT']
+    dit  = hdr['HIERARCH ESO DET SEQ1 DIT']
     LST=[(hdr['LST']+i*dit/ndit)/3600 for i in range(ndit)]
     for i,bvect in enumerate(B):
         for lst in LST :
@@ -734,7 +728,7 @@ def op_compute_uv(cfdata, plot):
             wCoord.append(uvw['w'])
        
     
-    cfdata['OI_BASELINES']['UCOORD'] = uCoord    
+    cfdata['OI_BASELINES']['UCOORD'] = uCoord
     cfdata['OI_BASELINES']['VCOORD'] = vCoord
     cfdata['OI_BASELINES']['WCOORD'] = wCoord
     return cfdata  
@@ -752,8 +746,6 @@ def op_uv_coverage(uCoord,vCoord,cfdata,instrument = op_MATISSE_L):
         - cfdata    : datas of the correlated fluxes
         
     """
-    
-    
     
     wlen     = cfdata['OI_WAVELENGTH']['EFF_WAVE']
     wlen_ref = cfdata['OI_WAVELENGTH']['EFF_REF']
@@ -837,15 +829,11 @@ def op_uv_coverage(uCoord,vCoord,cfdata,instrument = op_MATISSE_L):
     # LABELS
     hdr = cfdata['hdr']
     basescr  = instrument['scrB']
-    photscr = instrument['scrP']  
     keys = []
     telname = []
     labels = []
-    for i in photscr: #REORDER PGOT
-         keys.append(f"HIERARCH ESO ISS CONF T{i}NAME")
-    for key in keys:
-        telname.append(hdr[key])
-    basescr  = instrument['scrB']
+    for i in np.arange(instrument['ntel']): #REORDER PGOT
+         telname.append(hdr[f"HIERARCH ESO ISS CONF T{i+1}NAME"])
     # Get all baselines
     for itel1,itel2 in basescr: #REORDER BASELINE
         labels.append(telname[itel1]+'-'+telname[itel2])
