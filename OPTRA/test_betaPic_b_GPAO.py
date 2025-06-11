@@ -10,6 +10,7 @@
 # 
 ################################################################################
 
+from op_pipeline   import *
 from op_corrflux   import *
 from op_rawdata    import *
 from op_flux       import *
@@ -25,10 +26,10 @@ from scipy         import stats
 from tqdm import tqdm
 
 #plt.ion()
-plot = True
+plot = False
 plotFringes = plot
 plotPhi     = plot
-plotDsp     = plot
+plotDsp     = False
 plotRaw     = plot
 plotCorr    = plot
 plotPist    = plot
@@ -46,12 +47,14 @@ frame        = plot
 bbasedir = os.path.expandvars('$HOME/driveFlorentin/DATA/beta_Pic_b/')
 basedir  = bbasedir+'2024-11-17_MATISSE_betaPic_b/'
 
-outdir = os.path.expandvars('$HOME/beta_pic_b_GPAO/')
+outdir    = os.path.expandvars('$HOME/beta_pic_b/')
 starfiles = os.listdir(basedir)
 #print(starfiles)
 fitsfiles = [f for f in starfiles if ".fits" in f and not "M." in f]
 #print(fitsfiles)
 
+########################################################
+# Calibration files
 caldir = os.path.expandvars('$HOME/driveFlorentin/DATA/CALIB2024/')
 
 ext = '.fits.gz'
@@ -62,93 +65,31 @@ badfile   = caldir+'BADPIX_L_SLOW'+ext
 
 colors = ['#7a0e04', '#7a4f04', '#6a7a04', '#317a04', '#047d6f', '#04477d', '#45077a']
 
-# select only fits files that correspond to observations
-obsfilesL     = []
-obsfilesL_MJD = []
-obsfilesN     = []
-skyfilesL     = []
-skyfilesL_MJD = []
-darkfiles     = []
 
-for fi in tqdm(fitsfiles,desc='Tri des fichiers'):
-    #print(fi)
-    fh = fits.open(basedir+fi)
-    #op_print_fits_header(fh)
-    hdr = fh[0].header
-    fh.close()
-    inst = hdr['INSTRUME']
-    catg = hdr['ESO DPR CATG']
-    type = hdr['ESO DPR TYPE']
-    try:
-        chip = hdr['ESO DET CHIP NAME']
-    except:
-        print('No CHIP in header')
-    try:
-        dit  = hdr['ESO DET SEQ1 DIT']
-    except:
-        print('No DIT in header')
-    try:
-        ndit = hdr['ESO DET NDIT']
-    except:
-        print('No NDIT in header')
-    if catg == 'SCIENCE' and type == 'OBJECT' and chip == 'HAWAII-2RG' :
-        #print("science file!")
-        obsfilesL.append(fi)
-        obsfilesL_MJD.append(hdr['MJD-OBS'])
-    elif catg == 'CALIB' and type == 'STD' and chip == 'HAWAII-2RG':
-        #print("calibrator file!", fi)
-        obsfilesL.append(fi)
-        obsfilesL_MJD.append(hdr['MJD-OBS'])
-    elif catg == 'CALIB' and type == 'SKY' and chip == 'HAWAII-2RG' :
-        #print("sky file!", fi)
-        skyfilesL.append(fi)
-        skyfilesL_MJD.append(hdr['MJD-OBS'])
-    else:
-        print('Not a science or sky file:', fi)
+# List all obs files and sky files in directory
+datfiles = op_sort_files(basedir)
 
-skyfilesL_MJD = np.array(skyfilesL_MJD)
-starfiles = sorted(obsfilesL)
+# Assign to each obs file a sky file
+data = op_assign_sky(datfiles)
+    
+skyfiles  = data['matched_sky']
+starfiles = data['obs']
 #starfiles = [f for f in starfiles if 'STD' in f]
-print('Starfiles:', starfiles)
-print('Skyfiles:', skyfilesL)
+print('Starfiles:', starfiles[0])
+print('Skyfiles:', skyfiles[0])
 
 uCoord = []; vCoord = []
 
-for ifile in starfiles:
-    starfile = basedir + ifile
-    print('\nWorking on file:', ifile)
-
-    fh = fits.open(starfile)
-    hdr = fh[0].header
-    fh.close()
-    mjd_obs = hdr['MJD-OBS']
+for ifile, obsfile in enumerate(starfiles):
+    print('Processing file:', obsfile, 'number:', ifile+1, 'of', len(starfiles), '/ Associated sky', skyfiles[ifile])
+    if '_N_' in obsfile:
+        continue # skip N band files
+    skyfile = basedir + skyfiles[ifile]
+    print('Star file:', os.path.basename(starfiles[ifile]), ' Sky file:', os.path.basename(skyfile))
     u=[];v=[]
-    
-    # associate the two sky files matching properties of the star file
-    mjdiff = np.abs(skyfilesL_MJD - mjd_obs)
-    # Sort skyfiles by ascending time distance to the starfile
-    skyfilesL_sorted = [x for _,x in sorted(zip(mjdiff,skyfilesL))]
-    
-    for isky in skyfilesL_sorted:
-        skyfile = basedir + isky
-        fh = fits.open(skyfile)
-        hdrsky = fh[0].header
-        fh.close()
-        
-        keys_to_match = ['INSTRUME','ESO DET CHIP NAME','ESO DET SEQ1 DIT']
-        imatch = 0
-        for key in keys_to_match:
-            if hdr[key] == hdrsky[key]:
-                #print('Matching key:', key)
-                imatch += 1
-        if imatch == len(keys_to_match):
-            print('Matching sky file:', skyfile)
-            break
-
-
     ##########################################################
 
-    bdata = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=verbose, plot=plotRaw)
+    bdata = op_loadAndCal_rawdata(basedir + obsfile, skyfile, badfile, flatfile, verbose=verbose, plot=plotRaw)
     
 
     ##########################################################
@@ -170,7 +111,7 @@ for ifile in starfiles:
 
     #########################################################
 
-    basename = os.path.basename(starfile)
+    basename = os.path.basename(obsfile)
     basen    = os.path.splitext(basename)[0]
     directory = cfdata['hdr']['DATE-OBS'].split('T')[0]+'_OIFITS/'
     if not os.path.exists(outdir+directory):
@@ -192,9 +133,9 @@ for ifile in starfiles:
     #########################################################
     
     if ifile == starfiles[0]:
-        cfdata = op_compute_uv(cfdata,frame,plotCoverage)
+        cfdata = op_compute_uv(cfdata,plotCoverage)
     else: 
-        cfdata = op_compute_uv(cfdata,frame,False)
+        cfdata = op_compute_uv(cfdata,False)
         
     uCoord.append(cfdata['OI_BASELINES']['UCOORD'])
     vCoord.append(cfdata['OI_BASELINES']['VCOORD'])
