@@ -34,9 +34,9 @@ op_AMBER     = {'name':        'AMBER',
 #################################################
 # Instrument-specific parameters for PIONIER
 #################################################
-op_PIONIER   = {'name':        'MATISSE_L',
+op_PIONIER   = {'name':        'PIONIER',
                 'ntel': 4, 
-                'recombination': 'multiaxial_pairwise'}
+                'recombination': 'coaxial_pairwise'}
 
 #################################################
 # Instrument-specific parameters for MATISSE
@@ -64,6 +64,13 @@ op_MATISSE_N = {'name':        'MATISSE_N',
                 'scrB': [[3,2],[1,0],[2,1],[3,1],[2,0],[3,0]],# See MATISSE document: MATISSE-TP-TN-003
                 'bcd_offset':[1,2,3,4,5,6],
                 'ron':75}
+
+#################################################
+# Instrument-specific parameters for GRA4MAT
+#################################################
+op_GRA4MAT   = {'name':        'GRA4MAT',
+                'ntel': 4,
+                'recombination': 'multiaxial_pairwise'}
 
 #################################################
 # Instrument-specific parameters for GRAVITY
