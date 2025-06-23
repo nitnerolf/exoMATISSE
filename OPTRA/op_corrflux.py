@@ -4,7 +4,7 @@
 ################################################################################
 #
 # Correlated flux computation
-# Author: fmillour, jscigliuto, mhoulle
+# Author: fmillour, jscigliuto, mhoulle, nsaucourt
 # Date: 01/07/2024
 # Project: OPTRA
 #
@@ -30,7 +30,7 @@ import astropy.constants as cst
 from astropy.convolution import convolve, Gaussian1DKernel
 from op_parameters import *
 
-##############################################
+################################################################################
 # Apodization function
 def op_apodize(data, verbose=True,plot=False, frac=0.85):
     if verbose:
@@ -92,7 +92,7 @@ def op_apodize(data, verbose=True,plot=False, frac=0.85):
             
     return data
 
-##############################################
+################################################################################
 # compute the FFT of interferograms
 def op_calc_fft(data, verbose=True):
     if verbose:
@@ -120,7 +120,7 @@ def op_calc_fft(data, verbose=True):
     data['FFT'] = {'data': fft_intf, 'magnitude': fft_intf_magnitude, 'dsp': dsp_intf, 'sum_dsp': sum_dsp_intf, 'sdi': sdi_resh, 'freqs': freqs}
     return data
 
-##############################################
+################################################################################
 # compute the wavelength 
 def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
     if verbose:
@@ -166,7 +166,7 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
 
     return wlen * 1e-6
 
-##############################################
+################################################################################
 # get the peaks position
 def op_get_peaks_position(fftdata, instrument=op_MATISSE_L, verbose=True):
     wlen = fftdata['OI_WAVELENGTH']['EFF_WAVE'] *1e6 # Convert to micrometers
@@ -187,7 +187,7 @@ def op_get_peaks_position(fftdata, instrument=op_MATISSE_L, verbose=True):
         print('Peak:', peak)
     return peak, peakwd
 
-##############################################
+################################################################################
 # extract the correlated flux
 def op_extract_CF(fftdata, peaks, peakswd, verbose=True, plot=False):
     if verbose:
@@ -205,6 +205,8 @@ def op_extract_CF(fftdata, peaks, peakswd, verbose=True, plot=False):
     FT = []
     CF = []
     NIZ = []
+    ZON = []
+    WGT = []
     for i in ibase:
         fti    = fftdata['FFT']['data'][:,:,0:nfreq2]
         zone   = np.logical_and(ifreq[None,:] >= peaks[i,:][:,None]-peakswd[i,:][:,None]/2, ifreq[None,:] <= peaks[i,:][:,None]+peakswd[i,:][:,None]/2)
@@ -212,16 +214,22 @@ def op_extract_CF(fftdata, peaks, peakswd, verbose=True, plot=False):
         
         NIZ.append(np.sum(weight * zone, axis=1))
         FT.append(fti*zone)
+        ZON.append(zone)
+        WGT.append(weight)
         CF.append(np.sum(weight * fti * zone, axis=2))
         bck *= (1-zone)
     FT  = np.array(FT)
     CF  = np.array(CF)
     NIZ = np.array(NIZ)
+    ZON = np.array(ZON)
+    WGT = np.array(WGT)
     
     if verbose:
         print('Shape of FT:', np.shape(FT))
         print('Shape of CF:', np.shape(CF))
         print('shape of NIZ:', np.shape(NIZ))
+        print('Shape of ZON:', np.shape(ZON))
+        print('Shape of WGT:', np.shape(WGT))
         
     if plot:
         fig, axes = plt.subplots(1, 8, figsize=(16, 8))
@@ -241,10 +249,10 @@ def op_extract_CF(fftdata, peaks, peakswd, verbose=True, plot=False):
     
     if verbose:
         print('Shape of FT:', np.shape(FT))
-    fftdata['CF'] = {'data': FT, 'CF': CF, 'CF_nbpx': NIZ, 'bckg': bck}
+    fftdata['CF'] = {'data': FT, 'zone': ZON, 'weight': WGT, 'CF': CF, 'CF_nbpx': NIZ, 'bckg': bck}
     return fftdata
 
-##############################################
+################################################################################
 # demodulate MATISSE fringes
 def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
     wlen = CFdata['OI_WAVELENGTH']['EFF_WAVE'] * 1e6  # Convert to micrometers
@@ -309,8 +317,7 @@ def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
         
     return CFdata
 
-
-##############################################
+################################################################################
 # Function to compute correlated flux
 def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, corr_opd=True ):
     if verbose:
@@ -321,8 +328,7 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
     wlen = op_get_wlen(shiftfile, bdata, verbose=verbose)
     if verbose:
         print(wlen)
-        
-        
+    
     #########################################################
     # Apodization
     bdata = op_apodize(bdata, verbose=verbose, plot=plot)
@@ -358,12 +364,7 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
             ax.imshow(img, cmap='gray')
             '''
         plt.title('Sum of dsp after Apodization')
-
-        #plt.show()
-
-    
-
-
+        
     #########################################################
     # Get the peaks position
     peaks, peakswd = op_get_peaks_position(bdata, verbose=verbose)
@@ -475,7 +476,7 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
     #return cfreord
     return bdata
 
-##############################################
+################################################################################
 # Function to sort out peaks
 # The combiner entrance MATISSE pupil looks
 # like that in L band (BCD out)
@@ -566,7 +567,7 @@ def op_sortout_peaks(peaksin, bdata, instrument=op_MATISSE_L, verbose=False):
             
     return peaks_unscr
 
-##############################################
+################################################################################
 # reorder baselines 
 def op_reorder_baselines(data, cfin='CF_demod'):
 
@@ -605,7 +606,7 @@ def op_reorder_baselines(data, cfin='CF_demod'):
 
     return data, cfdata_reordered
 
-##############################################
+################################################################################
 # Function to get the ambient conditions
 def op_get_amb_conditions(data, verbose=True):
 
@@ -696,7 +697,7 @@ def op_get_amb_conditions(data, verbose=True):
 
     return temperature, pressure, humidity, dPaths
 
-##############################################
+################################################################################
 # Function to compute the air refractive index
 def op_air_index(wlen, T, P, h, N_CO2=435, bands='all'):
     """ Compute the refractive index as a function of wavelength at a given temperature,
@@ -783,7 +784,7 @@ def op_air_index(wlen, T, P, h, N_CO2=435, bands='all'):
     
     return n_air
 
-##############################################
+################################################################################
 # Function to correct for the chromatic phase
 def op_corr_n_air( data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e-6, verbose=False, plot=False):
     if verbose:
@@ -846,8 +847,7 @@ def op_corr_n_air( data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e
       
     return data, phase_layer_air_slope
 
-
-##############################################
+################################################################################
 # Function to get the residual piston on the correlated flux phase, via a FFT's method
 def op_get_piston_fft(data, cfin='CF_Binned', verbose=False, plot=False):
     if verbose:
@@ -932,7 +932,7 @@ def op_get_piston_fft(data, cfin='CF_Binned', verbose=False, plot=False):
     data['CF']['pistons']    = OPD_lst
     return data, OPD_lst
 
-#################################################
+################################################################################
 # Function to get the piston slope on the correlated flux phase
 def op_get_piston_slope(data, cfin='CF_Binned', wlenmin=3.1e-6, wlenmax=3.8e-6, verbose=False, plot=False):
     if verbose:
@@ -976,8 +976,7 @@ def op_get_piston_slope(data, cfin='CF_Binned', wlenmin=3.1e-6, wlenmax=3.8e-6, 
 
     return data, slopes
 
-
-####################################################
+################################################################################
 # Function to get the final piston using a chi2 minimization
 def op_get_piston_chi2(data, init_guess, wlenmin=3.2e-6, wlenmax=3.8e-6, cfin='CF_Binned', verbose=False, plot=False):
     if verbose:
@@ -1057,7 +1056,7 @@ def op_get_piston_chi2(data, init_guess, wlenmin=3.2e-6, wlenmax=3.8e-6, cfin='C
     data['CF']['pistons'] = -pistons
     return data, pistons
 
-####################################################
+################################################################################
 # Function to correct from the residual piston
 def op_corr_piston(data, cfin='CF_Binned', verbose=False, plot=False):
     if verbose:
@@ -1093,7 +1092,7 @@ def op_corr_piston(data, cfin='CF_Binned', verbose=False, plot=False):
  
     return data
 
-##############################################
+################################################################################
 # Bin data
 def op_bin_data(data, binning=5, cfin='CF_achr_phase_corr', verbose=False, plot=False):
     wlen   = data['OI_WAVELENGTH']['EFF_WAVE']
@@ -1127,8 +1126,7 @@ def op_bin_data(data, binning=5, cfin='CF_achr_phase_corr', verbose=False, plot=
 
     return data
 
-
-##############################################
+################################################################################
 # 
 def op_get_error_vis(data,cfin='CF_piston_corr2',plot=False):
     colors = COLORS6D
@@ -1231,8 +1229,7 @@ def op_get_error_vis(data,cfin='CF_piston_corr2',plot=False):
     data['OI_BASELINES']['VISPHIERR']=np.real(visPhiErr)
     return data
 
-
-##############################################
+################################################################################
 # 
 def op_snr(wlen,vis,visAmpErr,visPhiErr,width,plot=False):
     visAmp = np.abs(vis)
@@ -1266,9 +1263,8 @@ def op_snr(wlen,vis,visAmpErr,visPhiErr,width,plot=False):
         plt.show()
     return snr_amp,snr_phi
 
-##############################################
+################################################################################
 #          
-
 def op_snr_theory(data,cfin = 'CF_piston_corr2',plot=False):
     wlen   = data['OI_WAVELENGTH']['EFF_WAVE']
     cf  = data['CF'][cfin][0]/4
