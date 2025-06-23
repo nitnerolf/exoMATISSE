@@ -147,8 +147,8 @@ def op_gen_oivis(cfdata, cfin='CF_achr_phase_corr', verbose=True, plot=False):
     oivis_table['VISPHI']    = np.angle(complexvis2)
     oivis_table['VISPHIERR'] = cfdata['OI_BASELINES']['VISPHIERR']
     
-    oivis_table['UCOORD']    = cfdata['OI_BASELINES']['UCOORD']
-    oivis_table['VCOORD']    = cfdata['OI_BASELINES']['VCOORD']
+    oivis_table['UCOORD']    = np.array(cfdata['OI_BASELINES']['UCOORD']).reshape(nframes*nbases)
+    oivis_table['VCOORD']    = np.array(cfdata['OI_BASELINES']['VCOORD']).reshape(nframes*nbases)
    
     #print('Shape of STA_INDEX:', np.tile(np.array(cfdata['OI_BASELINES']['STA_INDEX']), (nframes,1)).shape)
     oivis_table['STA_INDEX'] = np.tile(cfdata['OI_BASELINES']['STA_INDEX'], (nframes,1))
