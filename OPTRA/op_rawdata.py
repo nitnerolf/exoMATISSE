@@ -4,7 +4,7 @@
 ################################################################################
 #
 # Cosmetics for raw data
-# Author: fmillour
+# Author: fmillour, nsaucourt
 # Date: 01/07/2024
 # Project: OPTRA
 #
