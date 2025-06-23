@@ -14,7 +14,8 @@
 # index.
 #
 ################################################################################
-
+import os
+from astropy.time import Time
 from os import error
 from astropy.io import fits
 from scipy import *
@@ -170,8 +171,8 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
 # get the peaks position
 def op_get_peaks_position(fftdata, instrument=op_MATISSE_L, verbose=True):
     wlen = fftdata['OI_WAVELENGTH']['EFF_WAVE'] *1e6 # Convert to micrometers
-    
-    print('Instrument',instrument)
+    if verbose:
+        print('Instrument',instrument)
     if instrument['name'] == 'MATISSE_L':
         peaks =       np.arange(7)
         interfringe = instrument['interfringe']
@@ -348,7 +349,7 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
         
     #########################################################
     #compute fft
-    bdata = op_calc_fft(bdata)
+    bdata = op_calc_fft(bdata , verbose = verbose)
 
     if plot:
         # Compute the average of intf after apodization
@@ -422,35 +423,35 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
     # Reorder baselines
     bdata, cfdata_reordered = op_reorder_baselines(bdata)
     
-    if corr_opd == True:
-        #########################################################
-        # Get the air refractive index
-        Temp, Pres, hum, dPath    = op_get_amb_conditions(bdata)
-        if verbose:
-            print('Temp:', Temp, 'Pres:', Pres, 'hum:', hum)
-        n_air = op_air_index(wlen, Temp, Pres, hum, N_CO2=423, bands='all')
-        if verbose:
-            print('n_air:', n_air)
-            
-        #########################################################
-        # Correct the phase for air path
-        bdata, phase_layer_air_slope = op_corr_n_air(bdata, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e-6, verbose=verbose, plot=plot)
+    
+    #########################################################
+    # Get the air refractive index
+    Temp, Pres, hum, dPath    = op_get_amb_conditions(bdata)
+    if verbose:
+        print('Temp:', Temp, 'Pres:', Pres, 'hum:', hum)
         
-        #########################################################
-        # Get the piston    
-        bdata, OPD_list = op_get_piston_fft(bdata, cfin='CF_chr_phase_corr', verbose=verbose, plot=plot)
+    N_CO2 = op_compute_nco2(bdata)
+    
+    n_air = op_air_index(wlen, Temp, Pres, hum, N_CO2=N_CO2, bands='all')
+    if verbose:
+        print('n_air:', n_air)
         
-        #########################################################
-        # Correct the piston
-        bdata = op_corr_piston(bdata, cfin='CF_chr_phase_corr', verbose=verbose, plot=plot)
-        nextone = 'CF_piston_corr'
-    else:
-        nextone = 'CF_demod'
+    #########################################################
+    # Correct the phase for air path
+    bdata, phase_layer_air_slope = op_corr_n_air(bdata, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e-6, verbose=verbose, plot=plot)
+    
+    #########################################################
+    # Get the piston    
+    bdata, OPD_list = op_get_piston_fft(bdata, cfin='CF_chr_phase_corr', verbose=verbose, plot=plot)
+    
+    #########################################################
+    # Correct the piston
+    bdata = op_corr_piston(bdata, cfin='CF_chr_phase_corr', verbose=verbose, plot=plot)
 
     #########################################################
     # Correct for residual phase
-    totvis = np.sum(bdata['CF'][nextone],axis=-1)
-    cvis = bdata['CF'][nextone] * np.exp(-1j * np.angle(totvis[...,None]))
+    totvis = np.sum(bdata['CF']['CF_piston_corr'],axis=-1)
+    cvis = bdata['CF']['CF_piston_corr'] * np.exp(-1j * np.angle(totvis[...,None]))
     bdata['CF']['CF_piston_corr2'] = cvis
 
     #########################################################
@@ -635,7 +636,8 @@ def op_get_amb_conditions(data, verbose=True):
         Tins5 = data['hdr']['ESO INS SENS244 VAL'] # [C] CPN Ambient temperature Value.
         Tins6 = data['hdr']['ESO INS SENS246 VAL'] # [C] ARC Ambient temperature Value. 
         Tins7 = data['hdr']['ESO INS SENS258 VAL'] # [C] Cabinet ambient temperature Value.
-        print("Loaded MATISSE-specific temperatures")
+        if verbose:
+            print("Loaded MATISSE-specific temperatures")
     except:
         print("WARNING: No MATISSE-specific temperatures found!")
     
@@ -670,6 +672,8 @@ def op_get_amb_conditions(data, verbose=True):
     for i_tel in range(4):
         # Static paths (m)
         static_lengths[i_tel] = data['hdr'][f'ESO ISS CONF A{i_tel+1}L']
+        # static_lengths[i_tel] = data['OI_BASELINES']['DL'][i_tel]
+        # print(f'static_length {i_tel} = ', static_lengths[i_tel])
         # Optical path lengths (m)
         start_OPLs[i_tel] = data['hdr'][f'ESO DEL DLT{i_tel+1} OPL START']
         end_OPLs[i_tel]   = data['hdr'][f'ESO DEL DLT{i_tel+1} OPL END']
@@ -682,9 +686,15 @@ def op_get_amb_conditions(data, verbose=True):
     if verbose:
         print('Relative MJDs:', np.shape(relative_mjds))
     OPLs = (np.outer(end_OPLs - start_OPLs, relative_mjds).T + start_OPLs).T
+    # OPLs = np.array(data['OI_BASELINES']['WCOORD'])
     if verbose:
         print('OPLs inside function:', np.shape(OPLs))
-
+    # dPaths = OPLs + np.array([static_lengths[3]  - static_lengths[2] ,
+    #                     static_lengths[1]  - static_lengths[0] ,
+    #                     static_lengths[2]  - static_lengths[1] ,
+    #                     static_lengths[3]- static_lengths[1],
+    #                     static_lengths[2]  - static_lengths[0] ,
+    #                     static_lengths[3] - static_lengths[0]])
     # FIXME: attention, take into account baseline scrambling here
     dPaths  = np.array([static_lengths[3] + OPLs[3] - static_lengths[2] - OPLs[2],
                         static_lengths[1] + OPLs[1] - static_lengths[0] - OPLs[0],
@@ -692,12 +702,95 @@ def op_get_amb_conditions(data, verbose=True):
                         static_lengths[3] + OPLs[3] - static_lengths[1] - OPLs[1],
                         static_lengths[2] + OPLs[2] - static_lengths[0] - OPLs[0],
                         static_lengths[3] + OPLs[3] - static_lengths[0] - OPLs[0]])
-    #print('dPaths inside function:', dPaths)
+    # print('dPaths inside function:', dPaths)
     
 
     return temperature, pressure, humidity, dPaths
 
-################################################################################
+##############################################
+# Function to compute the CO2 concentration
+def op_compute_nco2(bdata, filedir = './n_co2/',verbose = True, plot = False):
+    """ Compute the CO2 concentration based on 
+    """
+    stations = {'alt' : 'Alert, NWT, Canada',
+                'ptb': 'Utqiagvik, Alaska',
+                'ljo': 'La Jolla Pier, California',
+                'mlo': 'Mauna Loa Observatory, Hawaii',
+                'kum': 'Cape Kumukahi, Hawaii',
+                'fan': 'Fanning Island',
+                'chr': 'Christmas Island',
+                'sam': 'American Samoa',
+                'ker': 'Kermadec Islands, Raoul Island',
+                'nzd': 'Baring Head, New Zealand',
+                'spo': 'South Pole'
+                }
+    
+    hdr = bdata['hdr']
+    files = os.listdir(filedir)
+    year = Time(hdr['DATE-OBS']).decimalyear
+    slopes = []
+    intercept = []
+    print(files)
+    for file in files:
+        station = file.split('.')[0][-3:]
+        dates = []
+        co2_values = []
+        print(file)
+        file = filedir + file
+        with open(os.path.expanduser(file), newline='') as csvfile:
+            lines = [line for line in csvfile if not line.strip().startswith('"') ]
+            lines = lines[3:]
+        
+            idate = 3 # Place in the file
+            ico2  = -2
+            for row in lines:
+                row = row.split(',')
+                dates.append(float(row[idate]))
+                co2_values.append(float(row[ico2]))
+        
+        dates = np.array(dates)
+        co2_values = np.array(co2_values)
+        
+        coef_all = np.polyfit(dates,co2_values,1)
+        p_all = np.poly1d(coef_all)
+        slope_all = p_all[1]
+        
+        # Régression sur les 10 annees precedent l'observation
+        recent_mask = dates  - (year - 10) >= 0 
+        dates_recent = dates[recent_mask]
+        if plot:
+            plt.figure(figsize=(12, 6))
+        if np.size(dates_recent) != 0 :
+            co2_recent = co2_values[recent_mask]
+            coef_recent = np.polyfit(dates_recent,co2_recent,1)
+            p_recent = np.poly1d(coef_recent)
+            slope_recent = p_recent[1]
+            
+            slopes.append(slope_recent)
+            intercept.append(p_recent[0])
+            if plot:
+                plt.plot(dates_recent, p_recent(dates_recent), label=f"Régression - jusqu'a {int(year - 10)}, {slope_recent:.2f} ppm/an", color="green")
+            
+            
+        #     print("Ordonnees a l'origine :", model_recent.intercept_, "ppm")
+        # print("Ordonnees a l'origine :", model_all.intercept_, "ppm")
+        
+        if plot:
+            plt.plot(dates, p_all(dates), label=f"linear regression on all data ,slope = {slope_all:.2f} ppm/year", color="red")
+            plt.plot(dates, co2_values, label="observed CO₂ ", alpha=0.5)
+            plt.xlabel("Date")
+            plt.ylabel("CO₂ (ppm)")
+            plt.title(f"Linear regression on the concentration of CO₂ in {stations[station]} ")
+            plt.legend()
+            plt.grid(True)
+            plt.tight_layout()
+            plt.show()
+    print(slopes, intercept)
+    N_CO2 = np.mean(slopes) * year + np.mean(intercept)
+    if verbose:
+        print('n_Co2 = ', N_CO2)
+    return N_CO2
+##############################################
 # Function to compute the air refractive index
 def op_air_index(wlen, T, P, h, N_CO2=435, bands='all'):
     """ Compute the refractive index as a function of wavelength at a given temperature,
