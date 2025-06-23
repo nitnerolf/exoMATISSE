@@ -449,8 +449,8 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
 
     #########################################################
     # Correct for residual phase
-    totvis = np.sum(bdata['CF']['CF_chr_phase_corr'],axis=-1)
-    cvis = bdata['CF']['CF_chr_phase_corr'] * np.exp(-1j * np.angle(totvis[...,None]))
+    totvis = np.sum(bdata['CF']['CF_piston_corr'],axis=-1)
+    cvis = bdata['CF']['CF_piston_corr'] * np.exp(-1j * np.angle(totvis[...,None]))
     bdata['CF']['CF_piston_corr2'] = cvis
 
     #########################################################
