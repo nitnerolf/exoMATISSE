@@ -4,7 +4,7 @@
 ################################################################################
 #
 # Cosmetics for raw data
-# Author: fmillour
+# Author: fmillour, nsaucourt
 # Date: 01/07/2024
 # Project: OPTRA
 #
@@ -28,7 +28,10 @@ from matplotlib.ticker import MultipleLocator
 from copy import deepcopy
 import numpy.linalg as lin
 from op_parameters import *
-
+from astroquery.simbad import Simbad
+from astropy.coordinates import SkyCoord
+from astropy.time import Time
+import astropy.units as u
 ##############################################
 # Function to interpolate bad pixels
 # 
@@ -480,14 +483,20 @@ def _op_positionsTelescope(hdr,loc,plot):
                 f"HIERARCH ESO ISS CONF T{i+1}Z"]
         for pos in positions:
             if pos[0] == hdr[keys[0]]:
-                pos[3] = -hdr[keys[1]]
-                pos[4] = -hdr[keys[2]]
-                pos[5] = hdr[keys[3]]
-                
+                try :
+                    pos[3] = -hdr[keys[1]]
+                    pos[4] = -hdr[keys[2]]
+                    pos[5] = hdr[keys[3]]
+                except:
+                    print('Oups...')
                 tel_labels.append(pos[0])
                 tel_position.append((pos[3],pos[4]))
-     
-    
+                break
+        
+        if hdr[keys[0]] not in [row[0] for row in positions]:
+                positions.insert(1,[hdr[keys[0]],0,0,hdr[keys[1]],hdr[keys[2]],hdr[keys[3]]])
+                tel_labels.append(hdr[keys[0]])
+                tel_position.append((hdr[keys[1]],hdr[keys[2]]))
     ############## PLOT MAP OF VLTI ##############
     if plot:
         labels = [pos[0] for pos in positions[1:]] 
@@ -495,10 +504,17 @@ def _op_positionsTelescope(hdr,loc,plot):
         norths= [pos[4] for pos in positions[1:]]    
         
         nu=-18.984 #degre
-        
+
         plt.figure(figsize=(10, 10))
         
-        colors = COLORS6D
+        ntel = loc['ntel']
+        nbases = int(ntel * (ntel-1)/2)
+        if ntel == 4:
+            colors = COLORS6D
+        else:
+            colors = [plt.cm.get_cmap('hsv', nbases)(i) for i in range(nbases)]
+
+
         baseline_pos = []
         for i in range(len(tel_position)-1):
             for j in range(i+1,len(tel_position)):
@@ -506,7 +522,6 @@ def _op_positionsTelescope(hdr,loc,plot):
                     
         
         baseline_pos = sorted(baseline_pos,key=lambda p: np.sqrt((p[0][0][1]-p[0][0][0])**2+(p[0][1][1]-p[0][1][0])**2))
-        p=baseline_pos
         for i in range(len(baseline_pos)):
             plt.plot(baseline_pos[i][0][0], baseline_pos[i][0][1], color=colors[i], linewidth=2,zorder=0)
         for east, north, label in zip(easts, norths, labels):
@@ -550,8 +565,10 @@ def _op_positionsTelescope(hdr,loc,plot):
         
         
         plt.title(f"Map of the {loc['name']} interferometer (coordinate E/N)")
+        
         plt.xlabel("Longitude (E)")
         plt.ylabel("Latitude (N)")
+
         plt.xlim((-55,155))
         plt.ylim((-105,105))
         plt.grid(True)
@@ -567,7 +584,7 @@ def _op_positionsTelescope(hdr,loc,plot):
         plt.arrow(0.05, 0.87, 0.05, 0, transform=plt.gca().transAxes,width=0.002, head_width=0.01, head_length=0.02,fc='k', ec='k', zorder=5)
         plt.tight_layout()
         plt.show()
-        
+   
     return positions
             
 
@@ -575,7 +592,7 @@ def _op_positionsTelescope(hdr,loc,plot):
 
 ##############################################
 # Get baseline vector
-def _op_get_baseVect(station1,station2,loc):
+def _op_get_baseVect(station1,station2,loc,delay = dict()):
     """
     DESCRIPTION
         Computes the vectored baseline between station1 and station2
@@ -599,11 +616,15 @@ def _op_get_baseVect(station1,station2,loc):
         if tel[0] == "LAB":
             #Compute delay lines
             lab      = [tel[3], tel[4], tel[5]]
-            DL1      = abs(BQ1-tel[2]) + abs(BP1-tel[1])
-            DL2      = abs(BQ2-tel[2]) + abs(BP2-tel[1])
-            fixDelay = DL2-DL1
-            
-    return np.array([B2[0]-B1[0],B2[1]-B1[1],B2[2]-B1[2]])
+            A1L      = abs(BQ1-tel[2]) + abs(BP1-tel[1])
+            A2L      = abs(BQ2-tel[2]) + abs(BP2-tel[1])
+            fixDelay = A2L-A1L
+
+            # print(f'DL {station1} =', A1L, f', DL {station2} =' ,A2L, f' fixDelay {station2}-{station1} =', fixDelay)
+            delay[station1] = A1L
+            delay[station2] = A2L
+    return np.array([B2[0]-B1[0],B2[1]-B1[1],B2[2]-B1[2]]),delay
+
             
 
 ##############################################
@@ -617,30 +638,27 @@ def _op_compute_baseVect(hdr,loc,instrument=op_MATISSE_L):
         - hdr    : input header
         - loc        : location of the interferometer
     """
-    keys = []
-    photscr = instrument['scrP']  
-    for i in photscr:
-     #initialisation  
-         keys.append(f"HIERARCH ESO ISS CONF STATION{i}")
+
+         
+    delay = dict()
     stations=[]
+    for i in np.arange(instrument['ntel']):
+        stations.append(hdr[f"HIERARCH ESO ISS CONF STATION{i+1}"])
     base_allvect=[]
-    for key in keys:
-        stations.append(hdr[key])  
     basescr  = instrument['scrB']
     # Get all baselines
     for itel1,itel2 in basescr:
-        
-        base_allvect.append(_op_get_baseVect(stations[itel1], stations[itel2], loc))
+
+        base, delay = _op_get_baseVect(stations[itel1], stations[itel2], loc,delay)
+        base_allvect.append(base)
+
     
-    
-    # def norm(base):
-    #     return np.sqrt(base[0]**2+base[1]**2)
-    return base_allvect#sorted(base_allvect,key = norm)
+    return base_allvect,delay
     
 
 ##############################################
 # Compute uv coordinates
-def op_compute_uv(cfdata, plot):
+def op_compute_uv(cfdata, plot ,instrument=op_MATISSE_L):
     """
     DESCRIPTION
         Computes UV coordinates with a fits file given as input. 
@@ -655,32 +673,93 @@ def op_compute_uv(cfdata, plot):
     stardata = dict()  
     uCoord = []
     vCoord = []
-        
+    wCoord = []
+    
     # get location and star data from the header   
     hdr = cfdata['hdr']
     loc = _op_get_location(hdr, plot)
     date = hdr["DATE-OBS"]
     stardata['date'] = date[0].split('T')[0]
-    stardata['ra']   = hdr['RA']/15
-    stardata['dec']  = hdr['DEC']
+    
+    ra_j2000 = hdr['RA']
+    dec_j2000 = hdr['DEC']
+    
+    try:
+        pmra  = hdr['PMRA']
+        pmdec = hdr['PMDEC']
+        
+        mjd = hdr['MJD-OBS']
+        date_obs = Time(mjd,format = 'mjd').decimalyear 
+        j2000 = Time('J2000').decimalyear
+        delta_t = date_obs -  j2000 # in decimal year
+        
+        
+        ra_obs  = ra_j2000 + pmra * delta_t 
+        dec_obs = dec_j2000 + pmdec * delta_t
+        
+    except KeyError:
+        
+        coord = SkyCoord(ra_j2000, dec_j2000, unit=(u.deg, u.deg),frame='fk5', equinox = Time("J2000"))
+        Simbad.add_votable_fields('otype', 'pmra', 'pmdec')
+        try:
+            result = Simbad.query_region(coord)
+        except:
+            result = None
+    
+        if result is not None:
+            # Filter object : Star '*'
+            mask = [('*' in otype) for otype in result['otype']]
+            result = result[mask]
+            ra_list  = result['ra']
+            dec_list = result['dec']
+            coord_query = SkyCoord(ra_list,dec_list, unit=(u.deg, u.deg),frame='fk5', equinox = Time("J2000"))
+            separations = coord_query.separation(coord)
+            amin = np.argmin(separations)
+            
+            pmra  = result['pmra'][amin] / (1000 * 3600) #mas/yr to deg/yr
+            pmdec = result['pmdec'][amin] / (1000 * 3600) #mas/yr to deg/yr
+            
+            mjd = hdr['MJD-OBS']
+            date_obs = Time(mjd,format = 'mjd').decimalyear 
+            j2000 = Time('J2000').decimalyear
+            delta_t = date_obs -  j2000 # in decimal year
+            
+            
+            ra_obs  = ra_j2000 + pmra * delta_t 
+            dec_obs = dec_j2000 + pmdec * delta_t
+        
+        else:
+            print("les coordonnees RA-DEC sont au J2000")
+            ra_obs  = ra_j2000 
+            dec_obs = dec_j2000
+    
+    stardata['ra']   = ra_obs/15
+    stardata['dec']  = dec_obs
     
     # Get the vector of all the baseline and compute uv Coords
-    B=_op_compute_baseVect(hdr, loc)
-
+    B, delay =_op_compute_baseVect(hdr, loc , instrument = instrument)
     ndit = hdr['HIERARCH ESO DET NDIT']
-    dit = hdr['HIERARCH ESO DET SEQ1 DIT']
+    dit  = hdr['HIERARCH ESO DET SEQ1 DIT']
+    
     LST=[(hdr['LST']+i*dit/ndit)/3600 for i in range(ndit)]
     for i,bvect in enumerate(B):
+        uco = [];vco=[];wco=[]
         for lst in LST :
             stardata['lst']=lst
             uvw=deepcopy(stardata)
             uvw=_op_calculate_uvw(uvw,bvect,loc)
-            uCoord.append(uvw['u'])
-            vCoord.append(uvw['v'])
-       
+            uco.append(uvw['u'])
+            vco.append(uvw['v'])
+            wco.append(uvw['w'])
+        uCoord.append(uco)
+        vCoord.append(vco)
+        wCoord.append(wco)
     
-    cfdata['OI_BASELINES']['UCOORD'] = uCoord    
+    cfdata['OI_BASELINES']['UCOORD'] = uCoord
     cfdata['OI_BASELINES']['VCOORD'] = vCoord
+    cfdata['OI_BASELINES']['WCOORD'] = wCoord
+    # cfdata['OI_BASELINES']['DL'] = sorted(list(delay.values()))
+    
     return cfdata  
 
 ##############################################
@@ -697,10 +776,8 @@ def op_uv_coverage(uCoord,vCoord,cfdata,instrument = op_MATISSE_L):
         
     """
     
-    
-    
     wlen     = cfdata['OI_WAVELENGTH']['EFF_WAVE']
-    wlen_ref = cfdata['hdr']['HIERARCH ESO SEQ DIL WL0']*1e-6
+    wlen_ref = cfdata['OI_WAVELENGTH']['EFF_REF']
 
     ######################### PLOT ################################
     
@@ -708,18 +785,25 @@ def op_uv_coverage(uCoord,vCoord,cfdata,instrument = op_MATISSE_L):
     ax=plt.gca()
     ax2 = plt.gca().twiny()
     ax3 = plt.gca().twinx()
-    colors = COLORS6D
+    
     nObs   = len(uCoord)
-    nBase  = 6
-    nFrame = len(uCoord[0])//nBase
+    ntel = cfdata['hdr']['HIERARCH ESO ISS CONF NTEL']
+    nBase  = int(ntel * (ntel-1)/2)
+    nFrame = int(len(uCoord[0])//nBase)
+    if ntel == 4:
+        colors = COLORS6D
+    else :
+        colors = [plt.cm.get_cmap('hsv', nBase)(i) for i in range(nBase)]
+
     for iBase in range(nBase):
         u = []
         v = []
         for iObs in range(nObs):
             
-            for i in range(0,nFrame):
-               u.append(uCoord[iObs][i+nFrame*iBase])
-               v.append(vCoord[iObs][i+nFrame*iBase])
+            for iframe in range(0,nFrame):
+                
+               u.append(uCoord[iObs][iBase][iframe])
+               v.append(vCoord[iObs][iBase][iframe])
             
         u = np.array(u)
         v = np.array(v)
@@ -781,21 +865,18 @@ def op_uv_coverage(uCoord,vCoord,cfdata,instrument = op_MATISSE_L):
     # LABELS
     hdr = cfdata['hdr']
     basescr  = instrument['scrB']
-    photscr = instrument['scrP']  
-    keys = []
     telname = []
     labels = []
-    for i in photscr: #REORDER PGOT
-         keys.append(f"HIERARCH ESO ISS CONF T{i}NAME")
-    for key in keys:
-        telname.append(hdr[key])
-    basescr  = instrument['scrB']
+
+    for i in np.arange(instrument['ntel']): #REORDER PGOT
+         telname.append(hdr[f"HIERARCH ESO ISS CONF T{i+1}NAME"])
+
     # Get all baselines
     for itel1,itel2 in basescr: #REORDER BASELINE
         labels.append(telname[itel1]+'-'+telname[itel2])
     
     
-    handles = [plt.Line2D([], [], color=colors[i], label=labels[i]) for i in range(len(colors))]
+    handles = [plt.Line2D([], [], color=colors[i], label=labels[i]) for i in range(len(labels))]
     plt.legend(handles=handles, loc='lower right')
     
     plt.tight_layout()
