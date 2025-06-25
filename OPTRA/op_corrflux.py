@@ -30,6 +30,7 @@ from scipy.ndimage   import uniform_filter1d
 import astropy.constants as cst 
 from astropy.convolution import convolve, Gaussian1DKernel
 from op_parameters import *
+import json
 
 ################################################################################
 # Apodization function
@@ -709,9 +710,21 @@ def op_get_amb_conditions(data, verbose=True):
 
 ##############################################
 # Function to compute the CO2 concentration
-def op_compute_nco2(bdata, filedir = './n_co2/',verbose = True, plot = False):
-    """ Compute the CO2 concentration based on 
+def op_compute_nco2(bdata,verbose = False, plot = False):
+    """ Compute the CO2 concentration based on the scripps CO2 Program made by the scripps institution of oceanography.
+        The slope and the intercept should be updated using op_update_nco2 and changing the data in op_parameters
     """
+    hdr = bdata['hdr']
+    year = Time(hdr['DATE-OBS']).decimalyear
+    N_CO2 = SLOPE_CO2 * year + INTERCEPT_CO2
+    return N_CO2
+
+##############################################
+# Function to update the slope and the intercept of NCO2
+def op_update_nco2(year_mask = 2015,verbose = False, plot = False):
+    global CO2_SAVED
+    filedir = os.path.dirname(os.path.abspath(__file__)) + '/n_co2/'
+    print('old values : slope = ',CO2_SAVED['slope'], 'intercept =', CO2_SAVED['intercept'])
     stations = {'alt' : 'Alert, NWT, Canada',
                 'ptb': 'Utqiagvik, Alaska',
                 'ljo': 'La Jolla Pier, California',
@@ -724,18 +737,16 @@ def op_compute_nco2(bdata, filedir = './n_co2/',verbose = True, plot = False):
                 'nzd': 'Baring Head, New Zealand',
                 'spo': 'South Pole'
                 }
-    
-    hdr = bdata['hdr']
     files = os.listdir(filedir)
-    year = Time(hdr['DATE-OBS']).decimalyear
+    files = [f for f in files if '.csv' in f]
     slopes = []
     intercept = []
-    print(files)
+    
     for file in files:
         station = file.split('.')[0][-3:]
         dates = []
         co2_values = []
-        print(file)
+        
         file = filedir + file
         with open(os.path.expanduser(file), newline='') as csvfile:
             lines = [line for line in csvfile if not line.strip().startswith('"') ]
@@ -756,7 +767,7 @@ def op_compute_nco2(bdata, filedir = './n_co2/',verbose = True, plot = False):
         slope_all = p_all[1]
         
         # Régression sur les 10 annees precedent l'observation
-        recent_mask = dates  - (year - 10) >= 0 
+        recent_mask = dates  - (year_mask) >= 0 
         dates_recent = dates[recent_mask]
         if plot:
             plt.figure(figsize=(12, 6))
@@ -769,7 +780,7 @@ def op_compute_nco2(bdata, filedir = './n_co2/',verbose = True, plot = False):
             slopes.append(slope_recent)
             intercept.append(p_recent[0])
             if plot:
-                plt.plot(dates_recent, p_recent(dates_recent), label=f"Régression - jusqu'a {int(year - 10)}, {slope_recent:.2f} ppm/an", color="green")
+                plt.plot(dates_recent, p_recent(dates_recent), label=f"Régression - jusqu'a {year_mask}, {slope_recent:.2f} ppm/an", color="green")
             
             
         #     print("Ordonnees a l'origine :", model_recent.intercept_, "ppm")
@@ -785,11 +796,15 @@ def op_compute_nco2(bdata, filedir = './n_co2/',verbose = True, plot = False):
             plt.grid(True)
             plt.tight_layout()
             plt.show()
-    print(slopes, intercept)
-    N_CO2 = np.mean(slopes) * year + np.mean(intercept)
-    if verbose:
-        print('n_Co2 = ', N_CO2)
-    return N_CO2
+
+    CO2_SAVED['slope'] = np.mean(slopes)
+    CO2_SAVED['intercept'] = np.mean(intercept)
+    
+    with open(FICHIER_NCO2, 'w') as f:
+        json.dump(CO2_SAVED, f)
+    
+    print('new values : slope = ',CO2_SAVED['slope'], 'intercept =', CO2_SAVED['intercept'])
+    
 ##############################################
 # Function to compute the air refractive index
 def op_air_index(wlen, T, P, h, N_CO2=435, bands='all'):
