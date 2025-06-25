@@ -38,7 +38,6 @@ FICHIER_NCO2 = os.path.join(BASE_DIR_NCO2, "n_co2", "nco2.json")
 
 with open(FICHIER_NCO2,'r') as f:
     CO2_SAVED = json.load(f)
-print(CO2_SAVED)
 
-SLOPE_CO2     = CO2_SAVED['slope']      #2.461874809975082
-INTERCEPT_CO2 = CO2_SAVED['intercept']  #-4561.3674820094
+SLOPE_CO2     = CO2_SAVED['slope']
+INTERCEPT_CO2 = CO2_SAVED['intercept']  

@@ -722,6 +722,11 @@ def op_compute_nco2(bdata,verbose = False, plot = False):
 ##############################################
 # Function to update the slope and the intercept of NCO2
 def op_update_nco2(year_mask = 2015,verbose = False, plot = False):
+    """update the CO2 concentration regression of the scripps CO2 programs. 
+        For an optimal update, please reload the data from 
+        https://scrippsco2.ucsd.edu/data/atmospheric_co2/alt.html
+    """
+    
     global CO2_SAVED
     filedir = os.path.dirname(os.path.abspath(__file__)) + '/n_co2/'
     print('old values : slope = ',CO2_SAVED['slope'], 'intercept =', CO2_SAVED['intercept'])
