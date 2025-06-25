@@ -219,6 +219,7 @@ def op_load_rawdata(filename, verbose=True):
     print(f'Loading raw data {filename}...')
     fh      =  fits.open(filename)
     data    = {'hdr': fh[0].header}
+    data['filename'] = filename
     nframes = len(fh['IMAGING_DATA'].data)
     nexp    = len(fh['IMAGING_DATA'].data)//6
     #print('nexp:',nexp)
