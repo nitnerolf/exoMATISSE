@@ -121,10 +121,23 @@ def op_gen_oivis(cfdata, cfin='CF_achr_phase_corr', verbose=True, plot=False):
     Save the complex visibility in OIFITS format
     """
     complexvis = cfdata['CF'][cfin][1:,...]
-    print('Shape of complexvis:', complexvis.shape)
-    complexvis2 = np.reshape(np.swapaxes(complexvis, 0,1), (complexvis.shape[0]* complexvis.shape[1],complexvis.shape[2]))
-    nbases    = complexvis.shape[0]
-    nframes   = complexvis.shape[1]
+    shp = complexvis.shape
+    print('Shape of complexvis:', shp)
+    if len(shp) == 2:
+        # If the shape is 2D, base is 1st dim and wlen is second dim
+        nbases    = complexvis.shape[0]
+        nframes   = 1
+        nwlen     = complexvis.shape[1]
+        complexvis2 = complexvis
+    elif len(shp) == 3:
+        # If the shape is 3D, base is 1st dim, frames is second dim and wlen is third dim
+        nbases    = complexvis.shape[0]
+        nframes   = complexvis.shape[1]
+        nwlen     = complexvis.shape[2]
+        complexvis2 = np.reshape(np.swapaxes(complexvis, 0,1), (nbases * nframes, nwlen))
+    else:
+        raise ValueError("complexvis must be 2D or 3D, got shape: {}".format(shp))
+    
     # Create the OI_VIS table
     oivis_table = Table()
     #oivis_table.meta['NAME']  = 'OI_VIS'
@@ -163,30 +176,49 @@ def op_gen_oivis2(cfdata, v2in='simplevis2', verbose=True, plot=False):
     """
     Save the v squared in OIFITS format
     """
-    vis2in = cfdata['VIS2'][v2in][1:,...]
-    print('Shape of vis2:', vis2in.shape)
+    vis2in = cfdata['VIS2'][v2in]
+    shp = vis2in.shape
+    print('Shape of complexvis:', shp)
+    if len(shp) == 2:
+        # If the shape is 2D, base is 1st dim and wlen is second dim
+        nbases    = vis2in.shape[0]
+        nframes   = 1
+        nwlen     = vis2in.shape[1]
+        vis2in2 = vis2in
+    elif len(shp) == 3:
+        # If the shape is 3D, base is 1st dim, frames is second dim and wlen is third dim
+        nbases    = vis2in.shape[0]
+        nframes   = vis2in.shape[1]
+        nwlen     = vis2in.shape[2]
+        vis2in2 = np.reshape(np.swapaxes(vis2in, 0,1), (nbases * nframes, nwlen))
+    else:
+        raise ValueError("vis2in must be 2D or 3D, got shape: {}".format(shp))
+    
     #vis2in2 = np.reshape(np.swapaxes(vis2in, 0,1), (vis2in.shape[0]* vis2in.shape[1],vis2in.shape[2]))
     nbases    = vis2in.shape[0]
     nframes   = vis2in.shape[1]
     # Create the OI_VIS table
-    oivis_table = Table()
-    #oivis_table.meta['NAME']  = 'OI_VIS'
-    oivis_table.meta['EXTNAME']  = 'OI_VIS2 '
-    oivis_table.meta['EXTVER']  = 1
-    oivis_table['TARGET_ID'] = np.repeat(cfdata['OI_BASELINES']['TARGET_ID'], nbases)
-    print('Shape of target_IDxxx:', oivis_table['TARGET_ID'].shape)
-    oivis_table['TARGET']    = cfdata['hdr']['HIERARCH ESO OBS TARG NAME']
-    oivis_table['TIME']      = np.repeat(cfdata['OI_BASELINES']['TIME'], nbases)
-    oivis_table['MJD']       = np.repeat(cfdata['OI_BASELINES']['MJD'],  nbases)
-    oivis_table['INT_TIME']  = np.float32(np.repeat(cfdata['OI_BASELINES']['INT_TIME'], nbases))
+    oivis2_table = Table()
+    #oivis2_table.meta['NAME']  = 'OI_VIS'
+    oivis2_table.meta['EXTNAME']  = 'OI_VIS2 '
+    oivis2_table.meta['EXTVER']  = 1
+    oivis2_table.meta['DATE-OBS']  = cfdata['hdr']['DATE-OBS']
+    oivis2_table.meta['OI_REVN']   = REVN
+    oivis2_table.meta['INSNAME']   = cfdata['hdr']['INSTRUME']
+    oivis2_table['TARGET_ID'] = np.repeat(cfdata['OI_BASELINES']['TARGET_ID'], nbases)
+    print('Shape of target_IDxxx:', oivis2_table['TARGET_ID'].shape)
+    oivis2_table['TARGET']    = cfdata['hdr']['HIERARCH ESO OBS TARG NAME']
+    oivis2_table['TIME']      = np.repeat(cfdata['OI_BASELINES']['TIME'], nbases)
+    oivis2_table['MJD']       = np.repeat(cfdata['OI_BASELINES']['MJD'],  nbases)
+    oivis2_table['INT_TIME']  = np.float32(np.repeat(cfdata['OI_BASELINES']['INT_TIME'], nbases))
     #print('Shape of complexvisxxx:', complexvis2.shape)
-    oivis_table['VIS2DATA']  = cfdata['VIS2'][v2in]
-    oivis_table['VIS2ERR']   = 0.0
-    oivis_table['UCOORD']    = 0.0
-    oivis_table['VCOORD']    = 0.0
+    oivis2_table['VIS2DATA']  = vis2in2
+    oivis2_table['VIS2ERR']   = 0.0
+    oivis2_table['UCOORD']    = 0.0
+    oivis2_table['VCOORD']    = 0.0
     #print('Shape of STA_INDEX:', np.tile(np.array(cfdata['OI_BASELINES']['STA_INDEX']), (nframes,1)).shape)
-    oivis_table['STA_INDEX'] = np.tile(cfdata['OI_BASELINES']['STA_INDEX'], (nframes,1))
-    oivis_table['FLAG']      = 0
+    oivis2_table['STA_INDEX'] = np.tile(cfdata['OI_BASELINES']['STA_INDEX'], (nframes,1))
+    oivis2_table['FLAG']      = 0
     
     return oivis2_table
 
@@ -205,13 +237,16 @@ def op_write_oifits(filename, hdr, oiwavelength, oirray=None, oitarget=None, oiv
     
     # Create the OI_ARRAY table
     if oirray is not None:
+        print('Adding OI_ARRAY table...')
         oifits.append(fits.BinTableHDU(oirray))
     
     # Create the OI_TARGET table
     if oitarget is not None:
+        print('Adding OI_TARGET table...')
         oifits.append(fits.BinTableHDU(oitarget))
     
     # Create the OI_wavelength table
+    print('Adding OI_WAVELENGTH table...')
     oifits.append(fits.BinTableHDU(oiwavelength))
     
     # A minimum of one of the three tables must be provided
@@ -220,17 +255,21 @@ def op_write_oifits(filename, hdr, oiwavelength, oirray=None, oitarget=None, oiv
     
     # Create the OI_VIS table
     if oivis is not None:
+        print('Adding OI_VIS table...')
         oifits.append(fits.BinTableHDU(oivis))
     
     # Create the OI_VIS2 table
     if oivis2 is not None:
+        print('Adding OI_VIS2 table...')
         oifits.append(fits.BinTableHDU(oivis2))
     
     # Create the OI_T3 table
     if oit3 is not None:
+        print('Adding OI_T3 table...')
         oifits.append(fits.BinTableHDU(oit3))
     
     # Write the OIFITS file
+    print(f'Writing OIFITS file')
     oifits.writeto(filename, overwrite=True)
     
     print(f'Done!')
