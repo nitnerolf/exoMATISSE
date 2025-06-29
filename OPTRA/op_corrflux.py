@@ -92,6 +92,16 @@ def op_apodize(data, verbose=True,plot=False, frac=0.85):
         for i in np.arange(nframes):
             data['PHOT'][key]['data'][i] *= centered_win_pht
             
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = data['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    data['hdr'][f'HIERARCH PROC{count}'] = 'op_apodize'
+    data['hdr'][f'HIERARCH PROC{count} FRAC'] = frac
     return data
 
 ################################################################################
@@ -120,6 +130,16 @@ def op_calc_fft(data, verbose=True):
         print('Shape of sum_dsp_intf:', sum_dsp_intf.shape)
     
     data['FFT'] = {'data': fft_intf, 'magnitude': fft_intf_magnitude, 'dsp': dsp_intf, 'sum_dsp': sum_dsp_intf, 'sdi': sdi_resh, 'freqs': freqs}
+    
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = data['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    data['hdr'][f'HIERARCH PROC{count}'] = 'op_calc_fft'
     return data
 
 ################################################################################
@@ -129,8 +149,8 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
         print('Computing wavelength map...')
     # Compute wavelength map from shift map
     fh        = fits.open(shift_map)
-    shift_map = fh['SHIFT_MAP'].data
-    disp      = shift_map['DISP']
+    shift_map_data = fh['SHIFT_MAP'].data
+    disp      = shift_map_data['DISP']
     if verbose:
         print('shape of disp:', np.shape(disp))
         print('disp:', disp)
@@ -166,6 +186,16 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
     rawdata['OI_WAVELENGTH']['EFF_BAND'] = band * 1e-6 # Convert to meters
     rawdata['OI_WAVELENGTH']['EFF_REF']  = rawdata['hdr']['HIERARCH ESO SEQ DIL WL0'] * 1e-6
 
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = rawdata['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    rawdata['hdr'][f'HIERARCH PROC{count}'] = 'op_get_wlen'
+    rawdata['hdr'][f'HIERARCH PROC{count} FILE'] = shift_map
     return wlen * 1e-6
 
 ################################################################################
@@ -187,6 +217,7 @@ def op_get_peaks_position(fftdata, instrument=op_MATISSE_L, verbose=True):
     if verbose:
         print('Shape of peak:', np.shape(peak))
         print('Peak:', peak)
+        
     return peak, peakwd
 
 ################################################################################
@@ -252,6 +283,16 @@ def op_extract_CF(fftdata, peaks, peakswd, verbose=True, plot=False):
     if verbose:
         print('Shape of FT:', np.shape(FT))
     fftdata['CF'] = {'data': FT, 'zone': ZON, 'weight': WGT, 'CF': CF, 'CF_nbpx': NIZ, 'bckg': bck}
+    
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = fftdata['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    fftdata['hdr'][f'HIERARCH PROC{count}'] = 'op_extract_CF'
     return fftdata
 
 ################################################################################
@@ -317,6 +358,15 @@ def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
         print('Shape of phasor:', np.shape(phasor))
         print('Shape of CF:', np.shape(CFdata['CF']['CF']))
         
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = CFdata['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    CFdata['hdr'][f'HIERARCH PROC{count}'] = 'op_demodulate'
     return CFdata
 
 ################################################################################
@@ -466,10 +516,10 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
         #########################################################
         # Bin the data
         
-    if bindata: 
-        bdata = op_bin_data(bdata, cfin='CF_piston_corr2', verbose=verbose, plot=plot)
-    else:
-        bdata = op_bin_data(bdata, cfin='CF_reord', verbose=verbose, plot=plot)
+    # if bindata: 
+    #     bdata = op_bin_data(bdata, cfin='CF_piston_corr2', verbose=verbose, plot=plot)
+    # else:
+    #     bdata = op_bin_data(bdata, cfin='CF_reord', verbose=verbose, plot=plot)
         
     
     
@@ -606,6 +656,15 @@ def op_reorder_baselines(data, cfin='CF_demod'):
 
     data['CF']['CF_reord'] = cfdata_reordered
 
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = data['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    data['hdr'][f'HIERARCH PROC{count}'] = 'op_reorder_baselines'
     return data, cfdata_reordered
 
 ################################################################################
@@ -919,7 +978,7 @@ def op_corr_n_air( data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e
     data['CF']['CF_chr_phase_corr'] = np.copy(cfdem)
     phase_layer_air = np.zeros((6, n_frames, n_wlen))
     slope = np.zeros((6, n_frames))
-    phase_layer_air_slope = np.zeros((6, n_frames, n_wlen))
+    #phase_layer_air_slope = np.zeros((6, n_frames, n_wlen))
     # wlen *= 1e-6 #µm -> m
     
     if plot:
@@ -931,16 +990,16 @@ def op_corr_n_air( data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e
         for i_frame in range(n_frames):
             # Model the phase introduced by the extra layer of air
             phase_layer_air[i_base, i_frame] = 2 * np.pi * (n_air-1) * dPath[i_base, i_frame] / (wlen)
-            wl_mask_lin = (wlen > wlmin) & (wlen < wlmax)
-            wlm         = wlen[wl_mask_lin]
-            phasem      = phase_layer_air[i_base, i_frame, wl_mask_lin]
-            slope[i_base, i_frame] = np.sum((phasem-phasem.mean())*(1/wlm-np.mean(1/wlm))) / np.sum((1/wlm-np.mean(1/wlm))**2)
-            phase_layer_air_slope[i_base, i_frame] = phase_layer_air[i_base, i_frame] - slope[i_base, i_frame] / (wlen)
+            #wl_mask_lin = (wlen > wlmin) & (wlen < wlmax)
+            #wlm         = wlen[wl_mask_lin]
+            #phasem      = phase_layer_air[i_base, i_frame, wl_mask_lin]
+            #slope[i_base, i_frame] = np.sum((phasem-phasem.mean())*(1/wlm-np.mean(1/wlm))) / np.sum((1/wlm-np.mean(1/wlm))**2)
+            #phase_layer_air_slope[i_base, i_frame] = phase_layer_air[i_base, i_frame] - slope[i_base, i_frame] / (wlen)
 
             # Correct the achromatic phase
             cfobs = cfdem[i_base+1,i_frame]
-            corr  = np.exp(1j * phase_layer_air_slope[i_base, i_frame])
-            cfcorr = cfobs * np.conj(corr)
+            #corr  = np.exp(1j * phase_layer_air_slope[i_base, i_frame])
+            cfcorr = cfobs #* np.conj(corr)
             
             if plot :
                 phiObs= np.angle(cfobs)
@@ -958,6 +1017,19 @@ def op_corr_n_air( data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e
     if plot:
         plt.show()
       
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = data['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    data['hdr'][f'HIERARCH PROC{count}'] = 'op_corr_n_air'
+    data['hdr'][f'HIERARCH PROC{count} CFIN'] = cfin
+    data['hdr'][f'HIERARCH PROC{count} WLMIN'] = wlmin
+    data['hdr'][f'HIERARCH PROC{count} WLMAX'] = wlmax
+    
     return data, phase_layer_air_slope
 
 ################################################################################
