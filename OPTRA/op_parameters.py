@@ -11,17 +11,23 @@ import os
 ################# GLOBAL PARAMETERS ##################
 
 # PLOT'S COLORS
-COLORS10D=['#1f77b4',  # blue
-        '#ff7f0e',  # orange
-        '#2ca02c',  # green
-        '#d62728',  # red
-        '#9467bd',  # purple
-        '#8c564b',  # brown
-        '#e377c2',  # pink
-        '#7f7f7f',  # gray
-        '#bcbd22',  # yellow-green
-        '#17becf'   # cyan
-    ]
+COLORS10D = [
+    '#ff40e0',  # flashy pink
+    '#808000',  # olive
+    '#000080',  # navy
+    '#ff7f0e',  # orange
+    '#2ca02c',  # green
+    '#008080',  # teal
+    '#ff0000',  # red
+    '#00bb00',  # green
+    '#0000ff',  # blue
+    '#800000',  # maroon
+    '#006400',  # dark green
+    '#00bfff',  # deep sky blue 
+    '#9467bd',  # purple
+    '#32cd32',  # lime green
+    '#dda0dd'  # plum
+]
 COLORS7D = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', '#F5FF33']
 COLORS6D = ['red','blue', 'lightgreen', 'orange', 'purple', 'cyan']
 
