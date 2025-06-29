@@ -34,7 +34,7 @@ plotRaw     = plot
 plotCorr    = plot
 plotPist    = plot
 
-verbose = plot
+verbose = True
 plotCoverage = plot
 plotSNR      = plot
 frame        = plot
@@ -152,32 +152,32 @@ for ifile, obsfile in enumerate(starfiles):
     op_snr_theory(cfdata)
     #########################################################
     if 1:
-        cfdata, vis2, mask = op_extract_simplevis2(cfdata, verbose=verbose, plot=1)
-        
-    if plotDsp:
-        #print(mask)
-        #print(~mask)
-        notvis2 = np.ma.masked_array(np.ma.getdata(vis2), ~mask)
-        allvis2 = np.ma.getdata(vis2)
-        
-        #print('Shape of vis2:', vis2.shape)
-        #print('Shape of notvis2:', notvis2.shape)
+        cfdata, vis2 = op_extract_simplevis2(cfdata, verbose=verbose, plot=1)
+            
+        if plotDsp:
+            #print(mask)
+            #print(~mask)
+            notvis2 = np.ma.masked_array(np.ma.getdata(vis2), ~mask)
+            allvis2 = np.ma.getdata(vis2)
+            
+            #print('Shape of vis2:', vis2.shape)
+            #print('Shape of notvis2:', notvis2.shape)
 
-        fig0, ax0 = plt.subplots(7, 1, figsize=(8, 8), sharex=1, sharey=1)
-        #print('Shape of ax1:', ax0.shape)
-        for i in np.arange(7):
-            #print('i:', i)
-            ax0[i].plot(wlen, allvis2[i,:], color='lightgray')
-            ax0[i].plot(wlen, vis2[i,:], color=colors[i])
-            ax0[i].set_ylabel(f'vis2 {i}')
+            fig0, ax0 = plt.subplots(7, 1, figsize=(8, 8), sharex=1, sharey=1)
+            #print('Shape of ax1:', ax0.shape)
+            for i in np.arange(7):
+                #print('i:', i)
+                ax0[i].plot(wlen, allvis2[i,:], color='lightgray')
+                ax0[i].plot(wlen, vis2[i,:], color=colors[i])
+                ax0[i].set_ylabel(f'vis2 {i}')
 
-        #print('Basename of starfile:', basen)
-        plt.suptitle(r'Visibility as a function of $\lambda$, {basen}')
-        plt.xlim(np.min(wlen), np.max(wlen))
-        plt.ylim(-0.1, 1.1)
-        #print(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
-        plt.savefig(os.path.expanduser(outdir+f'{basen}_vis2.png'))
-        #plt.show()
+            #print('Basename of starfile:', basen)
+            plt.suptitle(r'Visibility as a function of $\lambda$, {basen}')
+            plt.xlim(np.min(wlen), np.max(wlen))
+            plt.ylim(-0.1, 1.1)
+            #print(os.path.expanduser(bbasedir+f'{basen}_vis2.png'))
+            plt.savefig(os.path.expanduser(outdir+f'{basen}_vis2.png'))
+            #plt.show()
 
     #########################################################
 
@@ -254,8 +254,7 @@ for ifile, obsfile in enumerate(starfiles):
     oitarget     = op_gen_oitarget(cfdem, verbose=True, plot=False)
     oirray       = op_gen_oiarray(cfdem, verbose=True, plot=False)
     oivis        = op_gen_oivis(cfdem, cfin='CF_piston_corr', verbose=verbose, plot=False)
-    #oivis2       = op_gen_oivis2(cfdem, v2in='simplevis2', verbose=verbose, plot=False)
-    oivis2=None
-    op_write_oifits(outfilename, hdr, oiwavelength, oirray, oitarget, oivis, oivis2=oivis2, oit3=None)
+    oivis2        = op_gen_oivis2(cfdem, v2in='simplevis2', verbose=verbose, plot=False)
+    op_write_oifits(outfilename, hdr, oiwavelength, oirray, oitarget, oivis, oivis2, oit3=None)
     
     break
