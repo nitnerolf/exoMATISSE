@@ -25,8 +25,8 @@ def op_compute_vis_bias(cfdata, verbose=True, plot=False):
     nfreq  = np.shape(psd0)[2]
     nfreq2 = int(nfreq/2)
     psd    = psd0[...,0:nfreq2]
-    
     zone     = cfdata['CF']['zone'] # mask to extract each peak
+    
     if verbose:
         print('Shape of psd:',   psd.shape)
         print('Shape of zone:', zone.shape)
@@ -37,7 +37,7 @@ def op_compute_vis_bias(cfdata, verbose=True, plot=False):
         print('Shape of avg psd:',   avgPSD.shape)
     if plot:
         plt.figure()
-        plt.imshow(avgPSD, vmax=2e5)
+        plt.imshow(avgPSD, vmax=5e5)
         plt.title('Average PSD')
         plt.xlabel('Frequency')
         plt.ylabel('Wavelength index')
@@ -49,19 +49,18 @@ def op_compute_vis_bias(cfdata, verbose=True, plot=False):
     
     if plot:
         plt.figure()
-        plt.imshow(bkPSDm, vmax=2e5)
+        plt.imshow(bkPSDm, vmax=5e5)
         plt.show()
     
     #background = np.mean(bkPSDm, axis=1) # Average on the PSD pixels
     background = np.ma.median(bkPSDm, axis=1) # Average on the PSD pixels
     #background = stats.trim_mean(bkPSDm, axis=1, proportiontocut=0.1)
     
-    iwlen=560
-    iwlen=400
-    iwlen=60
-    iwlen=1289
-    
     if plot:
+        iwlen=560
+        iwlen=400
+        iwlen=60
+        iwlen=1289
         plt.figure()
         plt.plot(avgPSD[iwlen,:])
         plt.axhline(background[iwlen],color='red')
@@ -70,11 +69,8 @@ def op_compute_vis_bias(cfdata, verbose=True, plot=False):
         plt.xlabel('Frequency')
         plt.ylabel('PSD')
         plt.show()
-    
-    
     if verbose:
         print('Shape of background:', background.shape)
-    
     
     cfdata['VIS2']['bias'] = background
     return cfdata
@@ -102,14 +98,14 @@ def op_extract_simplevis2(cfdata, verbose=True, plot=False):
     nframes = psd.shape[0]
     nwlen   = psd.shape[1]
     nfreq   = psd.shape[2]
-    nbases  = zone.shape[0]
+    nbases  = zone.shape[0]-1 # The first zone is the photometry
     if verbose:
         print('Number of frames:', nframes)
         print('Number of bases:', nbases)
         print('Number of frequencies:', nfreq)
         print('Number of wavelengths:', nwlen)
     
-    pkPSD  = psd[:,None,...] * zone[None,...]
+    pkPSD  = psd[None,...] * zone[:,None,...]
     pkPSDm = np.ma.array(pkPSD, mask=(pkPSD==0)) # Masked peak PSD
     #pkPSDm[:,0,...] /= nbases * 2 # Renormalize the first zone to the same scale as the others
     if plot:
@@ -122,9 +118,10 @@ def op_extract_simplevis2(cfdata, verbose=True, plot=False):
         print('Shape of pkPSDm:',     pkPSDm.shape)
    
     simpleCF2   = np.sum(pkPSDm - background[None,None,:,None], axis=-1)
-    simpleflux2 = simpleCF2[:,0,...]
-    simplevis2  = np.mean(simpleCF2, axis=0) / np.mean(simpleflux2, axis=0)[None,:]
-    simplevis2[1:,...] *= nbases  # Renormalize visibilities
+    simpleflux2 = simpleCF2[0,...]
+    #simplevis2  = np.mean(simpleCF2, axis=0) / np.mean(simpleflux2, axis=0)[None,:]
+    simplevis2  = simpleCF2[1:,...] / simpleflux2[None,:]
+    simplevis2 *= nbases  # Renormalize visibilities
     if verbose:
         print('Shape of simpleCF2:', simpleCF2.shape)
         print('Shape of simpleflux2:', simpleflux2.shape)
@@ -150,18 +147,19 @@ def op_extract_simplevis2(cfdata, verbose=True, plot=False):
     if plot:
         plt.figure()
         plt.title(f'Visibilities')
-        for i in np.arange(7):    
-            plt.plot(simplevis2[i,:])
+        for i in np.arange(nbases):  
+            for j in np.arange(nframes):    
+                plt.plot(simplevis2[i,j,:])
+                #plt.legend(f'V2_{i+1}')
         plt.ylim(-0.1, 1.1)
         plt.xlabel('Wavelength index')
         plt.ylabel('Squared Visibility')
-        plt.legend([f'V2_{i+1}' for i in range(7)])
         plt.grid()
         plt.show()
     
     cfdata['VIS2'] = {}
-    cfdata['VIS2']['simplevis2'] = simplevis2
-    cfdata['VIS2']['simpleCF2'] = simpleCF2
+    cfdata['VIS2']['simplevis2']  = simplevis2
+    cfdata['VIS2']['simpleCF2']   = simpleCF2
     cfdata['VIS2']['simpleflux2'] = simpleflux2
     
     return cfdata,simplevis2
@@ -179,6 +177,7 @@ def op_correct_balance_simplevis2(cfdata, verbose=True, plot=False):
 def op_compute_vfactor(cfdata, verbose=True, plot=False):
     # Find FT file corresponding to the science file
     scifile = cfdata['hdr']['filename']
+    #Find the FT file associated to the science file
     basedir = os.path.dirname(scifile)
     ftfile = None
     
