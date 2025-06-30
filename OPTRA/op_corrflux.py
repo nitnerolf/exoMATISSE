@@ -30,6 +30,7 @@ from scipy.ndimage   import uniform_filter1d
 import astropy.constants as cst 
 from astropy.convolution import convolve, Gaussian1DKernel
 from op_parameters import *
+import json
 
 ################################################################################
 # Apodization function
@@ -91,6 +92,16 @@ def op_apodize(data, verbose=True,plot=False, frac=0.85):
         for i in np.arange(nframes):
             data['PHOT'][key]['data'][i] *= centered_win_pht
             
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = data['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    data['hdr'][f'HIERARCH PROC{count}'] = 'op_apodize'
+    data['hdr'][f'HIERARCH PROC{count} FRAC'] = frac
     return data
 
 ################################################################################
@@ -119,6 +130,16 @@ def op_calc_fft(data, verbose=True):
         print('Shape of sum_dsp_intf:', sum_dsp_intf.shape)
     
     data['FFT'] = {'data': fft_intf, 'magnitude': fft_intf_magnitude, 'dsp': dsp_intf, 'sum_dsp': sum_dsp_intf, 'sdi': sdi_resh, 'freqs': freqs}
+    
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = data['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    data['hdr'][f'HIERARCH PROC{count}'] = 'op_calc_fft'
     return data
 
 ################################################################################
@@ -128,8 +149,8 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
         print('Computing wavelength map...')
     # Compute wavelength map from shift map
     fh        = fits.open(shift_map)
-    shift_map = fh['SHIFT_MAP'].data
-    disp      = shift_map['DISP'].astype(float)
+    shift_map_data = fh['SHIFT_MAP'].data
+    disp      = shift_map_data['DISP']
     if verbose:
         print('shape of disp:', np.shape(disp))
         print('disp:', disp)
@@ -163,6 +184,16 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
     rawdata['OI_WAVELENGTH']['EFF_BAND'] = band * 1e-6 # Convert to meters
     rawdata['OI_WAVELENGTH']['EFF_REF']  = rawdata['hdr']['HIERARCH ESO SEQ DIL WL0'] * 1e-6
 
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = rawdata['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    rawdata['hdr'][f'HIERARCH PROC{count}'] = 'op_get_wlen'
+    rawdata['hdr'][f'HIERARCH PROC{count} FILE'] = shift_map
     return wlen * 1e-6
 
 ################################################################################
@@ -184,6 +215,7 @@ def op_get_peaks_position(fftdata, instrument=op_MATISSE_L, verbose=True):
     if verbose:
         print('Shape of peak:', np.shape(peak))
         print('Peak:', peak)
+        
     return peak, peakwd
 
 ################################################################################
@@ -249,6 +281,16 @@ def op_extract_CF(fftdata, peaks, peakswd, verbose=True, plot=False):
     if verbose:
         print('Shape of FT:', np.shape(FT))
     fftdata['CF'] = {'data': FT, 'zone': ZON, 'weight': WGT, 'CF': CF, 'CF_nbpx': NIZ, 'bckg': bck}
+    
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = fftdata['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    fftdata['hdr'][f'HIERARCH PROC{count}'] = 'op_extract_CF'
     return fftdata
 
 ################################################################################
@@ -314,6 +356,15 @@ def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
         print('Shape of phasor:', np.shape(phasor))
         print('Shape of CF:', np.shape(CFdata['CF']['CF']))
         
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = CFdata['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    CFdata['hdr'][f'HIERARCH PROC{count}'] = 'op_demodulate'
     return CFdata
 
 ################################################################################
@@ -472,10 +523,10 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
         #########################################################
         # Bin the data
         
-    if bindata: 
-        bdata = op_bin_data(bdata, cfin='CF_piston_corr2', verbose=verbose, plot=plot)
-    else:
-        bdata = op_bin_data(bdata, cfin='CF_reord', verbose=verbose, plot=plot)
+    # if bindata: 
+    #     bdata = op_bin_data(bdata, cfin='CF_piston_corr2', verbose=verbose, plot=plot)
+    # else:
+    #     bdata = op_bin_data(bdata, cfin='CF_reord', verbose=verbose, plot=plot)
         
     
     
@@ -612,6 +663,15 @@ def op_reorder_baselines(data, cfin='CF_demod'):
 
     data['CF']['CF_reord'] = cfdata_reordered
 
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = data['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    data['hdr'][f'HIERARCH PROC{count}'] = 'op_reorder_baselines'
     return data, cfdata_reordered
 
 ################################################################################
@@ -716,9 +776,26 @@ def op_get_amb_conditions(data, verbose=True):
 
 ##############################################
 # Function to compute the CO2 concentration
-def op_compute_nco2(bdata, filedir = './n_co2/',verbose = True, plot = False):
-    """ Compute the CO2 concentration based on 
+def op_compute_nco2(bdata,verbose = False, plot = False):
+    """ Compute the CO2 concentration based on the scripps CO2 Program made by the scripps institution of oceanography.
+        The slope and the intercept should be updated using op_update_nco2 and changing the data in op_parameters
     """
+    hdr = bdata['hdr']
+    year = Time(hdr['DATE-OBS']).decimalyear
+    N_CO2 = SLOPE_CO2 * year + INTERCEPT_CO2
+    return N_CO2
+
+##############################################
+# Function to update the slope and the intercept of NCO2
+def op_update_nco2(year_mask = 2015,verbose = False, plot = False):
+    """update the CO2 concentration regression of the scripps CO2 programs. 
+        For an optimal update, please reload the data from 
+        https://scrippsco2.ucsd.edu/data/atmospheric_co2/alt.html
+    """
+    
+    global CO2_SAVED
+    filedir = os.path.dirname(os.path.abspath(__file__)) + '/n_co2/'
+    print('old values : slope = ',CO2_SAVED['slope'], 'intercept =', CO2_SAVED['intercept'])
     stations = {'alt' : 'Alert, NWT, Canada',
                 'ptb': 'Utqiagvik, Alaska',
                 'ljo': 'La Jolla Pier, California',
@@ -731,18 +808,16 @@ def op_compute_nco2(bdata, filedir = './n_co2/',verbose = True, plot = False):
                 'nzd': 'Baring Head, New Zealand',
                 'spo': 'South Pole'
                 }
-    
-    hdr = bdata['hdr']
     files = os.listdir(filedir)
-    year = Time(hdr['DATE-OBS']).decimalyear
+    files = [f for f in files if '.csv' in f]
     slopes = []
     intercept = []
-    print(files)
+    
     for file in files:
         station = file.split('.')[0][-3:]
         dates = []
         co2_values = []
-        print(file)
+        
         file = filedir + file
         with open(os.path.expanduser(file), newline='') as csvfile:
             lines = [line for line in csvfile if not line.strip().startswith('"') ]
@@ -763,7 +838,7 @@ def op_compute_nco2(bdata, filedir = './n_co2/',verbose = True, plot = False):
         slope_all = p_all[1]
         
         # Régression sur les 10 annees precedent l'observation
-        recent_mask = dates  - (year - 10) >= 0 
+        recent_mask = dates  - (year_mask) >= 0 
         dates_recent = dates[recent_mask]
         if plot:
             plt.figure(figsize=(12, 6))
@@ -776,7 +851,7 @@ def op_compute_nco2(bdata, filedir = './n_co2/',verbose = True, plot = False):
             slopes.append(slope_recent)
             intercept.append(p_recent[0])
             if plot:
-                plt.plot(dates_recent, p_recent(dates_recent), label=f"Régression - jusqu'a {int(year - 10)}, {slope_recent:.2f} ppm/an", color="green")
+                plt.plot(dates_recent, p_recent(dates_recent), label=f"Régression - jusqu'a {year_mask}, {slope_recent:.2f} ppm/an", color="green")
             
             
         #     print("Ordonnees a l'origine :", model_recent.intercept_, "ppm")
@@ -792,11 +867,15 @@ def op_compute_nco2(bdata, filedir = './n_co2/',verbose = True, plot = False):
             plt.grid(True)
             plt.tight_layout()
             plt.show()
-    print(slopes, intercept)
-    N_CO2 = np.mean(slopes) * year + np.mean(intercept)
-    if verbose:
-        print('n_Co2 = ', N_CO2)
-    return N_CO2
+
+    CO2_SAVED['slope'] = np.mean(slopes)
+    CO2_SAVED['intercept'] = np.mean(intercept)
+    
+    with open(FICHIER_NCO2, 'w') as f:
+        json.dump(CO2_SAVED, f)
+    
+    print('new values : slope = ',CO2_SAVED['slope'], 'intercept =', CO2_SAVED['intercept'])
+    
 ##############################################
 # Function to compute the air refractive index
 def op_air_index(wlen, T, P, h, N_CO2=435, bands='all'):
@@ -906,7 +985,7 @@ def op_corr_n_air( data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e
     data['CF']['CF_chr_phase_corr'] = np.copy(cfdem)
     phase_layer_air = np.zeros((6, n_frames, n_wlen))
     slope = np.zeros((6, n_frames))
-    phase_layer_air_slope = np.zeros((6, n_frames, n_wlen))
+    #phase_layer_air_slope = np.zeros((6, n_frames, n_wlen))
     # wlen *= 1e-6 #µm -> m
     
     if plot:
@@ -919,16 +998,16 @@ def op_corr_n_air( data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e
             # Model the phase introduced by the extra layer of air
             print('Base:', i_base, 'Frame:', i_frame)
             phase_layer_air[i_base, i_frame] = 2 * np.pi * (n_air-1) * dPath[i_base, i_frame] / (wlen)
-            wl_mask_lin = (wlen > wlmin) & (wlen < wlmax)
-            wlm         = wlen[wl_mask_lin]
-            phasem      = phase_layer_air[i_base, i_frame, wl_mask_lin]
-            slope[i_base, i_frame] = np.sum((phasem-phasem.mean())*(1/wlm-np.mean(1/wlm))) / np.sum((1/wlm-np.mean(1/wlm))**2)
-            phase_layer_air_slope[i_base, i_frame] = phase_layer_air[i_base, i_frame] - slope[i_base, i_frame] / (wlen)
+            #wl_mask_lin = (wlen > wlmin) & (wlen < wlmax)
+            #wlm         = wlen[wl_mask_lin]
+            #phasem      = phase_layer_air[i_base, i_frame, wl_mask_lin]
+            #slope[i_base, i_frame] = np.sum((phasem-phasem.mean())*(1/wlm-np.mean(1/wlm))) / np.sum((1/wlm-np.mean(1/wlm))**2)
+            #phase_layer_air_slope[i_base, i_frame] = phase_layer_air[i_base, i_frame] - slope[i_base, i_frame] / (wlen)
 
             # Correct the achromatic phase
             cfobs = cfdem[i_base+1,i_frame]
-            corr  = np.exp(1j * phase_layer_air_slope[i_base, i_frame])
-            cfcorr = cfobs * np.conj(corr)
+            #corr  = np.exp(1j * phase_layer_air_slope[i_base, i_frame])
+            cfcorr = cfobs #* np.conj(corr)
             
             if plot :
                 phiObs= np.angle(cfobs)
@@ -947,6 +1026,19 @@ def op_corr_n_air( data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e
     if plot:
         plt.show()
       
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = data['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    data['hdr'][f'HIERARCH PROC{count}'] = 'op_corr_n_air'
+    data['hdr'][f'HIERARCH PROC{count} CFIN'] = cfin
+    data['hdr'][f'HIERARCH PROC{count} WLMIN'] = wlmin
+    data['hdr'][f'HIERARCH PROC{count} WLMAX'] = wlmax
+    
     return data, phase_layer_air_slope
 
 ################################################################################

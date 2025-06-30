@@ -61,7 +61,6 @@ def op_load_bpm(filename, verbose=False):
 def op_apply_bpm(rawdata, bpmap, verbose=False):
     if verbose:
         print('Applying bad pixel map...')
-    # Subtract sky from rawdata
     
     corner = rawdata['INTERF']['corner']
     naxis  = rawdata['INTERF']['naxis']
@@ -100,6 +99,16 @@ def op_apply_bpm(rawdata, bpmap, verbose=False):
             other[i],filtdata = op_interpolate_bad_pixels(other[i], wbpm)
             fdata.append(filtdata)
         rawdata['OTHER'][key]['data'] = other
+        
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = rawdata['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    rawdata['hdr'][f'HIERARCH PROC{count}'] = 'op_apply_bpm'
     return rawdata
 
 
@@ -118,8 +127,7 @@ def op_load_ffm(filename, verbose=False):
 def op_apply_ffm(rawdata, ffmap, verbose=False):
     if verbose:
         print('Applying flat field map...')
-    # Subtract sky from rawdata
-    
+        
     corner = rawdata['INTERF']['corner']
     naxis  = rawdata['INTERF']['naxis']
     intf   = rawdata['INTERF']['data']
@@ -155,6 +163,16 @@ def op_apply_ffm(rawdata, ffmap, verbose=False):
         for i in range(nframe):
             other[i] /= wffm
         rawdata['OTHER'][key]['data'] = other
+    
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = rawdata['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    rawdata['hdr'][f'HIERARCH PROC{count}'] = 'op_apply_ffm'
     return rawdata
 
 ##############################################
@@ -173,6 +191,17 @@ def op_subtract_sky(rawdata, skydata, verbose=False):
     rawdata['INTERF']['data'] -= skydata['INTERF']['data']
     for key in skydata['PHOT']:
         rawdata['PHOT'][key]['data'] -= skydata['PHOT'][key]['data']
+        
+        
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = rawdata['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    rawdata['hdr'][f'HIERARCH PROC{count}'] = 'op_subtract_sky'
     return rawdata
     
 ##############################################
@@ -219,6 +248,7 @@ def op_load_rawdata(filename, verbose=True):
     print(f'Loading raw data {filename}...')
     fh      =  fits.open(filename)
     data    = {'hdr': fh[0].header}
+    data['filename'] = filename
     nframes = len(fh['IMAGING_DATA'].data)
     nexp    = len(fh['IMAGING_DATA'].data)//6
     #print('nexp:',nexp)
@@ -760,6 +790,15 @@ def op_compute_uv(cfdata, plot ,instrument=op_MATISSE_L):
     cfdata['OI_BASELINES']['WCOORD'] = wCoord
     # cfdata['OI_BASELINES']['DL'] = sorted(list(delay.values()))
     
+    # Add a processing step to the header
+    count = 1
+    while(1):
+        try:
+            tmp = cfdata['hdr'][f'HIERARCH PROC{count}']
+            count+=1
+        except:
+            break
+    cfdata['hdr'][f'HIERARCH PROC{count}'] = 'op_compute_uv'
     return cfdata  
 
 ##############################################
