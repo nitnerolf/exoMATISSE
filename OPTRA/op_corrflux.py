@@ -32,12 +32,18 @@ import astropy.constants as cst
 from astropy.convolution import convolve, Gaussian1DKernel
 from op_parameters import *
 import json
+import inspect
 
 ################################################################################
 # Apodization function
 def op_apodize(data, verbose=True,plot=False, frac=0.85):
-    if verbose:
-        print('Apodizing data...')
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']:
+        count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = 'op_apodize'
+    
     # Apply an apodizing window to the data
     nframes = np.shape(data['INTERF']['data'])[0]
     nwlen   = np.shape(data['INTERF']['data'])[1]
@@ -93,23 +99,20 @@ def op_apodize(data, verbose=True,plot=False, frac=0.85):
         for i in np.arange(nframes):
             data['PHOT'][key]['data'][i] *= centered_win_pht
             
-    # Add a processing step to the header
-    count = 1
-    while(1):
-        try:
-            tmp = data['hdr'][f'HIERARCH PROC{count}']
-            count+=1
-        except:
-            break
-    data['hdr'][f'HIERARCH PROC{count}'] = 'op_apodize'
     data['hdr'][f'HIERARCH PROC{count} FRAC'] = frac
     return data
 
 ################################################################################
 # compute the FFT of interferograms
 def op_calc_fft(data, verbose=True):
-    if verbose:
-        print('Computing FFT of interferograms...')
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']:
+        count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = 'op_calc_fft'
+    
     intf = data['INTERF']['data']
     nframe = np.shape(intf)[0] # Frames dimension
     nwlen  = np.shape(intf)[1] # Wavelength dimension
@@ -132,22 +135,19 @@ def op_calc_fft(data, verbose=True):
     
     data['FFT'] = {'data': fft_intf, 'magnitude': fft_intf_magnitude, 'dsp': dsp_intf, 'sum_dsp': sum_dsp_intf, 'sdi': sdi_resh, 'freqs': freqs}
     
-    # Add a processing step to the header
-    count = 1
-    while(1):
-        try:
-            tmp = data['hdr'][f'HIERARCH PROC{count}']
-            count+=1
-        except:
-            break
-    data['hdr'][f'HIERARCH PROC{count}'] = 'op_calc_fft'
     return data
 
 ################################################################################
 # compute the wavelength 
 def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
-    if verbose:
-        print('Computing wavelength map...')
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in rawdata['hdr']:
+        count += 1
+    rawdata['hdr'][f'HIERARCH PROC{count}'] = 'op_get_wlen'
+    
     # Compute wavelength map from shift map
     fh        = fits.open(shift_map)
     shift_map_data = fh['SHIFT_MAP'].data
@@ -185,25 +185,18 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
     rawdata['OI_WAVELENGTH']['EFF_BAND'] = band * 1e-6 # Convert to meters
     rawdata['OI_WAVELENGTH']['EFF_REF']  = rawdata['hdr']['HIERARCH ESO SEQ DIL WL0'] * 1e-6
 
-    # Add a processing step to the header
-    count = 1
-    while(1):
-        try:
-            tmp = rawdata['hdr'][f'HIERARCH PROC{count}']
-            count+=1
-        except:
-            break
-    rawdata['hdr'][f'HIERARCH PROC{count}'] = 'op_get_wlen'
-    rawdata['hdr'][f'HIERARCH PROC{count} FILE'] = shift_map
+    rawdata['hdr'][f'HIERARCH PROC{count} FILE'] = os.path.basename(shift_map)
     return wlen * 1e-6
 
 ################################################################################
 # get the peaks position
 def op_get_peaks_position(fftdata, instrument=op_MATISSE_L, verbose=True):
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    
     wlen = fftdata['OI_WAVELENGTH']['EFF_WAVE'] *1e6 # Convert to micrometers
     if verbose:
         print('Instrument',instrument)
-    if instrument['name'] == 'MATISSE_L':
+    if instrument['name'] == 'MATISSE_HAWAII-2RG':
         peaks =       np.arange(7)
         interfringe = instrument['interfringe']
         peakswd =     instrument['peakwd']
@@ -222,8 +215,14 @@ def op_get_peaks_position(fftdata, instrument=op_MATISSE_L, verbose=True):
 ################################################################################
 # extract the correlated flux
 def op_extract_CF(fftdata, peaks, peakswd, verbose=True, plot=False):
-    if verbose:
-        print('Extracting correlated flux...')
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in fftdata['hdr']:
+        count += 1
+    fftdata['hdr'][f'HIERARCH PROC{count}'] = 'op_extract_CF'
+    
     bck    = np.copy(fftdata['FFT']['data'])
     nfreq  = np.shape(bck)[2]
     nfreq2 = int(nfreq/2)
@@ -283,36 +282,27 @@ def op_extract_CF(fftdata, peaks, peakswd, verbose=True, plot=False):
         print('Shape of FT:', np.shape(FT))
     fftdata['CF'] = {'data': FT, 'zone': ZON, 'weight': WGT, 'CF': CF, 'CF_nbpx': NIZ, 'bckg': bck}
     
-    # Add a processing step to the header
-    count = 1
-    while(1):
-        try:
-            tmp = fftdata['hdr'][f'HIERARCH PROC{count}']
-            count+=1
-        except:
-            break
-    fftdata['hdr'][f'HIERARCH PROC{count}'] = 'op_extract_CF'
     return fftdata
 
 ################################################################################
 # demodulate MATISSE fringes
 def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    
     wlen = CFdata['OI_WAVELENGTH']['EFF_WAVE'] * 1e6  # Convert to micrometers
     
-    if verbose:
-        print('Demodulating correlated flux...')
     npeaks  = np.shape(CFdata['CF']['data'])[0]
     nframes = np.shape(CFdata['CF']['data'])[1]
     nwlen   = np.shape(CFdata['CF']['data'])[2]
     npix    = np.shape(CFdata['CF']['data'])[3]
-    if verbose:
+    if verbose>1:
         print('npeaks:', npeaks)
         print('nframes:', nframes)
         print('nwlen:', nwlen)
         print('npix:', npix)
         
     localopd = CFdata['INTERF']['localopd']
-    if verbose == 2:
+    if verbose>1:
         print('Shape of localopd:', np.shape(localopd))
     
     ntel = 4
@@ -323,11 +313,11 @@ def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
     ibase=0
     for itel in np.arange(ntel-1):
         for jtel in np.arange(ntel - itel - 1) + itel + 1:
-            if verbose:
+            if verbose>1:
                 print('ij:',itel,jtel)
             loij = 1 * (localopd[:,teli[ibase]-1] - localopd[:,telj[ibase]-1])
             localopdij.append(loij)
-            if verbose:
+            if verbose>1:
                 print('ij:',itel,jtel, 'localopdij:', loij)
             ibase+=1
     localopdij = np.array(localopdij)
@@ -342,7 +332,7 @@ def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
     CFdata['CF']['data_demod'][0,...]  = CFdata['CF']['data'][0,...]
     CFdata['CF']['data_demod'][1:,...] = CFdata['CF']['data'][1:,...] * np.conjugate(phasor[...,None])
     
-    if verbose: 
+    if verbose>1: 
         print('wlen:', wlen)
     
     if plot:
@@ -353,32 +343,26 @@ def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
             plt.plot(np.angle(phasor[i,iframe,:]),color=colors[i])
         plt.show()
     
-    if verbose:
+    if verbose>1:
         print('Shape of phasor:', np.shape(phasor))
         print('Shape of CF:', np.shape(CFdata['CF']['CF']))
         
     # Add a processing step to the header
     count = 1
-    while(1):
-        try:
-            tmp = CFdata['hdr'][f'HIERARCH PROC{count}']
-            count+=1
-        except:
-            break
+    while f'HIERARCH PROC{count}' in CFdata['hdr']:
+        count += 1
     CFdata['hdr'][f'HIERARCH PROC{count}'] = 'op_demodulate'
     return CFdata
 
 ################################################################################
 # Function to compute correlated flux
 def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, corr_opd=True ):
-    if verbose:
-        print('Computing correlated flux...')
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
         
     #########################################################
     # Get the wavelength
     wlen = op_get_wlen(shiftfile, bdata, verbose=verbose)
-    if verbose:
-        print(wlen)
+    if verbose>1: print(wlen)
     
     #########################################################
     # Apodization
@@ -399,7 +383,7 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
         
     #########################################################
     #compute fft
-    bdata = op_calc_fft(bdata , verbose = verbose)
+    bdata = op_calc_fft(bdata , verbose=verbose)
 
     if plot:
         # Compute the average of intf after apodization
@@ -420,7 +404,7 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
 
     #########################################################
     # Get the wavelength
-    wlen = op_get_wlen(shiftfile, fdata, verbose=verbose, plot=False)
+    wlen = op_get_wlen(shiftfile, bdata, verbose=verbose, plot=False)
     if verbose:
         print(wlen)
 
@@ -428,8 +412,7 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
     #########################################################
     # Get the peaks position
     peaks, peakswd = op_get_peaks_position(bdata, verbose=verbose)
-    if verbose:
-        print(wlen)
+    if verbose>1: print(wlen)
 
     colors = COLORS7D
 
@@ -451,10 +434,8 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
     #########################################################
     # Extract the correlated flux
     bdata = op_extract_CF(bdata, peaks, peakswd, verbose=verbose)
-    if verbose:
-        print(wlen)
+    if verbose>1: print(wlen)
     
-        
     if plot:
         iframe = 0
         iwlen = 70
@@ -480,20 +461,18 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
     
     #########################################################
     # Reorder baselines
-    bdata, cfdata_reordered = op_reorder_baselines(bdata)
+    bdata, cfdata_reordered = op_reorder_baselines(bdata, verbose=verbose)
     
     
     #########################################################
     # Get the air refractive index
-    Temp, Pres, hum, dPath    = op_get_amb_conditions(bdata)
-    if verbose:
-        print('Temp:', Temp, 'Pres:', Pres, 'hum:', hum)
+    Temp, Pres, hum, dPath    = op_get_amb_conditions(bdata, verbose=verbose)
+    if verbose: print('Temp:', Temp, 'Pres:', Pres, 'hum:', hum)
         
     N_CO2 = op_compute_nco2(bdata)
     
     n_air = op_air_index(wlen, Temp, Pres, hum, N_CO2=N_CO2, bands='all')
-    if verbose:
-        print('n_air:', n_air)
+    if verbose>1: print('n_air:', n_air)
         
     #########################################################
     # Correct the phase for air path
@@ -529,6 +508,8 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
     # else:
     #     bdata = op_bin_data(bdata, cfin='CF_reord', verbose=verbose, plot=plot)
         
+    bdata=op_get_error_vis(bdata,plot=plot)
+    op_snr_theory(bdata)
     
     
    
@@ -555,8 +536,7 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
 # The BCD inverts S1 <-> S2 and S3 <-> S4
 # 
 def op_sortout_peaks(peaksin, bdata, instrument=op_MATISSE_L, verbose=False):
-    if verbose:
-        print('Sorting out peaks...')
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
         
     bcd1 = bdata['hdr']['HIERARCH ESO INS BCD1 ID']
     bcd2 = bdata['hdr']['HIERARCH ESO INS BCD2 ID']
@@ -629,7 +609,9 @@ def op_sortout_peaks(peaksin, bdata, instrument=op_MATISSE_L, verbose=False):
 
 ################################################################################
 # reorder baselines 
-def op_reorder_baselines(data, cfin='CF_demod'):
+def op_reorder_baselines(data, cfin='CF_demod', verbose=True):
+    if verbose:
+        print(f"executing --> {inspect.currentframe().f_code.co_name}")
 
     cfdata = data['CF'][cfin]
     # print(cfdata.shape) #base/frame/wl 7/6/1560
@@ -666,18 +648,16 @@ def op_reorder_baselines(data, cfin='CF_demod'):
 
     # Add a processing step to the header
     count = 1
-    while(1):
-        try:
-            tmp = data['hdr'][f'HIERARCH PROC{count}']
-            count+=1
-        except:
-            break
+    while f'HIERARCH PROC{count}' in data['hdr']:
+        count += 1
     data['hdr'][f'HIERARCH PROC{count}'] = 'op_reorder_baselines'
     return data, cfdata_reordered
 
 ################################################################################
 # Function to get the ambient conditions
 def op_get_amb_conditions(data, verbose=True):
+    if verbose:
+        print(f"executing --> {inspect.currentframe().f_code.co_name}")
 
     # Relative humidity
     humidity = data['hdr']['ESO ISS AMBI RHUM'] / 100
@@ -781,6 +761,8 @@ def op_compute_nco2(bdata,verbose = False, plot = False):
     """ Compute the CO2 concentration based on the scripps CO2 Program made by the scripps institution of oceanography.
         The slope and the intercept should be updated using op_update_nco2 and changing the data in op_parameters
     """
+    if verbose:
+        print(f"executing --> {inspect.currentframe().f_code.co_name}")
     hdr = bdata['hdr']
     year = Time(hdr['DATE-OBS']).decimalyear
     N_CO2 = SLOPE_CO2 * year + INTERCEPT_CO2
@@ -793,6 +775,8 @@ def op_update_nco2(year_mask = 2015,verbose = False, plot = False):
         For an optimal update, please reload the data from 
         https://scrippsco2.ucsd.edu/data/atmospheric_co2/alt.html
     """
+    if verbose:
+        print(f"executing --> {inspect.currentframe().f_code.co_name}")
     
     global CO2_SAVED
     filedir = os.path.dirname(os.path.abspath(__file__)) + '/n_co2/'
@@ -879,7 +863,7 @@ def op_update_nco2(year_mask = 2015,verbose = False, plot = False):
     
 ##############################################
 # Function to compute the air refractive index
-def op_air_index(wlen, T, P, h, N_CO2=435, bands='all'):
+def op_air_index(wlen, T, P, h, N_CO2=435, bands='all', verbose=True):
     """ Compute the refractive index as a function of wavelength at a given temperature,
         pressure, relative humidity and CO2 concentration, using Equation (5) of Voronin & Zheltikov (2017).
         
@@ -897,6 +881,8 @@ def op_air_index(wlen, T, P, h, N_CO2=435, bands='all'):
         Output:
         - n_air: array of refractive indices at each wl value.
 """
+    if verbose:
+        print(f"executing --> {inspect.currentframe().f_code.co_name}")
     wl = wlen * 1e6 # m -> µm
 
     ## Characteristic wavelengths (microns)
@@ -967,8 +953,7 @@ def op_air_index(wlen, T, P, h, N_CO2=435, bands='all'):
 ################################################################################
 # Function to correct for the chromatic phase
 def op_corr_n_air( data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e-6, verbose=False, plot=False):
-    if verbose:
-        print('Correcting for the chromatic phase...')
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
 
     #data, cfdem = op_reorder_baselines(data)
     cfdem = data['CF'][cfin]
@@ -980,14 +965,18 @@ def op_corr_n_air( data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e
     n_wlen_0 = np.shape(cfdem)[2]
     n_wlen = len(wlen)
     
-    if verbose:
-        print('n_bases:', n_bases, 'n_frames:', n_frames, 'n_wlen_0:', n_wlen_0, 'n_wlen:', n_wlen)
+    # Use only the air index variation in the range wlmin-wlmax
+    wl_mask_lin = (wlen > wlmin) & (wlen < wlmax)
+    wlm         = wlen[wl_mask_lin]
+    var_n_air = n_air - np.mean(n_air[wl_mask_lin])
+    if verbose>1: print('var_n_air:', var_n_air)
+    
+    if verbose: print('n_bases:', n_bases, 'n_frames:', n_frames, 'n_wlen_0:', n_wlen_0, 'n_wlen:', n_wlen)
 
     data['CF']['CF_chr_phase_corr'] = np.copy(cfdem)
-    phase_layer_air = np.zeros((6, n_frames, n_wlen))
+    phase_layer = phase_layer_air_slope = np.zeros((6, n_frames, n_wlen))
     slope = np.zeros((6, n_frames))
     #phase_layer_air_slope = np.zeros((6, n_frames, n_wlen))
-    # wlen *= 1e-6 #µm -> m
     
     if plot:
         fig1, ax1 = plt.subplots(6, 2, figsize=(8, 8), sharex=1, sharey=0)
@@ -997,18 +986,16 @@ def op_corr_n_air( data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e
 
         for i_frame in range(n_frames):
             # Model the phase introduced by the extra layer of air
-            print('Base:', i_base, 'Frame:', i_frame)
-            phase_layer_air[i_base, i_frame] = 2 * np.pi * (n_air-1) * dPath[i_base, i_frame] / (wlen)
-            #wl_mask_lin = (wlen > wlmin) & (wlen < wlmax)
-            #wlm         = wlen[wl_mask_lin]
+            #print('Base:', i_base, 'Frame:', i_frame)
+            phase_layer_air    = 2 * np.pi * var_n_air * dPath[i_base, i_frame] / (wlen)
             #phasem      = phase_layer_air[i_base, i_frame, wl_mask_lin]
             #slope[i_base, i_frame] = np.sum((phasem-phasem.mean())*(1/wlm-np.mean(1/wlm))) / np.sum((1/wlm-np.mean(1/wlm))**2)
             #phase_layer_air_slope[i_base, i_frame] = phase_layer_air[i_base, i_frame] - slope[i_base, i_frame] / (wlen)
 
-            # Correct the achromatic phase
+            # Correct the chromatic phase
             cfobs = cfdem[i_base+1,i_frame]
-            #corr  = np.exp(1j * phase_layer_air_slope[i_base, i_frame])
-            cfcorr = cfobs #* np.conj(corr)
+            corr  = np.exp(1j * phase_layer_air)
+            cfcorr = cfobs * np.conj(corr)
             
             if plot :
                 phiObs= np.angle(cfobs)
@@ -1029,24 +1016,19 @@ def op_corr_n_air( data, n_air, dPath, cfin='CF_reord', wlmin=3.3e-6, wlmax=3.7e
       
     # Add a processing step to the header
     count = 1
-    while(1):
-        try:
-            tmp = data['hdr'][f'HIERARCH PROC{count}']
-            count+=1
-        except:
-            break
+    while f'HIERARCH PROC{count}' in data['hdr']:
+        count += 1
     data['hdr'][f'HIERARCH PROC{count}'] = 'op_corr_n_air'
     data['hdr'][f'HIERARCH PROC{count} CFIN'] = cfin
     data['hdr'][f'HIERARCH PROC{count} WLMIN'] = wlmin
     data['hdr'][f'HIERARCH PROC{count} WLMAX'] = wlmax
     
-    return data, phase_layer_air_slope
+    return data, phase_layer_air
 
 ################################################################################
 # Function to get the residual piston on the correlated flux phase, via a FFT's method
 def op_get_piston_fft(data, cfin='CF_Binned', verbose=False, plot=False):
-    if verbose:
-        print('Calculating piston from FFT...')
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
 
     if cfin == 'CF_Binned':
         wlen         = data['OI_WAVELENGTH']['EFF_WAVE_Binned']
@@ -1066,13 +1048,11 @@ def op_get_piston_fft(data, cfin='CF_Binned', verbose=False, plot=False):
         
     step      = np.min(np.abs(dsigma))
     sigma_lin = np.arange(min(sigma), max(sigma), step)
-    if verbose:
-        print('cf shape:', cf.shape)
+    if verbose: print('cf shape:', cf.shape)
     n_base  = np.shape(cf)[0]
     n_frame = np.shape(cf)[1]
     n_wlen  = np.shape(cf)[2]
-    if verbose:
-        print('n_base:', n_base, 'n_frame:', n_frame, 'n_wlen:', n_wlen)
+    if verbose: print('n_base:', n_base, 'n_frame:', n_frame, 'n_wlen:', n_wlen)
 
     data['CF']['CF_sigma'] = np.zeros((cf.shape[0],cf.shape[1],sigma_lin.shape[0]), dtype=complex)
     OPD_lst = np.zeros((n_base,n_frame))
@@ -1125,12 +1105,21 @@ def op_get_piston_fft(data, cfin='CF_Binned', verbose=False, plot=False):
 
     data['CF']['piston_fft'] = OPD_lst
     data['CF']['pistons']    = OPD_lst
+    
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']:
+        count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = 'op_get_piston_fft'
+    data['hdr'][f'HIERARCH PROC{count} CFIN'] = cfin
+    
     return data, OPD_lst
 
 ################################################################################
 # Function to get the piston slope on the correlated flux phase
 def op_get_piston_slope(data, cfin='CF_Binned', wlenmin=3.1e-6, wlenmax=3.8e-6, verbose=False, plot=False):
     if verbose:
+        print(f"executing --> {inspect.currentframe().f_code.co_name}")
         print('Calculating piston slope...')
 
     if cfin == 'CF_Binned':
@@ -1168,6 +1157,13 @@ def op_get_piston_slope(data, cfin='CF_Binned', wlenmin=3.1e-6, wlenmax=3.8e-6, 
     slopes *= -(wlenmm**2) / (2 * np.pi) #rad/m -> µm
     data['CF']['piston_slope'] = slopes
     data['CF']['pistons'] = slopes
+    
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']:
+        count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = 'op_get_piston_slope'
+    data['hdr'][f'HIERARCH PROC{count} CFIN'] = cfin
 
     return data, slopes
 
@@ -1175,6 +1171,7 @@ def op_get_piston_slope(data, cfin='CF_Binned', wlenmin=3.1e-6, wlenmax=3.8e-6, 
 # Function to get the final piston using a chi2 minimization
 def op_get_piston_chi2(data, init_guess, wlenmin=3.2e-6, wlenmax=3.8e-6, cfin='CF_Binned', verbose=False, plot=False):
     if verbose:
+        print(f"executing --> {inspect.currentframe().f_code.co_name}")
         print('Calculating piston using chi2 minimization...')
 
     if cfin == 'CF_Binned':
@@ -1249,12 +1246,21 @@ def op_get_piston_chi2(data, init_guess, wlenmin=3.2e-6, wlenmax=3.8e-6, cfin='C
     print('OPD chi2:', pistons)
     
     data['CF']['pistons'] = -pistons
+    
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']:
+        count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = 'op_get_piston_chi2'
+    data['hdr'][f'HIERARCH PROC{count} CFIN'] = cfin
+    
     return data, pistons
 
 ################################################################################
 # Function to correct from the residual piston
 def op_corr_piston(data, cfin='CF_Binned', verbose=False, plot=False):
     if verbose:
+        print(f"executing --> {inspect.currentframe().f_code.co_name}")
         print('Correcting for the residual piston...')
 
     if cfin == 'CF_Binned':
@@ -1284,12 +1290,21 @@ def op_corr_piston(data, cfin='CF_Binned', verbose=False, plot=False):
         for i_base in range(n_bases):
             ax[i_base].plot(np.angle(data['CF']['CF_piston_corr'][i_base, 0]), color=colors[i_base])
         plt.show()
+    
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']:
+        count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = 'op_corr_piston'
+    data['hdr'][f'HIERARCH PROC{count} CFIN'] = cfin
  
     return data
 
 ################################################################################
 # Bin data
 def op_bin_data(data, binning=5, cfin='CF_achr_phase_corr', verbose=False, plot=False):
+    if verbose:
+        print(f"executing --> {inspect.currentframe().f_code.co_name}")
     wlen   = data['OI_WAVELENGTH']['EFF_WAVE']
     cfdem  = data['CF'][cfin]
     n_wlen = len(wlen)
@@ -1319,11 +1334,21 @@ def op_bin_data(data, binning=5, cfin='CF_achr_phase_corr', verbose=False, plot=
         plt.legend()
         plt.show()
 
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']:
+        count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = 'op_bin_data'
+    data['hdr'][f'HIERARCH PROC{count} CFIN'] = cfin
+    data['hdr'][f'HIERARCH PROC{count} BINNING'] = binning
+    
     return data
 
 ################################################################################
 # 
-def op_get_error_vis(data,cfin='CF_piston_corr2',plot=False):
+def op_get_error_vis(data,cfin='CF_piston_corr2',plot=False, verbose=True):
+    if verbose:
+        print(f"executing --> {inspect.currentframe().f_code.co_name}")
     colors = COLORS6D
     wlen   = data['OI_WAVELENGTH']['EFF_WAVE']
 
@@ -1401,7 +1426,7 @@ def op_get_error_vis(data,cfin='CF_piston_corr2',plot=False):
                         ax1[iFrame,1].set_ylabel(f'frame {iFrame+1} PHI (°)')
                         ax1[iFrame,1].set_ylim(-15,15)
                         
-                        for i in range(iFrame,iFrame+10):
+                        for i in range(iFrame,iFrame+5):
                             ax1[iFrame,0].plot(wlen,  amp[i], color=colors[iFrame],alpha=0.3)
                             ax1[iFrame,1].plot(wlen, np.degrees(phi[i]), color=colors[iFrame],alpha=0.3)
                             
@@ -1422,11 +1447,21 @@ def op_get_error_vis(data,cfin='CF_piston_corr2',plot=False):
     visPhiErr=np.reshape(np.swapaxes(visPhiErr, 0,1), (visPhiErr.shape[0]* visPhiErr.shape[1],visPhiErr.shape[2]))
     data['OI_BASELINES']['VISAMPERR']=np.real(visAmpErr)
     data['OI_BASELINES']['VISPHIERR']=np.real(visPhiErr)
+    
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']:
+        count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
+    data['hdr'][f'HIERARCH PROC{count} CFIN'] = cfin
+    
     return data
 
 ################################################################################
 # 
-def op_snr(wlen,vis,visAmpErr,visPhiErr,width,plot=False):
+def op_snr(wlen,vis,visAmpErr,visPhiErr,width,plot=False, verbose=True):
+    if verbose:
+        print(f"executing --> {inspect.currentframe().f_code.co_name}")
     visAmp = np.abs(vis)
     snr_amp = visAmp/visAmpErr-1 #TATULLI 2007
     snr_phi = np.abs(1/visPhiErr)
@@ -1456,11 +1491,14 @@ def op_snr(wlen,vis,visAmpErr,visPhiErr,width,plot=False):
         plt.tight_layout()
         # plt.savefig(os.path.expanduser(bbasedir+'Result/SNR/'+f'SNR_{window_length}_{polyorder}_{WL_err}.png'))
         plt.show()
+        
     return snr_amp,snr_phi
 
 ################################################################################
 #          
-def op_snr_theory(data,cfin = 'CF_piston_corr2',plot=False):
+def op_snr_theory(data,cfin = 'CF_piston_corr2',plot=False, verbose=True):
+    if verbose:
+        print(f"executing --> {inspect.currentframe().f_code.co_name}")
     wlen   = data['OI_WAVELENGTH']['EFF_WAVE']
     cf  = data['CF'][cfin][0]/4
     nframes = cf.shape[0]
@@ -1528,4 +1566,11 @@ def op_snr_theory(data,cfin = 'CF_piston_corr2',plot=False):
         plt.suptitle('theorical SNR \n ')
         plt.tight_layout()
         plt.show()
+        
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']:
+        count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
+    
     return snr

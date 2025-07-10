@@ -43,7 +43,7 @@ op_PIONIER   = {'name':        'PIONIER',
 #################################################
 
 
-op_MATISSE_L = {'name':        'MATISSE_L',
+op_MATISSE_L = {'name':        'MATISSE_HAWAII-2RG',
                 'band':        'L',
                 'ntel':        4,
                 'recombination': 'multiaxial_allinone',
@@ -54,7 +54,7 @@ op_MATISSE_L = {'name':        'MATISSE_L',
                 'bcd_offset':  [1,2,3,4,5,6],
                 'ron':         15}
 
-op_MATISSE_N = {'name':        'MATISSE_N',
+op_MATISSE_N = {'name':        'MATISSE_AQUARIUS',
                 'band':        'N',
                 'ntel': 4, 
                 'recombination': 'multiaxial_allinone',

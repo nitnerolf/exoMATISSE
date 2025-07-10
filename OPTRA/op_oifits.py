@@ -90,7 +90,7 @@ def op_gen_oitarget(cfdata, verbose=True, plot=False):
 
 ##############################################
 # 
-def op_gen_oiwavelength(cfdata, wlen_fin = 'EFF_WAVE_Binned' ,verbose=True, plot=False):
+def op_gen_oiwavelength(cfdata, wlen_fin='EFF_WAVE_Binned' ,verbose=True, plot=False):
     print('Generating OI_WAVELENGTH...')
     """
     Save the wavelength information in OIFITS format

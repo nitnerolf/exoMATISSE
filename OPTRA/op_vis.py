@@ -15,11 +15,26 @@ import matplotlib.pyplot as plt
 from op_instruments import *
 from scipy         import stats
 import os
+import inspect
 
 ################################################################################
 def op_compute_vis_bias(cfdata, verbose=True, plot=False):
+    #---------------------------------------------------
+    data = cfdata
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']: count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
+    #---------------------------------------------------
+        
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in cfdata['hdr']:
+        count += 1
+    cfdata['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
     print('Computing visibility bias')
-    verbose=True
+    
     # Put the sum of the PSD in the first row to the same scale as the other rows
     psd0     = np.abs(cfdata['FFT']['dsp'])
     nfreq  = np.shape(psd0)[2]
@@ -77,7 +92,15 @@ def op_compute_vis_bias(cfdata, verbose=True, plot=False):
     
 ################################################################################
 def op_extract_simplevis2(cfdata, verbose=True, plot=False):
-    
+    #---------------------------------------------------
+    data = cfdata
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']: count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
+    #---------------------------------------------------
+            
     cfdata['VIS2'] = {} # Add a VIS2 key to the cfdata dictionary
     cfdata = op_compute_vis_bias(cfdata, verbose=verbose, plot=plot)
     
@@ -170,11 +193,48 @@ def op_average_vis2(cfdata, verbose=True, plot=False):
     toto
     
 ################################################################################
-def op_correct_balance_simplevis2(cfdata, verbose=True, plot=False):
-    toto
+def op_correct_balance_simplevis2(cfdata, verbose=False, plot=False):
+    #---------------------------------------------------
+    data = cfdata
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']: count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
+    #---------------------------------------------------
+    
+    # Get the simple visibilities
+    simplevis2 = cfdata['VIS2']['simplevis2']
+    
+    photi = []
+    phots = []
+    photp = []
+    for key in cfdata['PHOT']:
+        photi.append(cfdata['PHOT'][key]['time'])
+        phots.append(cfdata['PHOT'][key]['shape'])
+        photp.append(cfdata['PHOT'][key]['profile'])
+        
+    
 
 ################################################################################
 def op_compute_vfactor(cfdata, verbose=True, plot=False):
+    #---------------------------------------------------
+    data = cfdata
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']: count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
+    #---------------------------------------------------
+    
+    if verbose:
+        print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in cfdata['hdr']:
+        count += 1
+    cfdata['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
+    
     # Find FT file corresponding to the science file
     scifile = cfdata['hdr']['filename']
     #Find the FT file associated to the science file

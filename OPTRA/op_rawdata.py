@@ -15,8 +15,6 @@
 #
 ################################################################################
 
-
-
 from   astropy.io import fits
 from   scipy.ndimage import median_filter
 from   scipy import *
@@ -32,13 +30,17 @@ from astroquery.simbad import Simbad
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 import astropy.units as u
+import inspect
+import os
+
 ##############################################
 # Function to interpolate bad pixels
-# 
-# 
+# Needs rework!
+# 2 papers to read: # - 
 def op_interpolate_bad_pixels(data, bad_pixel_map, verbose=False):
-    if verbose:
-        print('Interpolating bad pixels...')
+    #---------------------------------------------------
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    #---------------------------------------------------
     # Apply a median filter to the data
     filtered_data = median_filter(data, size=3)
     #plt.imshow(filtered_data, cmap='gray')
@@ -49,8 +51,9 @@ def op_interpolate_bad_pixels(data, bad_pixel_map, verbose=False):
 ##############################################
 # Load bad pixel map
 def op_load_bpm(filename, verbose=False):
-    if verbose:
-        print('Loading bad pixel map...')
+    #---------------------------------------------------
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    #---------------------------------------------------
     fh = fits.open(filename)
     bpm = fh[0].data.astype(bool)
     fh.close()
@@ -59,15 +62,20 @@ def op_load_bpm(filename, verbose=False):
 ##############################################
 # Apply bpm
 def op_apply_bpm(rawdata, bpmap, verbose=False):
-    if verbose:
-        print('Applying bad pixel map...')
+    #---------------------------------------------------
+    data = rawdata
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']: count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
+    #---------------------------------------------------
     
     corner = rawdata['INTERF']['corner']
     naxis  = rawdata['INTERF']['naxis']
     intf   = rawdata['INTERF']['data']
     nframe = np.shape(intf)[0]
-    if verbose:
-        print(f'Processing {nframe} frames')
+    if verbose: print(f'Processing {nframe} frames')
     wbpm = bpmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
     # Interpolate bad pixels in each frame
     fdata = []
@@ -100,23 +108,16 @@ def op_apply_bpm(rawdata, bpmap, verbose=False):
             fdata.append(filtdata)
         rawdata['OTHER'][key]['data'] = other
         
-    # Add a processing step to the header
-    count = 1
-    while(1):
-        try:
-            tmp = rawdata['hdr'][f'HIERARCH PROC{count}']
-            count+=1
-        except:
-            break
-    rawdata['hdr'][f'HIERARCH PROC{count}'] = 'op_apply_bpm'
     return rawdata
 
 
 ##############################################
 # Load flat field map
 def op_load_ffm(filename, verbose=False):
-    if verbose:
-        print('Loading flat field...')
+    #---------------------------------------------------
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    #---------------------------------------------------
+    
     fh = fits.open(filename)
     ffm = fh[0].data.astype(float)
     fh.close()
@@ -125,22 +126,27 @@ def op_load_ffm(filename, verbose=False):
 ##############################################
 # Apply flat field map
 def op_apply_ffm(rawdata, ffmap, verbose=False):
-    if verbose:
-        print('Applying flat field map...')
+    #---------------------------------------------------
+    data = rawdata
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']: count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
+    #---------------------------------------------------
         
     corner = rawdata['INTERF']['corner']
     naxis  = rawdata['INTERF']['naxis']
     intf   = rawdata['INTERF']['data']
     
     nframe = np.shape(intf)[0]
-    if verbose:
-        print(f'Processing {nframe} frames')
+    if verbose: print(f'Processing {nframe} frames')
         
     wffm = ffmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
     # Interpolate bad pixels in each frame
     
     for i in range(nframe):
-        intf[i] /= wffm
+        intf[i,...] /= wffm
     rawdata['INTERF']['data'] = intf
     
     for key in rawdata['PHOT']:
@@ -149,9 +155,9 @@ def op_apply_ffm(rawdata, ffmap, verbose=False):
         phot   = rawdata['PHOT'][key]['data']
         wffm   = ffmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
         # Interpolate bad pixels in each frame
-        
+        if verbose: print('phot:', np.shape(phot), 'wffm:', np.shape(wffm))
         for i in range(nframe):
-            phot[i] /= wffm
+            phot[i,...] /= wffm
         rawdata['PHOT'][key]['data'] = phot
         
     for key in rawdata['OTHER']:
@@ -164,44 +170,64 @@ def op_apply_ffm(rawdata, ffmap, verbose=False):
             other[i] /= wffm
         rawdata['OTHER'][key]['data'] = other
     
-    # Add a processing step to the header
-    count = 1
-    while(1):
-        try:
-            tmp = rawdata['hdr'][f'HIERARCH PROC{count}']
-            count+=1
-        except:
-            break
-    rawdata['hdr'][f'HIERARCH PROC{count}'] = 'op_apply_ffm'
     return rawdata
 
 ##############################################
 # Subtract sky
-def op_subtract_sky(rawdata, skydata, verbose=False):
-    if verbose:
-        print('Subtracting sky...')
+def op_subtract_sky(rawdata, skydata, skydataOO=None, verbose=False):
+    #---------------------------------------------------
+    data = rawdata
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']: count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
+    #---------------------------------------------------
+    data['hdr'][f'HIERARCH PROC{count} SKY'] = os.path.basename(skydata['filename'])
+    
+    if verbose: print('Interf shape:', np.shape(rawdata['INTERF']['data']), 'Sky shape:', np.shape(skydata['INTERF']['data']))
     # Compute robust average of sky
-    skydata['INTERF']['data'] = stats.trim_mean(skydata['INTERF']['data'], 0.05, axis=0)
-    #print(skydata['INTERF']['data'].shape)
-    #print(len(skydata['PHOT']))
+    skydata['INTERF']['data'] = np.mean(skydata['INTERF']['data'], axis=0)#stats.trim_mean(skydata['INTERF']['data'], 0.05, axis=0)
     for key in skydata['PHOT']:
-        skydata['PHOT'][key]['data'] = stats.trim_mean(skydata['PHOT'][key]['data'], 0.05, axis=0)
+        skydata['PHOT'][key]['data'] = np.mean(skydata['PHOT'][key]['data'], axis=0) #stats.trim_mean(skydata['PHOT'][key]['data'], 0.05, axis=0)
+    
+    rawdata['INTERF']['datamean'] = np.mean(rawdata['INTERF']['data'], axis=0) #stats.trim_mean(rawdata['INTERF']['data'], 0.05, axis=0)
+    for key in rawdata['PHOT']:
+        rawdata['PHOT'][key]['datamean'] = np.mean(rawdata['PHOT'][key]['data'], axis=0) #stats.trim_mean(rawdata['PHOT'][key]['data'], 0.05, axis=0)
+    
+    plot=1
+    if plot:
+        fig, axs = plt.subplots(3, 5, figsize=(8, 8), sharey=True)
+        axs = axs.flatten()
+        
+        axs[0].imshow(rawdata['INTERF']['datamean'])
+        axs[0].set_title(f'Intf shape')
+        
+        for i, key in enumerate(rawdata['PHOT']):
+            axs[i+1].imshow(rawdata['PHOT'][key]['datamean'], label=key)
+            axs[i+1].set_title(f'Phot {i+1} shape')
+            
+        axs[0+5].imshow(skydata['INTERF']['data'])
+        axs[0+5].set_title(f'Intf shape')
+        
+        for i, key in enumerate(skydata['PHOT']):
+            axs[i+1+5].imshow(skydata['PHOT'][key]['data'], label=key)
+            axs[i+1+5].set_title(f'Phot {i+1} shape')
         
     # Subtract sky from rawdata
     rawdata['INTERF']['data'] -= skydata['INTERF']['data']
-    for key in skydata['PHOT']:
+    for key in rawdata['PHOT']:
         rawdata['PHOT'][key]['data'] -= skydata['PHOT'][key]['data']
         
+    if plot:
+        axs[0+10].imshow(stats.trim_mean(rawdata['INTERF']['data'], 0.05, axis=0))
+        axs[0+10].set_title(f'Intf shape')
         
-    # Add a processing step to the header
-    count = 1
-    while(1):
-        try:
-            tmp = rawdata['hdr'][f'HIERARCH PROC{count}']
-            count+=1
-        except:
-            break
-    rawdata['hdr'][f'HIERARCH PROC{count}'] = 'op_subtract_sky'
+        for i, key in enumerate(rawdata['PHOT']):
+            axs[i+11].imshow(stats.trim_mean(rawdata['PHOT'][key]['data'], 0.05, axis=0), label=key)
+            axs[i+11].set_title(f'Phot {i+1} shape')
+        plt.show()
+        
     return rawdata
     
 ##############################################
@@ -245,7 +271,8 @@ def op_match_keys(fits_data, keys, values, hdu=0):
 ##############################################
 # Load raw data
 def op_load_rawdata(filename, verbose=True):
-    print(f'Loading raw data {filename}...')
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+        
     fh      =  fits.open(filename)
     data    = {'hdr': fh[0].header}
     data['filename'] = filename
@@ -254,9 +281,12 @@ def op_load_rawdata(filename, verbose=True):
     #print('nexp:',nexp)
     nreg    = len(fh['IMAGING_DETECTOR'].data)
     
-    data['PHOT'] = {}
+    # Set instrument here
+    data['instrument'] = data['hdr']['INSTRUME']+'_'+ data['hdr']['ESO DET CHIP NAME']
+    
+    data['PHOT']   = {}
     data['INTERF'] = {}
-    data['OTHER'] = {}
+    data['OTHER']  = {}
     
     data['ARRAY_DESCRIPTION'] = fh['ARRAY_DESCRIPTION'].data
     data['ARRAY_GEOMETRY']    = fh['ARRAY_GEOMETRY'].data
@@ -272,10 +302,10 @@ def op_load_rawdata(filename, verbose=True):
     
     # Load the local OPD table that contains the modulation information
     localopd = []
-    mjds = []
-    tartyp = []
-    exptime = []
-    target = []
+    mjds     = []
+    tartyp   = []
+    exptime  = []
+    target   = []
 
     for i in np.arange(nframes):
         localopd.append(fh['IMAGING_DATA'].data[i]['LOCALOPD'].astype(float))
@@ -323,23 +353,32 @@ def op_load_rawdata(filename, verbose=True):
             data['OTHER'][key]['corner'] = corner
             data['OTHER'][key]['naxis']  = naxis
     fh.close()
+    
+    # Add a processing step to the header
+    #---------------------------------------------------
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']: count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
+    #---------------------------------------------------
+    data['hdr'][f'HIERARCH PROC{count} FILE'] = os.path.basename(filename)
+    
+    
     return data
 
 ##############################################
 # Load and calibrate raw data
 def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, instrument=op_MATISSE_L, verbose=False, plot=False):
-    print('loading and calibrating raw data...')
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    
     # Load the star and sky data
     tardata  = op_load_rawdata(sciencefile)
     starname = tardata['hdr']['OBJECT']
-    if verbose:
-        print(starname)
+    if verbose: print(starname)
 
     bcd1 = tardata['hdr']['HIERARCH ESO INS BCD1 ID']
     bcd2 = tardata['hdr']['HIERARCH ESO INS BCD2 ID']
     det  = tardata['hdr']['HIERARCH ESO DET CHIP NAME']
-    if verbose:
-        print('BCD1:', bcd1, 'BCD2:', bcd2, 'DET:', det)
+    if verbose: print('BCD1:', bcd1, 'BCD2:', bcd2, 'DET:', det)
 
     # Load the sky data
     skydata  = op_load_rawdata(skyfile)
@@ -367,7 +406,7 @@ def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, instrument=op_MATISSE_
 
 ##############################################
 # Get location
-def _op_get_location(hdr,plot):
+def _op_get_location(hdr,plot, verbose=True):
     """
     DESCRIPTION
         Fill the loc dictionnary with :
@@ -376,6 +415,7 @@ def _op_get_location(hdr,plot):
     PARAMETERS
         - hdr : header of a .fits file of an OBS
     """
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
     
     loc = dict()
     
@@ -403,7 +443,7 @@ def _op_get_location(hdr,plot):
 
 ##############################################
 # Compute uvw
-def _op_calculate_uvw(data,bvect,loc):
+def _op_calculate_uvw(data,bvect,loc, verbose=False):
     """
     DESCRIPTION
         Corrects uvw coordinates using base vector of observation bvect, and update
@@ -453,7 +493,7 @@ def _op_calculate_uvw(data,bvect,loc):
 
 ##############################################
 # Get position of the telescopes
-def _op_positionsTelescope(hdr,loc,plot):
+def _op_positionsTelescope(hdr,loc,plot, verbose=True):
     """
     DESCRIPTION
         get the positions of all the telescopes of the interferometer 
@@ -464,6 +504,7 @@ def _op_positionsTelescope(hdr,loc,plot):
         - plot      : boolean
     """
     
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
     # Positions from https://www.eso.org/observing/etc/doc/viscalc/vltistations.html
     
     positions = [['ID' ,   'P'   ,   'Q'   ,   'E'  ,   'N'  , 'ALT', 'D','C'],
@@ -622,7 +663,7 @@ def _op_positionsTelescope(hdr,loc,plot):
 
 ##############################################
 # Get baseline vector
-def _op_get_baseVect(station1,station2,loc,delay = dict()):
+def _op_get_baseVect(station1,station2,loc,delay = dict(), verbose=True):
     """
     DESCRIPTION
         Computes the vectored baseline between station1 and station2
@@ -659,7 +700,7 @@ def _op_get_baseVect(station1,station2,loc,delay = dict()):
 
 ##############################################
 # Get all baselines vector
-def _op_compute_baseVect(hdr,loc,instrument=op_MATISSE_L):
+def _op_compute_baseVect(hdr,loc,instrument=op_MATISSE_L, verbose=True):
     """
     DESCRIPTION
         Computes all the vectored baseline
@@ -688,7 +729,7 @@ def _op_compute_baseVect(hdr,loc,instrument=op_MATISSE_L):
 
 ##############################################
 # Compute uv coordinates
-def op_compute_uv(cfdata, plot ,instrument=op_MATISSE_L):
+def op_compute_uv(cfdata, plot ,instrument=op_MATISSE_L, verbose=True):
     """
     DESCRIPTION
         Computes UV coordinates with a fits file given as input. 
@@ -699,6 +740,15 @@ def op_compute_uv(cfdata, plot ,instrument=op_MATISSE_L):
         - plot        : boolean
     """
     
+    #---------------------------------------------------
+    data = cfdata
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']: count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
+    #---------------------------------------------------
+        
     #initialisation
     stardata = dict()  
     uCoord = []
@@ -790,20 +840,11 @@ def op_compute_uv(cfdata, plot ,instrument=op_MATISSE_L):
     cfdata['OI_BASELINES']['WCOORD'] = wCoord
     # cfdata['OI_BASELINES']['DL'] = sorted(list(delay.values()))
     
-    # Add a processing step to the header
-    count = 1
-    while(1):
-        try:
-            tmp = cfdata['hdr'][f'HIERARCH PROC{count}']
-            count+=1
-        except:
-            break
-    cfdata['hdr'][f'HIERARCH PROC{count}'] = 'op_compute_uv'
     return cfdata  
 
 ##############################################
 # Compute uv_coverage
-def op_uv_coverage(uCoord,vCoord,cfdata,instrument = op_MATISSE_L):
+def op_uv_coverage(uCoord,vCoord,cfdata,instrument = op_MATISSE_L, verbose=True):
     """
     DESCRIPTION
         Computes the UV coverage with all the fits files of an OBS given as input.
@@ -814,6 +855,7 @@ def op_uv_coverage(uCoord,vCoord,cfdata,instrument = op_MATISSE_L):
         - cfdata    : datas of the correlated fluxes
         
     """
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
     
     wlen     = cfdata['OI_WAVELENGTH']['EFF_WAVE']
     wlen_ref = cfdata['OI_WAVELENGTH']['EFF_REF']
