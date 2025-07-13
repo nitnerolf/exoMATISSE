@@ -758,108 +758,22 @@ def op_get_amb_conditions(data, verbose=True):
 ##############################################
 # Function to compute the CO2 concentration
 def op_compute_nco2(bdata,verbose = False, plot = False):
-    """ Compute the CO2 concentration based on the scripps CO2 Program made by the scripps institution of oceanography.
-        The slope and the intercept should be updated using op_update_nco2 and changing the data in op_parameters
+    """ Compute the CO2 concentration.
+        The slope and the intercept should be updated using n_co2/op_update_nco2.py and changing the data in op_parameters.
+        Check the README.md in the n_co2 directory to kmow how to use it
     """
     if verbose:
         print(f"executing --> {inspect.currentframe().f_code.co_name}")
     hdr = bdata['hdr']
     year = Time(hdr['DATE-OBS']).decimalyear
-    N_CO2 = SLOPE_CO2 * year + INTERCEPT_CO2
+    variations = np.array(CO2_SAVED['variations'])
+    slope = CO2_SAVED['slope']
+    intercept = CO2_SAVED['intercept']
+    dates = np.linspace(np.trunc(year),np.trunc(year)+1,len(variations))
+    argmin = np.argmin(np.abs(dates - year))
+    N_CO2 = slope * year + intercept +variations[argmin]
     return N_CO2
 
-##############################################
-# Function to update the slope and the intercept of NCO2
-def op_update_nco2(year_mask = 2015,verbose = False, plot = False):
-    """update the CO2 concentration regression of the scripps CO2 programs. 
-        For an optimal update, please reload the data from 
-        https://scrippsco2.ucsd.edu/data/atmospheric_co2/alt.html
-    """
-    if verbose:
-        print(f"executing --> {inspect.currentframe().f_code.co_name}")
-    
-    global CO2_SAVED
-    filedir = os.path.dirname(os.path.abspath(__file__)) + '/n_co2/'
-    print('old values : slope = ',CO2_SAVED['slope'], 'intercept =', CO2_SAVED['intercept'])
-    stations = {'alt' : 'Alert, NWT, Canada',
-                'ptb': 'Utqiagvik, Alaska',
-                'ljo': 'La Jolla Pier, California',
-                'mlo': 'Mauna Loa Observatory, Hawaii',
-                'kum': 'Cape Kumukahi, Hawaii',
-                'fan': 'Fanning Island',
-                'chr': 'Christmas Island',
-                'sam': 'American Samoa',
-                'ker': 'Kermadec Islands, Raoul Island',
-                'nzd': 'Baring Head, New Zealand',
-                'spo': 'South Pole'
-                }
-    files = os.listdir(filedir)
-    files = [f for f in files if '.csv' in f]
-    slopes = []
-    intercept = []
-    
-    for file in files:
-        station = file.split('.')[0][-3:]
-        dates = []
-        co2_values = []
-        
-        file = filedir + file
-        with open(os.path.expanduser(file), newline='') as csvfile:
-            lines = [line for line in csvfile if not line.strip().startswith('"') ]
-            lines = lines[3:]
-        
-            idate = 3 # Place in the file
-            ico2  = -2
-            for row in lines:
-                row = row.split(',')
-                dates.append(float(row[idate]))
-                co2_values.append(float(row[ico2]))
-        
-        dates = np.array(dates)
-        co2_values = np.array(co2_values)
-        
-        coef_all = np.polyfit(dates,co2_values,1)
-        p_all = np.poly1d(coef_all)
-        slope_all = p_all[1]
-        
-        # Régression sur les 10 annees precedent l'observation
-        recent_mask = dates  - (year_mask) >= 0 
-        dates_recent = dates[recent_mask]
-        if plot:
-            plt.figure(figsize=(12, 6))
-        if np.size(dates_recent) != 0 :
-            co2_recent = co2_values[recent_mask]
-            coef_recent = np.polyfit(dates_recent,co2_recent,1)
-            p_recent = np.poly1d(coef_recent)
-            slope_recent = p_recent[1]
-            
-            slopes.append(slope_recent)
-            intercept.append(p_recent[0])
-            if plot:
-                plt.plot(dates_recent, p_recent(dates_recent), label=f"Régression - jusqu'a {year_mask}, {slope_recent:.2f} ppm/an", color="green")
-            
-            
-        #     print("Ordonnees a l'origine :", model_recent.intercept_, "ppm")
-        # print("Ordonnees a l'origine :", model_all.intercept_, "ppm")
-        
-        if plot:
-            plt.plot(dates, p_all(dates), label=f"linear regression on all data ,slope = {slope_all:.2f} ppm/year", color="red")
-            plt.plot(dates, co2_values, label="observed CO₂ ", alpha=0.5)
-            plt.xlabel("Date")
-            plt.ylabel("CO₂ (ppm)")
-            plt.title(f"Linear regression on the concentration of CO₂ in {stations[station]} ")
-            plt.legend()
-            plt.grid(True)
-            plt.tight_layout()
-            plt.show()
-
-    CO2_SAVED['slope'] = np.mean(slopes)
-    CO2_SAVED['intercept'] = np.mean(intercept)
-    
-    with open(FICHIER_NCO2, 'w') as f:
-        json.dump(CO2_SAVED, f)
-    
-    print('new values : slope = ',CO2_SAVED['slope'], 'intercept =', CO2_SAVED['intercept'])
     
 ##############################################
 # Function to compute the air refractive index
@@ -1367,7 +1281,7 @@ def op_get_error_vis(data,cfin='CF_piston_corr2',plot=False, verbose=True):
         
         if plot:
             fig1, ax1 = plt.subplots(nframes, 2, figsize=(8, 8), sharex=1, sharey=0)
-        if nframes < 10 : # IF GRAV4MAT
+        if nframes < 20 : # IF GRAV4MAT
             for iFrame in range(nframes):
                 amp  = np.abs(cf[iBase][iFrame]) 
                 phi  = np.angle(cf[iBase][iFrame])
