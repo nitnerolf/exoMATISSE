@@ -429,7 +429,7 @@ def _op_get_location(hdr,plot, verbose=True):
         loc['pos']  = _op_positionsTelescope(hdr,loc,plot)
     except:
         loc['name'] = "ESO, Cerro Paranal"
-        loc['ntel'] = 4
+        loc['ntel'] = hdr['HIERARCH ESO ISS CONF NTEL']
         loc['lon']  = -70.40479659
         loc['lat']  = -24.62794830
         loc['elev'] = 2635
@@ -565,9 +565,9 @@ def _op_positionsTelescope(hdr,loc,plot, verbose=True):
                 break
         
         if hdr[keys[0]] not in [row[0] for row in positions]:
-                positions.insert(1,[hdr[keys[0]],0,0,hdr[keys[1]],hdr[keys[2]],hdr[keys[3]]])
+                positions.insert(1,[hdr[keys[0]],0,0,hdr[keys[1]],hdr[keys[2]],0])
                 tel_labels.append(hdr[keys[0]])
-                tel_position.append((hdr[keys[1]],hdr[keys[2]]))
+                tel_position.append((hdr[keys[1]],hdr[keys[2]]))   
     ############## PLOT MAP OF VLTI ##############
     if plot:
         labels = [pos[0] for pos in positions[1:]] 
@@ -639,9 +639,10 @@ def _op_positionsTelescope(hdr,loc,plot, verbose=True):
         
         plt.xlabel("Longitude (E)")
         plt.ylabel("Latitude (N)")
-
-        plt.xlim((-55,155))
-        plt.ylim((-105,105))
+        plt.axis('equal')
+        
+        # plt.xlim((-55,155))
+        # plt.ylim((-105,105))
         plt.grid(True)
         # plt.gca().xaxis.set_major_locator(MultipleLocator(10))
         # plt.gca().yaxis.set_major_locator(MultipleLocator(10))
@@ -673,7 +674,6 @@ def _op_get_baseVect(station1,station2,loc,delay = dict(), verbose=True):
         - station2   : name of the second station
         - loc        : location of the interferometer
     """
-
     
     for tel in loc['pos']:
         if tel[0] == station1: 
@@ -925,10 +925,12 @@ def op_uv_coverage(uCoord,vCoord,cfdata,instrument = op_MATISSE_L, verbose=True)
     #limit anf grid
     # plt.xlim((-125,125))
     # plt.ylim((-125,125))
-    ax2.xaxis.set_major_locator(MultipleLocator(20))
-    ax3.yaxis.set_major_locator(MultipleLocator(20))
-    ax.xaxis.set_major_locator(MultipleLocator(5))
-    ax.yaxis.set_major_locator(MultipleLocator(5))
+    
+    if instrument['ntel'] <= 4 :
+        ax2.xaxis.set_major_locator(MultipleLocator(20))
+        ax3.yaxis.set_major_locator(MultipleLocator(20))
+        ax.xaxis.set_major_locator(MultipleLocator(5))
+        ax.yaxis.set_major_locator(MultipleLocator(5))
     ax.grid(True, which='both', linestyle='--', color='gray', linewidth=0.7)
     #ax3.grid(True, which='both', linestyle='--', color='gray', linewidth=0.7)
     # Highlight x=0 and y=0 lines
@@ -958,7 +960,8 @@ def op_uv_coverage(uCoord,vCoord,cfdata,instrument = op_MATISSE_L, verbose=True)
     
     
     handles = [plt.Line2D([], [], color=colors[i], label=labels[i]) for i in range(len(labels))]
-    plt.legend(handles=handles, loc='lower right')
+    if instrument['ntel'] <=6:
+        plt.legend(handles=handles, loc='lower right')
     
     plt.tight_layout()
     plt.show()
