@@ -48,8 +48,6 @@ for i in range(6):
         uCoord[i,j] = uv_raw['u'][j*6 + i]
         vCoord[i,j] = uv_raw['v'][j*6 + i]
 
-
-
 mask = mask_uv_coverage(uCoord,vCoord,wlen, plot = plot)
 
 

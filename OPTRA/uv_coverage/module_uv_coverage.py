@@ -134,7 +134,9 @@ def uv_to_sf(u, v, wl, wlen_ref= 3.5e-6):
 
 #################################################################################
 # Compute the mask of a uv-coverage
-def mask_uv_coverage(uCoord,vCoord,wlen,wlen_ref = 3.5e-6,dx = 1e-3,dxy = 1000, plot = True):
+def mask_uv_coverage(uCoord,vCoord,wlen,wlen_ref = 3.5e-6, plot = True):
+    # Base Resolution
+    dxy = 1000
     # Compute max SF radius
     R = 1.50 * np.max(np.hypot(uCoord, vCoord))
     xs = np.linspace(-R, R, dxy)

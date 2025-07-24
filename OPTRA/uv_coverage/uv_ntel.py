@@ -25,8 +25,6 @@ from module_uv_coverage import *
 
 
 
-
-
 ########################### VARIABLES #########################
 DATE = generate_date('2024-05-25T05:05:05.555', 3)
 RA = 271.220315
@@ -36,6 +34,9 @@ station_list = ["U1","U2","U3","U4",'U5_LACOUR', 'U6_SAUCOURT','U7_SAUCOURT']
 wlen = np.arange(2.9,4.8,0.1) * 1e-6
 wlen_ref = 3.5e-6
 
+
+
+######################### OTHER STATIONS #########################
 
 # Data of the possible different kilometric stations 
 # See DOI: 10.1117/12.3020269
