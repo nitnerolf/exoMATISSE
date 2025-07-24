@@ -19,7 +19,7 @@ Created on Fri Jun 13 11:48:09 2025
 import os
 import numpy as np
 from astropy.io import fits
-from mask_uv_coverage import mask_uv_coverage,fft_mask
+from module_uv_coverage import mask_uv_coverage,fft_mask
 
 ########################## PARAMETERS ###############################
 

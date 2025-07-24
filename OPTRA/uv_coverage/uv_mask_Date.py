@@ -20,25 +20,13 @@ if parent_dir not in sys.path:
 
 
 import numpy as np
-from mask_uv_coverage import mask_uv_coverage, fft_mask
+
 from op_rawdata import op_compute_uv,op_MATISSE_L
-from astropy.time import Time,TimeDelta
+
 
 
 sys.path.pop(0)
-
-
-########################### FUNCTIONS #########################
-
-#Compute the UTC of 10 points from the start_utc until start_utc + interval 
-def generate_date(start_utc, interval):
-    start = Time(start_utc)
-    end = start + TimeDelta(interval * 3600, format='sec')  # 'interval' hours later
-
-    # 10 points equally spaced between start and end
-    times = start + np.linspace(0, (end - start).sec, 10) * TimeDelta(1, format='sec')
-    
-    return [t.isot for t in times]
+from module_uv_coverage import *
 
 
 ########################## PARAMETERS ###############################
@@ -50,7 +38,7 @@ wlen_ref = 3.5e-6
 RA = 167.01379572155
 DEC = -77.65485854929
 DATE = generate_date('2024-03-09T00:30:00.000', 9)
-
+station_list = ['A0','B2','C1','D0']
 # plot variable
 plot = True
 
@@ -60,29 +48,7 @@ instrument = op_MATISSE_L
 uCoord = []; vCoord = []
 for date in DATE:
     
-    hdr = {'ORIGIN'                        :'Paranal',
-           'RA'                            : RA ,
-           'DEC'                           : DEC ,
-           'DATE-OBS'                      : date,
-           'HIERARCH ESO DET NDIT'         : 6,
-           'HIERARCH ESO DET SEQ1 DIT'     : 10,
-           'HIERARCH ESO ISS CONF NTEL'    : instrument['ntel'],
-           'HIERARCH ESO ISS GEOLON'       : -70.40479659 ,
-           'HIERARCH ESO ISS GEOLAT'       : -24.62794830 ,
-           'HIERARCH ESO ISS GEOELEV'      :  2635,
-           'LST'                           : Time(date).sidereal_time('apparent',longitude=-70.40479659).hour*3600,
-           'MJD-OBS'                       : Time(date).mjd,
-           'HIERARCH ESO ISS CONF STATION1':"A0",
-           'HIERARCH ESO ISS CONF T1NAME'  :'AT1',
-
-           'HIERARCH ESO ISS CONF STATION2':"B2",
-           'HIERARCH ESO ISS CONF T2NAME'  :'AT2',
-
-           'HIERARCH ESO ISS CONF STATION3':"C1",
-           'HIERARCH ESO ISS CONF T3NAME'  :'AT3',
-
-           'HIERARCH ESO ISS CONF STATION4':"D0",
-           'HIERARCH ESO ISS CONF T4NAME'  :'AT4',}
+    hdr = create_header(RA,DEC,date,station_list)
 
     
     cfdata = {'hdr':hdr,

@@ -7,12 +7,121 @@ Created on Thu Jul 24 11:46:37 2025
 """
 ################################## IMPORT ######################################
 
+
+import os
+import sys
+
+# --- Add parent folder temporarily for import ---
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+    
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.path import Path
 from matplotlib.colors import ListedColormap
 from matplotlib.ticker import MultipleLocator
+from op_rawdata import op_compute_uv,op_MATISSE_L
+from astropy.time import Time,TimeDelta
 
+
+sys.path.pop(0)
+
+
+
+
+###############################################################
+#Create a fake VLTI instrument with a scrambling associated
+def create_instru(ntel):
+    if ntel == 4:
+        return op_MATISSE_L
+    else:
+        return  {  'name': f'fake_MATISSE_{ntel}tel',
+                    'ntel': ntel,
+                    'scrP': np.arange(1,ntel+1),
+                    'scrB':[[i,j] for i in range(0,ntel-1) for j in range(i+1,ntel)] }
+        
+            
+     
+
+###############################################################
+# GPS to E,N coordinate converter
+def gps_to_E_N( lat, lon):
+    """
+    Convert lthe GPS coordinates (lat, lon) in meters (E,N)
+    based on the origine of the VLTI (lat0, lon0).
+    """
+    R = 6371000  # Mean Radius of Earth in meters
+    lat0 = -24.62794830
+    lon0 = -70.40479659
+
+    lat0_rad = np.radians(lat0)
+    lat_rad  = np.radians(lat)
+    dlat = lat_rad - lat0_rad
+    dlon = np.radians(lon - lon0)
+
+    # Mean to correct the latitude
+    latm = (lat_rad + lat0_rad) / 2
+
+    dx = R * dlon * np.cos(latm)  # towards East
+    dy = R * dlat                 # towards North
+
+    return round(dx,2), round(dy,2)
+
+
+
+#################################################################################
+#Compute the UTC of 10 points from the start_utc until start_utc + interval 
+def generate_date(start_utc, interval):
+    start = Time(start_utc)
+    end = start + TimeDelta(interval * 3600, format='sec')  # 'interval' hours later
+
+    # 10 points equally spaced between start and end
+    times = start + np.linspace(0, (end - start).sec, 10) * TimeDelta(1, format='sec')
+    
+    return [t.isot for t in times]
+
+
+
+#################################################################################
+# Compute the header for specific RA,DEC,date,stations
+def create_header(RA,DEC,date,stations_list,instrument = op_MATISSE_L , new_coords = dict()):
+    
+    try:
+        assert len(stations_list) == instrument['ntel']
+        hdr = {'ORIGIN'                        :'Paranal',
+               'RA'                            : RA ,
+               'DEC'                           : DEC ,
+               'DATE-OBS'                      : date,
+               'HIERARCH ESO DET NDIT'         : 6,
+               'HIERARCH ESO DET SEQ1 DIT'     : 10,
+               'HIERARCH ESO ISS CONF NTEL'    : instrument['ntel'],
+               'HIERARCH ESO ISS GEOLON'       : -70.40479659 ,
+               'HIERARCH ESO ISS GEOLAT'       : -24.62794830 ,
+               'HIERARCH ESO ISS GEOELEV'      :  2635,
+               'LST'                           : Time(date).sidereal_time('apparent',longitude=-70.40479659).hour*3600,
+               'MJD-OBS'                       : Time(date).mjd}
+               
+        for i,station in enumerate(stations_list): 
+            if station[0]=='U':
+                hdr[f'HIERARCH ESO ISS CONF STATION{i+1}'] = station
+                hdr[f'HIERARCH ESO ISS CONF T{i+1}NAME'] = f"UT{i+1}"
+                if station in new_coords.keys():
+                    hdr[f'HIERARCH ESO ISS CONF T{i+1}X']  = new_coords[station]['E']
+                    hdr[f'HIERARCH ESO ISS CONF T{i+1}Y']  = new_coords[station]['N']
+                    
+            else:
+                hdr[f'HIERARCH ESO ISS CONF STATION{i+1}'] = station
+                hdr[f'HIERARCH ESO ISS CONF T{i+1}NAME'] = f"AT{i+1}"
+                if station in new_coords.keys():
+                    hdr[f'HIERARCH ESO ISS CONF T{i+1}X']  = new_coords[station]['E']
+                    hdr[f'HIERARCH ESO ISS CONF T{i+1}Y']  = new_coords[station]['N']
+                
+                    
+    except:
+        print('there is not the same number of telescopes and number of stations')
+    
+    return hdr
 
 
 
@@ -20,6 +129,8 @@ from matplotlib.ticker import MultipleLocator
 # Convert UV coords to spatial frequency (Mλ)
 def uv_to_sf(u, v, wl, wlen_ref= 3.5e-6):
     return (u / wl *  wlen_ref, v / wl * wlen_ref)
+
+
 
 #################################################################################
 # Compute the mask of a uv-coverage
