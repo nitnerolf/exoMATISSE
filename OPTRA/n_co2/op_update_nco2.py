@@ -114,17 +114,21 @@ def update_co2_and_analyze_file(base_dir = './', data_txt_file=None, source="noa
 
         if plot:
             plt.figure()
-            plt.axvline(year_max, label = 'year_max',ls = '--')
+            
             for i,file in enumerate(files):
                 if not np.any(recent_mask):
                     continue
                 plt.plot(DATES[i], CO2_values[i], alpha=0.5, label=f"{file}")
                 
-                
-                plt.title('SCRIPPS')
-                plt.legend()
-                plt.grid()
-
+            plt.plot(dates_shared,float(np.mean(slopes))*dates_shared + float(np.mean(intercepts)),c='black',label = 'linear Regression based on SCRIPPS Program')
+            plt.title('CO2 concentration: SCRIPPS Program')
+            plt.grid()
+            plt.xlim(2015,2024)
+            plt.ylabel('nCO2 in ppm')
+            plt.xlabel('year')
+            plt.legend()
+            plt.grid()
+            # plt.show()
 
         if slopes:
             # SAVE DATAS IN JSON FILE
@@ -195,7 +199,7 @@ def update_co2_and_analyze_file(base_dir = './', data_txt_file=None, source="noa
         p = np.poly1d(coef)
         co2_variations = mean_co2 - p(unique_date)
         
-        
+
         # INTERPOLATE THE VARIATION WITH AVERAGE THEM OVER ONE YEA
         dates_interp = np.linspace(year_mask, year_max, 2000 * (year_max - year_mask))
         spline = make_interp_spline(unique_date, co2_variations, k=1)
@@ -205,8 +209,13 @@ def update_co2_and_analyze_file(base_dir = './', data_txt_file=None, source="noa
             co2_i += co2_interp[i*2000:(i+1)*2000]/ (year_max-year_mask)  
             
         # SMOOTHEN THE DATA
+        plt.figure()
+        plt.title('variations of nco2 over a year')
         co2_smooth = gaussian_filter1d(co2_i, sigma=101, mode='wrap')
-        
+        plt.plot(dates_interp[-2000:],co2_smooth)
+        plt.ylabel('nCO2 in ppm')
+        plt.xlabel('year')
+        plt.grid()
         # SAVE DATAS IN JSON FILE
         if source == 'noaa':
             CO2_SAVED['slope'] = p[1]
@@ -222,7 +231,7 @@ def update_co2_and_analyze_file(base_dir = './', data_txt_file=None, source="noa
             plt.figure()
             plt.plot(date_co2, co2_i + CO2_SAVED['slope'] * date_co2 + CO2_SAVED['intercept'], label="NOAA raw regression")
             plt.plot(date_co2, co2_smooth + CO2_SAVED['slope'] * date_co2 + CO2_SAVED['intercept'], label="NOAA + smoothed residuals")
-            plt.title("Interpolated CO₂ 2024–2025")
+            plt.title(f"Interpolated CO₂ {year_max-1}–{year_max}")
             plt.legend()
             plt.grid()
             # plt.show()
