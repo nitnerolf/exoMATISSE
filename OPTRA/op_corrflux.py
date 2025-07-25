@@ -1283,21 +1283,29 @@ def op_get_error_vis(data,cfin='CF_piston_corr2',plot=False, verbose=True):
             fig1, ax1 = plt.subplots(nframes, 2, figsize=(8, 8), sharex=1, sharey=0)
         if nframes < 20 : # IF GRAV4MAT
             for iFrame in range(nframes):
+                
                 amp  = np.abs(cf[iBase][iFrame]) 
                 phi  = np.angle(cf[iBase][iFrame])
                 
                 #Smoothing Function
                 smooth_amp = convolve(amp,kernel,normalize_kernel = True)
-                smooth_phi = convolve(phi,kernel,normalize_kernel = True)
+                
+                exp_phi = np.exp(1j*phi)
+                real = np.real(exp_phi)
+                imag = np.imag(exp_phi)
+                smooth_real = convolve(real,kernel,normalize_kernel = True)
+                smooth_imag = convolve(imag,kernel,normalize_kernel = True)
+                smooth_phasor = smooth_real + 1j * smooth_imag
+    
                 
                 sq_amp = np.abs(amp-smooth_amp)**2
-                sq_phi = np.abs(phi-smooth_phi)**2
+                sq_phi = np.abs(np.angle(exp_phi * np.conj(smooth_phasor)))**2
                 
                 local_mean_sq = uniform_filter1d(sq_amp, size=width, mode='nearest')
-                visAmpErr[iBase, iFrame, :] = np.sqrt(local_mean_sq/width)
+                visAmpErr[iBase, iFrame, :] = np.sqrt(local_mean_sq)
     
                 local_mean_sq_phi = uniform_filter1d(sq_phi, size=width, mode='nearest')
-                visPhiErr[iBase, iFrame, :] = np.sqrt(local_mean_sq_phi/width)
+                visPhiErr[iBase, iFrame, :] = np.sqrt(local_mean_sq_phi)
                 
                 if plot:
                     ax1[iFrame,0].plot(wlen, smooth_amp, color='black',alpha=0.9)
@@ -1312,7 +1320,9 @@ def op_get_error_vis(data,cfin='CF_piston_corr2',plot=False, verbose=True):
                     plt.suptitle(f'CF data and smoothened data for error base = {iBase+1} \n width = {width}')
                     # plt.savefig(os.path.expanduser(bbasedir+'Result/Smoothing/'+f'Smoothed_{window_length}_{polyorder}_{WL_err}.png'))
                     plt.tight_layout()
-                    
+        
+        
+        # FIXME: PAS EU LE TEMPS DE VERIFIER 
         else : 
             for iFrame in range(0,nframes,nframes//10):
                 if iFrame not in (range(nframes-9,nframes)):
@@ -1488,3 +1498,45 @@ def op_snr_theory(data,cfin = 'CF_piston_corr2',plot=False, verbose=True):
     data['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
     
     return snr
+
+
+
+def op_mean_corrflux(data,cfin = 'CF_piston_corr2',plot = True):
+    cf = data['CF'][cfin]
+    moycf = np.mean(cf,axis = 1)
+    
+    if plot:
+        wlen   = data['OI_WAVELENGTH']['EFF_WAVE']
+        nframes = cf.shape[1]
+        nbases  = moycf.shape[0]
+        
+        ymax   = np.max(moycf[1:])
+        ysmax  = np.max(moycf[0])
+        
+    
+        fig1, ax1 = plt.subplots(nbases, 2, figsize=(8, 8), sharex=1, sharey=0)
+        colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF5', 'forestgreen']
+        
+        for i in range(nbases):
+            ax1[i,0].plot(wlen,   np.abs(moycf[i,:]), color='black',alpha=0.95)
+            if i == 0 and nbases == 7:
+                ax1[i,0].set_ylabel(f'flux {i+1}')
+                ax1[i,0].set_ylim(0,ysmax*1.10)
+                
+            else:
+                ax1[i,0].set_ylabel(f'corr. flux {i+1}')
+                ax1[i,0].set_ylim(0,ymax*1.15)
+            ax1[i,1].plot(wlen, np.angle(moycf[i,:]), color='black',alpha=0.95)
+            ax1[i,1].set_ylabel(f'phase {i+1}')
+
+            for j in range(nframes):
+                ax1[i,0].plot(wlen,   np.abs(cf[i,j,:]), color=colors[i],alpha=0.2)
+                ax1[i,1].plot(wlen, np.angle(cf[i,j,:]), color=colors[i],alpha=0.2)
+        plt.suptitle('CF data and mean ')
+        plt.tight_layout()
+        # plt.savefig(os.path.expanduser(bbasedir+f'{basen}_corrflux.png'))
+        plt.show()
+    return moycf
+
+
+                     
