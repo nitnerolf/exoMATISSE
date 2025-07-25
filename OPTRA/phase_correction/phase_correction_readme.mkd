@@ -153,7 +153,8 @@ Computes a **local reduced χ²** for one baseline/file combination.
 All the new models are computed based on [Voronin,A.A and Zheltikov, A. M 's model](https://www.nature.com/articles/srep46111.pdf).  By changing, in the generalized Sellmeier equation (GSE)
 
 $$
-n(\lambda) = 1 + \frac{1}{N_{\text{cr}}} \sum_{r=1}^{M} N_r \left( \frac{A_{1r} \lambda_{1r}^2 {\lambda^2 - \lambda_{1r}^2} + \frac{A_{2r} \lambda_{2r}^2}{\lambda^2 - \lambda_{2r}^2} \right)
+n(\lambda) = 1 + \frac{1}{N_{\text{cr}}} \sum_{r=1}^{M} N_r \left( \frac{A_{1r} \lambda_{1r}^2} {\lambda^2 - \lambda_{1r}^2} + \frac{A_{2r} \lambda_{2r}^2}{\lambda^2 - \lambda_{2r}^2} \right)
+
 $$
 
 Some of the coefficients defined by Voronin,A.A and Zheltikov, A. M 's model
@@ -180,7 +181,7 @@ Some of the coefficients defined by Voronin,A.A and Zheltikov, A. M 's model
 In this model, the goal is to change the molecule/atom concentration Nᵣby doing a linear combination for r = 1, 2 and 7.
 
 $$
-N_r = aN_CO2 + bN_H2O
+N_r = aN_{CO2} + bN_{H2O}
 $$
 
 
