@@ -1501,7 +1501,7 @@ def op_snr_theory(data,cfin = 'CF_piston_corr2',plot=False, verbose=True):
 
 
 
-def op_mean_corrflux(data,cfin = 'CF_piston_corr2',plot = True):
+def op_mean_corrflux(data,cfin = 'CF_piston_corr2',plot = False):
     cf = data['CF'][cfin]
     moycf = np.mean(cf,axis = 1)
     
