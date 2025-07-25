@@ -154,7 +154,6 @@ All the new models are computed based on [Voronin,A.A and Zheltikov, A. M 's mod
 
 $$
 n(\lambda) = 1 + \frac{1}{N_{\text{cr}}} \sum_{r=1}^{M} N_r \left( \frac{A_{1r} \lambda_{1r}^2} {\lambda^2 - \lambda_{1r}^2} + \frac{A_{2r} \lambda_{2r}^2}{\lambda^2 - \lambda_{2r}^2} \right)
-
 $$
 
 Some of the coefficients defined by Voronin,A.A and Zheltikov, A. M 's model
