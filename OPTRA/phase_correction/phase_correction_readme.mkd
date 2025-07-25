@@ -1,0 +1,242 @@
+# *Atmospheric phase correction*
+
+This directory focus on the atmospheric phase correction for MATISSE's datas in band L.
+
+It includes:
+
+* phase correction minimization scripts,
+* FITS file preparation,
+* Python module
+* Parameter configurations
+* Comparison tools for correction models
+
+
+
+
+---
+## Directory Sub-structure
+
+```
+phase_correction/
+│
+├── module_phase_correction.py          # Main module with functions/classes for phase correction
+├── minimize_ab_method.py               # Script using a custom A/B method for minimization
+├── minimize_newcoef.py                 # Phase minimization using new coefficients (general case)
+├── minimize_newcoef_H2O.py             # Phase minimization focused on new coefficients + H₂O activity in the end of band L
+│
+├── comparison_phase_correction.py      # Compares phase correction results across methods
+├── voronin_vs_mathar.py                # Compares refractivity models (Voronin vs Mathar)
+│
+├── create_fits_cal.py                  # Generates corrected FITS file for calibration star
+├── create_fits_bet_pic.py              # Generates corrected FITS file for target Beta Pic
+│
+├── parameters_min_CAL.json             # Parameter configuration for calibration star
+├── parameters_min_bet_pic.json         # Parameter configuration for Beta Pic
+│
+├── fits_phase_CAL.fits                 # Input/output phase FITS file for calibrator
+├── fits_phase_bet_pic.fits             # Input/output phase FITS file for Beta Pic
+
+```
+
+---
+
+##  `module_phase_correction.py`: API Documentation
+
+This is the core module used for all phase correction calculations.
+
+### `op_get_piston_fft(amp, phi, wlen)`
+Computes the piston term from complex correlated flux using an **FFT method** in wavenumber space.
+
+***PARAMETERS***:
+
+* amp : Amplitude of the correlated flux
+* phi : Phase of the correlated flux
+* wlen: Wavelength
+
+### `op_corr_piston(cf, wlen, piston)`
+Applies a piston correction to the correlated flux using the known piston and wavelength.
+
+
+***PARAMETERS***:
+
+* cf : Complex correlated flux
+* wlen: Wavelength
+* piston : Piston term 
+
+### `n_air_mathar(cond_atm, nu)`
+Computes the refractive air index of air using [**Mathar's model**](https://doi.org/10.1088/1464-4258/9/5/008).
+
+***PARAMETERS***:
+
+* cond_atm : atmospheric conditions (humidity, pressure, temperature)
+* nu : Wavenumber
+
+
+### `n_air_newcoef(params, wlen, T, P, h, N_CO2=421, bands='all', wlen_ref=3500)`
+Computes refractive air index using the [**new coefficient model**](#different-models).
+
+***PARAMETERS***:
+
+* params : coefficients of the new coefficient model
+* wlen: Wavelength
+* T : Temperature (in K)
+* P : Pressure (in Pa)
+* H : Humidity ( in %)
+
+*OPTIONAL PARAMETERS*:
+
+* N_CO2 : CO2 Concentration (in ppm)
+* bands : number of band used
+* wlen_ref: wavelength's reference (in nm)
+
+### `n_air_newcoef_H2O(params, wlen, T, P, h, N_CO2=421, bands='all', wlen_ref=3500)`
+Computes refractive air index using the [**new coefficient + H2O model**](#different-models).
+
+***PARAMETERS***:
+
+* params : coefficients of the new coefficient + H2O model
+* wlen: Wavelength
+* T : Temperature (in K)
+* P : Pressure (in Pa)
+* H : Humidity ( in %)
+
+*OPTIONAL PARAMETERS*:
+
+* N_CO2 : CO2 Concentration (in ppm)
+* bands : number of band used
+* wlen_ref: wavelength's reference (in nm)
+
+### `n_air_ab_method(params, wlen, T, P, h, N_CO2=421, bands='all')`
+Computes refractive air index using the [**ab model**](#different-models).
+
+
+***PARAMETERS***:
+
+* params : coefficients of the new coefficient + H2O model
+* wlen: Wavelength
+* T : Temperature (in K)
+* P : Pressure (in Pa)
+* H : Humidity ( in %)
+
+*OPTIONAL PARAMETERS*:
+
+* N_CO2 : CO₂ Concentration (in ppm)
+* bands : number of band used
+* wlen_ref: wavelength's reference (in nm)
+
+### `compute_chi2(resid, weight, params, nbases, nfiles)`
+Computes a **global reduced χ² ** over multiple files and baselines, used for optimization.
+
+***PARAMETERS***:
+
+
+* resid: phase residual
+* weigth : weight of the residual
+* params : coefficients
+* nbases : number of baselines
+* nfiles : number of files
+
+
+### `compute_chi2_local(resid, weight, params)`
+Computes a **local reduced χ²** for one baseline/file combination.
+
+***PARAMETERS***:
+
+
+* resid: phase residual
+* weigth : weight of the residual
+* params : coefficients
+---
+
+## Different Models
+
+All the new models are computed based on [Voronin,A.A and Zheltikov, A. M 's model](https://www.nature.com/articles/srep46111.pdf).  By changing, in the generalized Sellmeier equation (GSE)
+
+$$
+n(\lambda) = 1 + \frac{1}{N_{\text{cr}}} \sum_{r=1}^{M} N_r \left( \frac{A_{1r} \lambda_{1r}^2 {\lambda^2 - \lambda_{1r}^2} + \frac{A_{2r} \lambda_{2r}^2}{\lambda^2 - \lambda_{2r}^2} \right)
+$$
+
+Some of the coefficients defined by Voronin,A.A and Zheltikov, A. M 's model
+
+| r  | Molecule / Atom  | λ₁ᵣ (nm) | A₁ᵣ        | λ₂ᵣ (nm) | A₂ᵣ        |
+|----|----------        |----------|-------------|----------|-------------|
+| 1  | CO₂              | 15131    | 4.051e-6    | 14218    | 1.010e-6    |
+| 2  | CO₂              | 4290.9   | 2.897e-5    | 4223.1   | 2.728e-5    |
+| 3  | CO₂              | 2684.9   | 8.573e-7    | 2769.1   | 6.620e-7    |
+| 4  | CO₂              | 2011.3   | 1.550e-8    | 1964.6   | 5.532e-9    |
+| 5  | CO₂              | 47862    | 2.945e-5    | 16603    | 6.583e-8    |
+| 6  | H₂O              | 6719.0   | 3.273e-6    | 5729.9   | 3.094e-6    |
+| 7  | H₂O              | 2775.6   | 1.862e-6    | 2598.5   | 2.788e-6    |
+| 8  | H₂O              | 1835.6   | 2.544e-7    | 1904.8   | 2.181e-7    |
+| 9  | H₂O              | 1417.6   | 1.126e-7    | 1364.7   | 2.336e-7    |
+| 10 | H₂O              | 1145.3   | 6.856e-9    | 1123.2   | 9.479e-9    |
+| 11 | H₂O              | 947.73   | 1.985e-9    | 935.09   | 2.882e-9    |
+| 12 | N₂               | 85       | 1.20294     | 24.546   | 5.79672     |
+| 13 | O₂               | 127      | 0.26508     | 29.469   | 7.73492     |
+| 14 | Ar               | 87       | 0.93132     | 22.645   | 7.21732     |
+| 15 | H₂O              | 128      | 0.25787     | 34.924   | 4.74213     |
+
+**ab model **  
+In this model, the goal is to change the molecule/atom concentration Nᵣby doing a linear combination for r = 1, 2 and 7.
+
+$$
+N_r = aN_CO2 + bN_H2O
+$$
+
+
+** new coefficient model **  
+In this model, the goal is to change λ₁ᵣ, A₁ᵣ,  λ₂ᵣ,  A₂ᵣ for r = 1,2 and 7 (corresponding to before and after the L band).  
+  
+  
+** new coefficient + H2O model **  
+In this model, the goal is to change λ₁ᵣ, A₁ᵣ,  λ₂ᵣ,  A₂ᵣ for r = 1,2 and 7 (corresponding to before and after the L band) and to add a water contribution at the end of the L band with 
+
+| r  | Molecule / Atom  | λ₁ᵣ (nm) | A₁ᵣ        | λ₂ᵣ (nm) | A₂ᵣ        |
+|----|----------        |----------|-------------|----------|-------------|
+| 16 |  H₂O             | ≈4290    | -7.1e-7     |  ≈4223   | 1.9e-7      |
+
+---
+
+## 📉 Minimization Scripts
+
+All of the minimization program take the correlated flux parameters in the [Data files](#data-files) and, the optimal parameters are saved in the [JSON files](#config-files)
+
+| Script | Purpose |
+|--------|---------|
+| `minimize_ab_method.py` | Minimization over the ab model |
+| `minimize_newcoef.py` | Minimization over the new coefficient model |
+| `minimize_newcoef_H2O.py` | Minimization over the new coefficient + H2O model|
+
+---
+## 📊 Comparison Scripts
+
+- `comparison_phase_correction.py`: Plot and compare the different models for phase correction. It takes the parameters for different models in the [JSON files](#config-files)
+- `voronin_vs_mathar.py`: Plot and compare [Voronin,A.A and Zheltikov, A. M 's model](https://www.nature.com/articles/srep46111.pdf) and [Mathar's model](https://doi.org/10.1088/1464-4258/9/5/008).
+.
+
+---
+
+## 🧪 FITS Tools
+
+- `create_fits_cal.py`: Generate [data files](#data-files) with correlated flux for calibration stars.
+- `create_fits_bet_pic.py`: Same for Beta Pic.
+
+
+
+---
+
+
+## Config Files
+
+- `parameters_min_CAL.json`: Configuration for calibrator minimization.
+- `parameters_min_bet_pic.json`: Configuration for beta pic minimization.
+
+---
+
+## Data Files
+
+- `fits_phase_CAL.fits`: Phase's data for calibration star.
+- `fits_phase_bet_pic.fits`: Phase data for Beta Pic.
+
+
+
