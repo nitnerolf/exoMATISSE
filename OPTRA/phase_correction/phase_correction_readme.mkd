@@ -180,7 +180,7 @@ Some of the coefficients defined by Voronin,A.A and Zheltikov, A. M 's model
 In this model, the goal is to change the molecule/atom concentration Nᵣby doing a linear combination for r = 1, 2 and 7.
 
 $$
-N_r = aN_{CO2} + bN_{H2O}
+N_r = a_{r}N_{CO2} + b_{r}N_{H2O}
 $$
 
 
