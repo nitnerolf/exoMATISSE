@@ -1,9 +1,9 @@
 # CO₂ Concentration Model Updater
 
-[op_update_nco2.py](https://github.com/nitnerolf/exoMATISSE/blob/v1_dev_mac/OPTRA/n_co2/op_update_nco2.py) is Python script updates a CO₂ model stored in [nco2.json](https://github.com/nitnerolf/exoMATISSE/blob/v1_dev_mac/OPTRA/n_co2/nco2.json) using:
+[op_update_nco2.py](https://github.com/nitnerolf/exoMATISSE/blob/v1_dev_mac/OPTRA/n_co2/op_update_nco2.py) is a Python script that updates a CO₂ model stored in [nco2.json](https://github.com/nitnerolf/exoMATISSE/blob/v1_dev_mac/OPTRA/n_co2/nco2.json) using:
 
 - **Scripps** `.csv` data files that can be found here : [https://scrippsco2.ucsd.edu/data/atmospheric_co2/bcs.html](https://scrippsco2.ucsd.edu/data/atmospheric_co2/bcs.html)
-- and/or **NOAA** `.txt` flask data files that can be found here : `[https://gml.noaa.gov/data/dataset.php?item=ush-co2-flask](https://gml.noaa.gov/data/dataset.php?item=ush-co2-flask)
+- and/or **NOAA** `.txt` flask data files that can be found here and that needs to be put in the same directory as this readme : [https://gml.noaa.gov/data/dataset.php?item=ush-co2-flask](https://gml.noaa.gov/data/dataset.php?item=ush-co2-flask)
 
 It computes the **linear trend** (slope and intercept) and **seasonal variations** using linear regression and spline smoothing. The results are written into `nco2.json`, which must be located in the **same directory as the script**.
 
