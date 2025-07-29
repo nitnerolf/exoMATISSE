@@ -52,7 +52,11 @@ op_MATISSE_L = {'name':        'MATISSE_HAWAII-2RG',
                 'scrP':        [1,2,4,3],
                 'scrB':        [[2,3],[0,1],[1,2],[1,3],[0,2],[0,3]],# See MATISSE document: MATISSE-TP-TN-003
                 'bcd_offset':  [1,2,3,4,5,6],
-                'ron':         15}
+                'ron':         15,
+                'det_stripe_px': 64,
+                'det_side_px': 2048}
+
+#################################################
 
 op_MATISSE_N = {'name':        'MATISSE_AQUARIUS',
                 'band':        'N',
@@ -63,7 +67,9 @@ op_MATISSE_N = {'name':        'MATISSE_AQUARIUS',
                 'scrP':[3,4,2,1], 
                 'scrB': [[3,2],[1,0],[2,1],[3,1],[2,0],[3,0]],# See MATISSE document: MATISSE-TP-TN-003
                 'bcd_offset':[1,2,3,4,5,6],
-                'ron':75}
+                'ron':75,
+                'det_stripe_px': 32,
+                'det_side_px': 512}
 
 #################################################
 # Instrument-specific parameters for GRA4MAT

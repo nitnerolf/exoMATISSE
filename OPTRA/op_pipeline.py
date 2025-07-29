@@ -105,7 +105,7 @@ def op_assign_sky(data_collection):
         for jfile,skyfile in enumerate(sorted_skies):
             hdr2 = fits.getheader(indir+skyfile)
             match = True
-            for key in keys_to_match:
+            for i,key in enumerate(keys_to_match):
                 if key not in hdr or key not in hdr2:
                     match = False
                     #print('Nope!')
@@ -116,19 +116,24 @@ def op_assign_sky(data_collection):
                     #print('Nope!')
                     #data_collection['matched_sky'].append('Nope!')
                     break
+                
             if match:
                 print(jfile)
                 # Stop at first match
                 jfile_best = jfile
                 break
+        if jfile == len(sorted_skies)-1:
+            print('reached end of sky files list')
+        if  match == False:
+            print('No match!!!! ', obsfile, 'with', skyfile)
         
         stringObs = 'Obs: '
         stringSky = 'Sky: '
         for key in keys_to_match:
             stringObs += f"{key}: {hdr[key]} | "
             stringSky += f"{key}: {hdr2[key]} | "
-        print(stringObs)
-        print(stringSky)
+        #print(stringObs)
+        #print(stringSky)
             
         #print(f"Matched {obsfile} ({obs_mjd}) with {skyfiles_sorted[jfile_best]} ({mjd_sorted[jfile_best]})")
         data_collection['matched_sky'].append(sorted_skies[jfile_best])

@@ -26,7 +26,7 @@ from scipy         import stats
 from tqdm import tqdm
 
 #plt.ion()
-plot = False
+plot = True
 verbose = False
 
 
@@ -82,11 +82,10 @@ for ifile, obsfile in enumerate(starfiles):
     #print('Star file:', os.path.basename(starfiles[ifile]), ' Sky file:', os.path.basename(skyfile))
     u=[];v=[]
     ##########################################################
-    op_compute_oifits(starfile, skyfile, badfile, flatfile, shiftfile)
+    op_compute_oifits(starfile, skyfile, badfile, flatfile, shiftfile, plot=plot)
 
     # bdata = op_loadAndCal_rawdata(basedir + obsfile, skyfile, badfile, flatfile, verbose=verbose, plot=plotRaw)
     
-
     # ##########################################################
 
     # cfdata = op_get_corrflux(bdata, shiftfile, plot=plotCorr, verbose=verbose)
@@ -132,7 +131,6 @@ for ifile, obsfile in enumerate(starfiles):
     # else: 
     #     cfdata = op_compute_uv(cfdata,False)
     
-        
     # uCoord.append(cfdata['OI_BASELINES']['UCOORD'])
     # vCoord.append(cfdata['OI_BASELINES']['VCOORD'])
     
@@ -189,7 +187,6 @@ for ifile, obsfile in enumerate(starfiles):
     
     # #########################################################
     
-    
     # if plotCorr:
         
     #     #print('Shape of cfdata:', cfdem['CF']['CF_demod'].shape)
@@ -224,8 +221,6 @@ for ifile, obsfile in enumerate(starfiles):
     #     plt.tight_layout()
     #     plt.savefig(os.path.expanduser(outdir+f'{basen}_corrflux.png'))
     #     #plt.show()
-
-
 
     # if plotPist:
             

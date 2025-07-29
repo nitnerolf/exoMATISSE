@@ -189,8 +189,37 @@ def op_extract_simplevis2(cfdata, verbose=True, plot=False):
 
 ################################################################################
 def op_average_vis2(cfdata, verbose=True, plot=False):
+    #---------------------------------------------------
+    data = cfdata
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']: count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
+    #---------------------------------------------------
     
-    toto
+    sumCF2 = np.sum(cfdata['VIS2']['CF2'], axis=0)
+    stdCF2 = np.std(cfdata['VIS2']['CF2'], axis=0)
+    
+    sumFL2 = np.sum(cfdata['VIS2']['FL2'], axis=0)
+    stdFL2 = np.std(cfdata['VIS2']['FL2'], axis=0)
+    
+    avgvis2 = sumCF2 / sumFL2
+    errvis2 = np.sqrt(stdCF2**2 / sumFL2**4 + stdFL2**2 * sumCF2**2 / sumFL2**4)
+    
+    if plot:
+        plt.figure()
+        plt.title('Average visibility')
+        plt.plot(avgvis2)
+        plt.xlabel('Wavelength index')
+        plt.ylabel('Squared Visibility')
+        plt.grid()
+        plt.show()
+    
+    cfdata['VIS2']['avgvis2'] = avgvis2
+    cfdata['VIS2']['errvis2'] = errvis2
+    
+    return cfdata,avgvis2
     
 ################################################################################
 def op_correct_balance_simplevis2(cfdata, verbose=False, plot=False):

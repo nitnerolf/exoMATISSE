@@ -7,7 +7,6 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
 from op_tidyup_esofiles import *
 
-
 def main(root=".", max_workers=None):
     root_path = Path(root)
     # First, rename all .fits and .fits.Z files
@@ -18,7 +17,6 @@ def main(root=".", max_workers=None):
                 if safe != p.name:
                     print(f"Renaming {p.name} to {safe}...")
                     p.rename(p.with_name(safe))
-
 
 if __name__ == "__main__":
     import sys

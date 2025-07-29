@@ -50,7 +50,7 @@ def main(root=".", max_workers=None):
     fits_files = [p for p in root_path.rglob("*.fits") if p.is_file() and is_visible(p) and not str(p).endswith(".fits.Z")]
     all_files = [(decompress_and_recompress_z_file, f) for f in z_files] + [(compress_fits_file, f) for f in fits_files]
 
-    max_workers = 4#int(os.cpu_count()//1.5) #max_workers or int(os.cpu_count()//3) or 4
+    max_workers = 2#int(os.cpu_count()//1.5) #max_workers or int(os.cpu_count()//3) or 4
     max_workers = min(max_workers, len(all_files)) if max_workers else len(all_files)
     if not all_files:
         print("Aucun fichier .fits ou .fits.Z visible à traiter."); return
