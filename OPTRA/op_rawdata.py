@@ -21,32 +21,97 @@ from   scipy import *
 import numpy as np
 import fnmatch
 import matplotlib.pyplot as plt
-from op_instruments import *
-from matplotlib.ticker import MultipleLocator
-from copy import deepcopy
+from   op_instruments import *
+from   matplotlib.ticker import MultipleLocator
+from   copy import deepcopy
 import numpy.linalg as lin
-from op_parameters import *
-from astroquery.simbad import Simbad
-from astropy.coordinates import SkyCoord
-from astropy.time import Time
+from   op_parameters import *
+from   astroquery.simbad import Simbad
+from   astropy.coordinates import SkyCoord
+from   astropy.time import Time
 import astropy.units as u
 import inspect
 import os
 
 ##############################################
 # Function to interpolate bad pixels
-# Needs rework!
-# 2 papers to read: # - 
-def op_interpolate_bad_pixels(data, bad_pixel_map, verbose=False):
+def op_interpolate_bad_pixels(data, bad_pixel_map, method='gaussian', add_bad=None, verbose=False, plot=False):
     #---------------------------------------------------
     if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
     #---------------------------------------------------
-    # Apply a median filter to the data
-    filtered_data = median_filter(data, size=3)
-    #plt.imshow(filtered_data, cmap='gray')
-    # Replace bad pixels with the median filtered values
-    data[bad_pixel_map] = filtered_data[bad_pixel_map]
-    return data, filtered_data
+
+    if np.any(add_bad):
+        bad_pixel_map = bad_pixel_map.copy()  # Don't modify input bad pixel map, use a copy
+        for j in range(len(add_bad)):
+            bad_pixel_map[add_bad[j][1], add_bad[j][0]] = 1
+    
+    if plot:
+        med = np.nanmedian(data.flatten())
+        mad = np.nanmedian(np.abs(data.flatten() - med))
+        vmin = med - 3 * mad
+        vmax = med + 10 * mad
+        fig, ax = plt.subplots(1, 3, figsize=(8, 6), sharex=True, sharey=True)
+        ax = ax.flatten()
+        ax[0].imshow(data, cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
+        ax[0].set_title('Original Data')
+        ax[0].set_xlabel('X-axis')
+        ax[0].set_ylabel('Y-axis')
+        ax[1].imshow(data, cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
+        ax[1].set_title('Data with Bad Pixels')
+        ax[1].set_xlabel('X-axis')
+        ax[1].set_ylabel('Y-axis')
+    
+    data[bad_pixel_map] = np.nan
+    
+    if method == 'median':
+        # Apply a median filter to the data
+        filtered_data = median_filter(data, size=3)
+        #plt.imshow(filtered_data, cmap='gray')
+        # Replace bad pixels with the median filtered values
+        data[bad_pixel_map] = filtered_data[bad_pixel_map]
+    
+    elif method == 'mean':
+        # Iteratively fill NaNs (bad pixels) using the mean of surrounding pixels until all are filled
+        mask = np.isnan(data)
+        iteration = 0
+        while np.any(mask):
+            # Compute mean of 3x3 neighborhood, ignoring NaNs
+            inds = np.argwhere(mask)
+            for y, x in inds:
+                y0, y1 = max(0, y-1), min(data.shape[0], y+2)
+                x0, x1 = max(0, x-1), min(data.shape[1], x+2)
+                
+                # plt.figure()
+                # plt.imshow(filtered_data[y0:y1, x0:x1], cmap='gray', origin='lower')
+                # plt.show()
+                window = data[y0:y1, x0:x1]
+                val = np.nanmean(window)
+                data[y, x] = val
+            mask = np.isnan(data)
+            iteration += 1
+            if iteration > 15:  # Prevent infinite loops
+                break
+    
+    elif method == 'astrofix':
+        fixed_img,para,TS=astrofix.Fix_Image(data,"asnan",max_clip=1)
+    
+    elif method == 'gaussian':
+        # Use Gaussian interpolation to fill NaNs, method taken from AMICAL software, MIT licence, author A. Soulain ()
+        # See https://github.com/SAIL-Labs/AMICAL/tree/main
+        from astropy.convolution import Gaussian2DKernel, interpolate_replace_nans
+        # Create a Gaussian kernel
+        kernel = Gaussian2DKernel(3./2.355)
+        # Interpolate NaNs using the Gaussian kernel
+        data = interpolate_replace_nans(data, kernel)
+    
+    if plot:
+        ax[2].imshow(data, cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
+        ax[2].set_title('Interpolated Data')
+        ax[2].set_xlabel('X-axis')
+        ax[2].set_ylabel('Y-axis')
+        plt.show()
+    
+    return data
 
 ##############################################
 # Load bad pixel map
@@ -78,10 +143,8 @@ def op_apply_bpm(rawdata, bpmap, verbose=False):
     if verbose: print(f'Processing {nframe} frames')
     wbpm = bpmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
     # Interpolate bad pixels in each frame
-    fdata = []
     for i in range(nframe):
-        intf[i],filtdata = op_interpolate_bad_pixels(intf[i], wbpm)
-        fdata.append(filtdata)
+        intf[i] = op_interpolate_bad_pixels(intf[i], wbpm)
     rawdata['INTERF']['data'] = intf
     
     for key in rawdata['PHOT']:
@@ -90,10 +153,8 @@ def op_apply_bpm(rawdata, bpmap, verbose=False):
         phot   = rawdata['PHOT'][key]['data']
         wbpm = bpmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
         # Interpolate bad pixels in each frame
-        fdata = []
         for i in range(nframe):
-            phot[i],filtdata = op_interpolate_bad_pixels(phot[i], wbpm)
-            fdata.append(filtdata)
+            phot[i] = op_interpolate_bad_pixels(phot[i], wbpm)
         rawdata['PHOT'][key]['data'] = phot
         
     for key in rawdata['OTHER']:
@@ -102,14 +163,11 @@ def op_apply_bpm(rawdata, bpmap, verbose=False):
         other  = rawdata['OTHER'][key]['data']
         wbpm = bpmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
         # Interpolate bad pixels in each frame
-        fdata = []
         for i in range(nframe):
-            other[i],filtdata = op_interpolate_bad_pixels(other[i], wbpm)
-            fdata.append(filtdata)
+            other[i] = op_interpolate_bad_pixels(other[i], wbpm)
         rawdata['OTHER'][key]['data'] = other
         
     return rawdata
-
 
 ##############################################
 # Load flat field map
@@ -145,8 +203,7 @@ def op_apply_ffm(rawdata, ffmap, verbose=False):
     wffm = ffmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
     # Interpolate bad pixels in each frame
     
-    for i in range(nframe):
-        intf[i,...] /= wffm
+    intf /= wffm[None,...]
     rawdata['INTERF']['data'] = intf
     
     for key in rawdata['PHOT']:
@@ -156,8 +213,7 @@ def op_apply_ffm(rawdata, ffmap, verbose=False):
         wffm   = ffmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
         # Interpolate bad pixels in each frame
         if verbose: print('phot:', np.shape(phot), 'wffm:', np.shape(wffm))
-        for i in range(nframe):
-            phot[i,...] /= wffm
+        phot /= wffm[None,...]
         rawdata['PHOT'][key]['data'] = phot
         
     for key in rawdata['OTHER']:
@@ -166,15 +222,48 @@ def op_apply_ffm(rawdata, ffmap, verbose=False):
         other  = rawdata['OTHER'][key]['data']
         wffm   = ffmap[corner[1]-1:corner[1]+naxis[1]-1, corner[0]-1:corner[0]+naxis[0]-1]
         # correct flat field
-        for i in range(nframe):
-            other[i] /= wffm
+        other /= wffm[None,...]
         rawdata['OTHER'][key]['data'] = other
     
     return rawdata
 
 ##############################################
+# correct_masked_pixels
+def op_correct_masked_pixels(rawdata, stripes=64, sides=1024, verbose=False):
+    return 0
+    #---------------------------------------------------
+    data = rawdata
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
+    # Add a processing step to the header
+    count = 1
+    while f'HIERARCH PROC{count}' in data['hdr']: count += 1
+    data['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
+    #---------------------------------------------------
+        
+    icorner = rawdata['INTERF']['corner']
+    inaxis  = rawdata['INTERF']['naxis']
+    intf    = rawdata['INTERF']['data']
+
+    for key in rawdata['OTHER']:
+        corner = rawdata['OTHER'][key]['corner']
+        corny = []
+        if icorner[0] == corner[0] :
+            print("Found a corner in the OTHER data that matches the INTERF data")
+            print('key:', key, 'corner:', corner, 'icorner:', icorner)
+            print('size of intf:', np.shape(intf))
+            print('size of other:', np.shape(rawdata['OTHER'][key]['data']))
+            corny.append(np.mean(rawdata['OTHER'][key]['data'], axis=(0,1)))
+        
+        cornavg = np.mean(corny,axis=0)
+        plt.figure(figsize=(10, 5))
+        plt.plot(cornavg, label='Average corner data')
+        plt.plot( np.mean(intf, axis=(0,1)), label='Average intf data')
+        plt.plot( np.mean(intf-cornavg[None,None,:], axis=(0,1)), label='Average intf data')
+        plt.show()
+
+##############################################
 # Subtract sky
-def op_subtract_sky(rawdata, skydata, skydataOO=None, verbose=False):
+def op_subtract_sky(rawdata, skydata, skydataOO=None, verbose=False, plot=False):
     #---------------------------------------------------
     data = rawdata
     if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
@@ -190,41 +279,57 @@ def op_subtract_sky(rawdata, skydata, skydataOO=None, verbose=False):
     skydata['INTERF']['data'] = np.mean(skydata['INTERF']['data'], axis=0)#stats.trim_mean(skydata['INTERF']['data'], 0.05, axis=0)
     for key in skydata['PHOT']:
         skydata['PHOT'][key]['data'] = np.mean(skydata['PHOT'][key]['data'], axis=0) #stats.trim_mean(skydata['PHOT'][key]['data'], 0.05, axis=0)
-    
+    for key in skydata['OTHER']:
+        skydata['OTHER'][key]['data'] = np.mean(skydata['OTHER'][key]['data'], axis=0)
+            
     rawdata['INTERF']['datamean'] = np.mean(rawdata['INTERF']['data'], axis=0) #stats.trim_mean(rawdata['INTERF']['data'], 0.05, axis=0)
     for key in rawdata['PHOT']:
         rawdata['PHOT'][key]['datamean'] = np.mean(rawdata['PHOT'][key]['data'], axis=0) #stats.trim_mean(rawdata['PHOT'][key]['data'], 0.05, axis=0)
     
-    plot=1
     if plot:
+        fringes = rawdata['INTERF']['datamean']
+        med = np.nanmedian(fringes.flatten())
+        mad = np.nanmedian(np.abs(fringes.flatten() - med))
+        vmin = med - 3 * mad
+        vmax = med + 10 * mad
+        
         fig, axs = plt.subplots(3, 5, figsize=(8, 8), sharey=True)
         axs = axs.flatten()
         
-        axs[0].imshow(rawdata['INTERF']['datamean'])
+        axs[0].imshow(rawdata['INTERF']['datamean'], vmin=vmin, vmax=vmax)
         axs[0].set_title(f'Intf shape')
         
         for i, key in enumerate(rawdata['PHOT']):
-            axs[i+1].imshow(rawdata['PHOT'][key]['datamean'], label=key)
+            axs[i+1].imshow(rawdata['PHOT'][key]['datamean'], label=key, vmin=vmin, vmax=vmax)
             axs[i+1].set_title(f'Phot {i+1} shape')
             
-        axs[0+5].imshow(skydata['INTERF']['data'])
+        axs[0+5].imshow(skydata['INTERF']['data'], vmin=vmin, vmax=vmax)
         axs[0+5].set_title(f'Intf shape')
         
         for i, key in enumerate(skydata['PHOT']):
-            axs[i+1+5].imshow(skydata['PHOT'][key]['data'], label=key)
+            axs[i+1+5].imshow(skydata['PHOT'][key]['data'], label=key, vmin=vmin, vmax=vmax)
             axs[i+1+5].set_title(f'Phot {i+1} shape')
         
     # Subtract sky from rawdata
-    rawdata['INTERF']['data'] -= skydata['INTERF']['data']
+    rawdata['INTERF']['data'] -= skydata['INTERF']['data'][None,...]
     for key in rawdata['PHOT']:
-        rawdata['PHOT'][key]['data'] -= skydata['PHOT'][key]['data']
+        rawdata['PHOT'][key]['data'] -= skydata['PHOT'][key]['data'][None,...]
+    for key in rawdata['OTHER']:
+        rawdata['OTHER'][key]['data'] -= skydata['OTHER'][key]['data'][None,...]
         
     if plot:
-        axs[0+10].imshow(stats.trim_mean(rawdata['INTERF']['data'], 0.05, axis=0))
+        newfringes = rawdata['INTERF']['data']
+        med = np.nanmedian(newfringes.flatten())
+        mad = np.nanmedian(np.abs(newfringes.flatten() - med))
+        vmin = med - 3 * mad
+        vmax = med + 10 * mad
+        
+        rms = np.std(rawdata['INTERF']['data'], axis=0)
+        axs[0+10].imshow(stats.trim_mean(rawdata['INTERF']['data'], 0.05, axis=0), vmin=vmin, vmax=vmax)
         axs[0+10].set_title(f'Intf shape')
         
         for i, key in enumerate(rawdata['PHOT']):
-            axs[i+11].imshow(stats.trim_mean(rawdata['PHOT'][key]['data'], 0.05, axis=0), label=key)
+            axs[i+11].imshow(stats.trim_mean(rawdata['PHOT'][key]['data'], 0.05, axis=0), label=key, vmin=vmin, vmax=vmax)
             axs[i+11].set_title(f'Phot {i+1} shape')
         plt.show()
         
@@ -245,7 +350,6 @@ def op_print_fits_structure(fits_data):
             if isinstance(hdu.data, np.recarray):
                 print(f'Columns: {hdu.data.dtype.names}')
             print(f'Data shape: {hdu.data.shape}')
-        #print('\n')
     
 ##############################################
 # Display the structure of a FITS file
@@ -267,7 +371,6 @@ def op_match_keys(fits_data, keys, values, hdu=0):
             if hdr[ky] == keys[iky]:
                 match = True
 
-
 ##############################################
 # Load raw data
 def op_load_rawdata(filename, verbose=True):
@@ -275,6 +378,8 @@ def op_load_rawdata(filename, verbose=True):
         
     fh      =  fits.open(filename)
     data    = {'hdr': fh[0].header}
+    data['hdr']['PROCSOFT'] = PIPELINE_NAME + ' ' + PIPELINE_VERSION
+    
     data['filename'] = filename
     nframes = len(fh['IMAGING_DATA'].data)
     nexp    = len(fh['IMAGING_DATA'].data)//6
@@ -361,8 +466,7 @@ def op_load_rawdata(filename, verbose=True):
     data['hdr'][f'HIERARCH PROC{count}'] = inspect.currentframe().f_code.co_name
     #---------------------------------------------------
     data['hdr'][f'HIERARCH PROC{count} FILE'] = os.path.basename(filename)
-    
-    
+
     return data
 
 ##############################################
@@ -382,16 +486,21 @@ def op_loadAndCal_rawdata(sciencefile, skyfile, bpm, ffm, instrument=op_MATISSE_
 
     # Load the sky data
     skydata  = op_load_rawdata(skyfile)
-
-    # Subtract the sky from the star data
-    stardata = op_subtract_sky(tardata, skydata)
     
     # Load the calibration data
     bpm = op_load_bpm(bpm)
     ffm = op_load_ffm(ffm)
 
-    fdata = op_apply_ffm(stardata, ffm, verbose=verbose)
-    bdata = op_apply_bpm(fdata, bpm, verbose=verbose)
+    stardata = op_apply_ffm(tardata, ffm, verbose=verbose)
+    stardata = op_apply_bpm(stardata, bpm, verbose=verbose)
+    
+    skydata = op_apply_ffm(skydata, ffm, verbose=verbose)
+    skydata = op_apply_bpm(skydata, bpm, verbose=verbose)
+
+    # Subtract the sky from the star data
+    bdata = op_subtract_sky(stardata, skydata)
+    
+    #bdata = op_correct_masked_pixels(bdata, stripes=64, sides=1024, verbose=verbose)
     
     bdata['OI_BASELINES'] = {}
     bdata['OI_BASELINES']['TARGET_ID'] = bdata['INTERF']['target']
