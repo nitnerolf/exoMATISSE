@@ -494,7 +494,7 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
 
     #########################################################
     # Get the error and the snr
-    bdata=op_get_error_vis(bdata,cfin='CF_piston_corr2',plot=plot)
+    bdata = op_get_error_vis(bdata,cfin='CF_piston_corr2',plot=plot)
     
     #########################################################
     # Get the semi theorical snr
@@ -508,7 +508,7 @@ def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, c
     # else:
     #     bdata = op_bin_data(bdata, cfin='CF_reord', verbose=verbose, plot=plot)
         
-    bdata=op_get_error_vis(bdata,plot=plot)
+    bdata = op_get_error_vis(bdata,plot=plot)
     op_snr_theory(bdata)
     
     
@@ -1216,7 +1216,7 @@ def op_corr_piston(data, cfin='CF_Binned', verbose=False, plot=False):
 
 ################################################################################
 # Bin data
-def op_bin_data(data, binning=5, cfin='CF_achr_phase_corr', verbose=False, plot=False):
+def op_bin_data(data, binning=5, cfin='CF_chr_phase_corr', verbose=False, plot=False): #cfin='CF_achr_phase_corr'
     if verbose:
         print(f"executing --> {inspect.currentframe().f_code.co_name}")
     wlen   = data['OI_WAVELENGTH']['EFF_WAVE']
@@ -1311,8 +1311,8 @@ def op_get_error_vis(data,cfin='CF_piston_corr2',plot=False, verbose=True):
                     ax1[iFrame,0].plot(wlen, smooth_amp, color='black',alpha=0.9)
                     ax1[iFrame,0].set_ylim(0,np.max(amp)*1.1)
                     ax1[iFrame,0].set_ylabel(f'frame {iFrame+1} AMP')
-                    ax1[iFrame,1].plot(wlen, np.degrees(smooth_phi), color='black',alpha=0.9)
-                    ax1[iFrame,1].set_ylabel(f'frame {iFrame+1} PHI (°)')
+                    # ax1[iFrame,1].plot(wlen, np.degrees(smooth_phi), color='black',alpha=0.9)
+                    # ax1[iFrame,1].set_ylabel(f'frame {iFrame+1} PHI (°)')
                     ax1[iFrame,1].set_ylim(-15,15)
                     ax1[iFrame,0].plot(wlen,  amp, color=colors[iFrame],alpha=0.3)
                     ax1[iFrame,1].plot(wlen, np.degrees(phi), color=colors[iFrame],alpha=0.3)
