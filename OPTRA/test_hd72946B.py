@@ -45,7 +45,7 @@ outdir    = os.path.expanduser('/Users/jscigliuto/Nextcloud/DATA/HD72946B/Result
 #caldir = os.path.expanduser('~/driveFlorentin/DATA/CALIB2024/')
 caldir = bbasedir+'/CALIB2024/'
 
-ext = '.fits.gz'
+ext = '.fits'
 kappafile = caldir+'KAPPA_MATRIX_L_MED'+ext
 shiftfile = caldir+'SHIFT_L_MED'+ext
 flatfile  = caldir+'FLATFIELD_L_SLOW'+ext

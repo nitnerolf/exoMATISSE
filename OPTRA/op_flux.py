@@ -33,7 +33,8 @@ def op_extract_beams(rawdata, verbose=True, plot=False):
     intfprofile /= np.max(intfprofile)[None,...]
     rawdata['INTERF']['shape'] = intfshape
     rawdata['INTERF']['time']  = intftime
-    rawdata['INTERF']['time']  = intfprofile
+    # rawdata['INTERF']['time']  = intfprofile
+    rawdata['INTERF']['profil']  = intfprofile
 
     if plot:
         plt.figure(1)
@@ -90,7 +91,10 @@ def op_extract_beams(rawdata, verbose=True, plot=False):
         plt.title('Photometry vs time')
         
         #plt.tight_layout()
-        fig.colorbar(im, ax=axs[:min(4, len(phots))], orientation='vertical', fraction=0.02)
+        # fig.colorbar(im, ax=axs[:min(4, len(phots))], orientation='vertical', fraction=0.02)
+        axs = np.atleast_1d(axs).ravel()
+        n_axes = 1 + min(4, len(phots))  # inclut l’axe d’interf
+        fig.colorbar(im, ax=axs[:n_axes], orientation='vertical', fraction=0.02)
             
     if plot:
         plt.show()

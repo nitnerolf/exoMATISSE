@@ -37,7 +37,7 @@ def op_sort_files(data_dir):
     files = os.listdir(data_dir)
     fitsfiles = [
         f for f in files
-        if ".fits" in f and not f.startswith('_') and not f.startswith('.')
+        if ".fits" in f and not f.startswith('_') and not f.startswith('.') and not f.startswith('M.')
     ]
     fitsfiles = sorted(fitsfiles)
     # select  fits files that correspond to observations
@@ -51,7 +51,7 @@ def op_sort_files(data_dir):
     data_collection['dark_MJD']= []
 
     for fi in tqdm(fitsfiles,desc='Sorting files...'):
-        #print(fi)
+        print(fi)
         hdr = fits.getheader(data_dir+fi)
         catg = hdr['ESO DPR CATG']
         type = hdr['ESO DPR TYPE']
