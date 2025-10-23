@@ -91,9 +91,9 @@ def op_extract_beams(rawdata, verbose=True, plot=False):
         plt.title('Photometry vs time')
         
         #plt.tight_layout()
-        # fig.colorbar(im, ax=axs[:min(4, len(phots))], orientation='vertical', fraction=0.02)
+        fig.colorbar(im, ax=axs[:min(4, len(phots))], orientation='vertical', fraction=0.02)
         axs = np.atleast_1d(axs).ravel()
-        n_axes = 1 + min(4, len(phots))  # inclut l’axe d’interf
+        n_axes = 1 + min(4, len(phots))  
         fig.colorbar(im, ax=axs[:n_axes], orientation='vertical', fraction=0.02)
             
     if plot:

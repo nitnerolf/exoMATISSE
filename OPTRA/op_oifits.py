@@ -84,7 +84,7 @@ def op_gen_oitarget(cfdata, verbose=True, plot=False):
     oitarget_table['PARALLAX']  = np.float32(0.0)
     oitarget_table['PARA_ERR']  = np.float32(0.0)
     oitarget_table['SPECTYP']   = 'UNKNOWN'
-    # oitarget_table['CATEGORY']  = cfdata['hdr']['ESO DPR CATG']
+    oitarget_table['CATEGORY']  = cfdata['hdr']['ESO DPR CATG']
        
     return oitarget_table
 
