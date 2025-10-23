@@ -358,11 +358,11 @@ def generate_turbulent_psf(D, sz, phase_screen, lambda_obs, plot=False, n_pad=2,
 
 dim  = 100 #pix -> 1024pix = 10m -> 1pix = 9.7mm
 n_pad= 4
-phsz = 8.0 #m physical size of the phase screen (in meters)
+phsz = 35.0 #m physical size of the phase screen (in meters)
 L0   = 30.0 # outer scale m
 D    = 8.0 # telescope diameter m
 D_obs = 1.2 # central obscuration m
-r0   = 0.1 # Fried diameter m
+r0   = 0.2 # Fried diameter m
 r0_lamb = 0.5e-6 #m
 rejection = 8.
 #lam  = 0.655e-6 #m 
@@ -376,7 +376,7 @@ holediam = 1.5 #lam/D at 3.5µm
 pl_flx = 8e-3 #Jy
 st_flx = 10 #Jy
 rt_flx = pl_flx / st_flx #unitless
-nrepeat = 250
+nrepeat = 10
 
 #plot = True
 plot = False
@@ -414,14 +414,17 @@ fig0, ax0 = plt.subplots(2, 3, figsize=(15, 8))
 
 plt.suptitle(f'Comparison of PSF with 50 and 500 modes ({lam*1e6} µm)')
 
+mx = np.max(np.concatenate([average_PSF_PERFECT, average_PSF50, average_PSF500]))
+dynamics = 16
+
 ax0[0,0].set_title('Average PSF with 50 modes')
-ax0[0,0].imshow(np.log(average_PSF50))
+ax0[0,0].imshow(np.log(average_PSF50), vmin=np.log(mx)-dynamics, vmax=np.log(mx))
 
 ax0[0,1].set_title('Average PSF with 500 modes')
-ax0[0,1].imshow(np.log(average_PSF500))
+ax0[0,1].imshow(np.log(average_PSF500), vmin=np.log(mx)-dynamics, vmax=np.log(mx))
 
 ax0[0,2].set_title('Perfect PSF')
-ax0[0,2].imshow(np.log(average_PSF_PERFECT))
+ax0[0,2].imshow(np.log(average_PSF_PERFECT), vmin=np.log(mx)-dynamics, vmax=np.log(mx))
 
 slice50   = average_PSF50[dim//2,dim//2:]
 #slice50  /= np.max(slice50)

@@ -767,9 +767,6 @@ def _op_positionsTelescope(hdr,loc,plot, verbose=True):
         plt.show()
    
     return positions
-            
-
-
 
 ##############################################
 # Get baseline vector
@@ -804,8 +801,6 @@ def _op_get_baseVect(station1,station2,loc,delay = dict(), verbose=True):
             delay[station1] = A1L
             delay[station2] = A2L
     return np.array([B2[0]-B1[0],B2[1]-B1[1],B2[2]-B1[2]]),delay
-
-            
 
 ##############################################
 # Get all baselines vector

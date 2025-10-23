@@ -26,7 +26,7 @@ from scipy         import stats
 from tqdm import tqdm
 
 #plt.ion()
-plot = True
+plot = False
 verbose = False
 
 

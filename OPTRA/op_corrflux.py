@@ -1311,7 +1311,7 @@ def op_get_error_vis(data,cfin='CF_piston_corr2',plot=False, verbose=True):
                     ax1[iFrame,0].plot(wlen, smooth_amp, color='black',alpha=0.9)
                     ax1[iFrame,0].set_ylim(0,np.max(amp)*1.1)
                     ax1[iFrame,0].set_ylabel(f'frame {iFrame+1} AMP')
-                    ax1[iFrame,1].plot(wlen, np.degrees(smooth_phi), color='black',alpha=0.9)
+                    #ax1[iFrame,1].plot(wlen, np.degrees(smooth_phi), color='black',alpha=0.9)
                     ax1[iFrame,1].set_ylabel(f'frame {iFrame+1} PHI (°)')
                     ax1[iFrame,1].set_ylim(-15,15)
                     ax1[iFrame,0].plot(wlen,  amp, color=colors[iFrame],alpha=0.3)
