@@ -15,13 +15,26 @@ path_oifits = '/Users/jscigliuto/exoMATISSE/exoMATISSE/data_hd72946b/corrected_d
 # Output path 
 path_output = '/Users/jscigliuto/exoMATISSE/exoMATISSE/data_hd72946b/test/'
 
-# Plotting flag (create directories with plots)
-plot = True
+# Models path
+model_star = ''
+model_planet = ''
+
+# Flags
+plot     = True
+sci_case = 'bright' #'faint' 
 
 # Baseline order and names
 base_order_name = ('U3-U4', 'U1-U2', 'U2-U3', 'U2-U4', 'U1-U3', 'U1-U4')
 
-###
+# Planet offsets coords mentioned in the OB [mas]
+Offset_RA = 106
+Offset_Dec = -145
+
+# Grid of coordinates to determine the astrometry of the planet
+xp = np.linspace(Offset_RA-50, Offset_RA+50, 100)
+yp = np.linspace(Offset_Dec-50, Offset_Dec+50, 100)
+
+### Functions
 
 def compute_average_star_quantities(path_oifits, filelist_star):
     n_files = len(filelist_star)
@@ -73,6 +86,7 @@ def compute_average_star_quantities(path_oifits, filelist_star):
 
 ###
 
+### Initializations
 # Create a dictionary to store the mjd for each OB
 mjd_dict = {}
 
@@ -81,6 +95,8 @@ if not os.path.isdir(path_output + '/stellar_OB_averages'):
     os.makedirs(path_output + '/stellar_OB_averages')
 if not os.path.isdir(path_output + '/Contrast'):
         os.makedirs(path_output + '/Contrast')
+if not os.path.isdir(path_output + '/SNR'):
+        os.makedirs(path_output + '/SNR')
 
 # List the input OiFits files
 files        = sorted([file for file in os.listdir(path_oifits) if '.fits' in file])
@@ -91,7 +107,7 @@ OBs_star     = list(set([int(file[file.find('OB')+2:file.find('_exp')]) for file
 OBs_planet   = list(set([int(file[file.find('OB')+2:file.find('_exp')]) for file in files_planet]))
 
 
-
+### Compute the Cps for each planet file
 # Loop to average the star quantities for each OB
 for i_OB in OBs_star:
 
@@ -119,6 +135,8 @@ n_wave           = wl.size
 Cps_all          = np.zeros((n_file_planet, 6, n_wave), dtype=complex)
 Cps_real_err_all = np.zeros((n_file_planet, 6, n_wave))
 Cps_imag_err_all = np.zeros((n_file_planet, 6, n_wave))
+snr_real_all     = np.zeros((n_file_planet, 6, n_wave))
+snr_imag_all     = np.zeros((n_file_planet, 6, n_wave))
 
 # Loop to interpolate the average star quantities between the OBs
 for n_file, file_planet in enumerate(files_planet):
@@ -195,7 +213,7 @@ for n_file, file_planet in enumerate(files_planet):
     cf_real_star_err = np.sqrt(((1 - u) * cf_real_star_err_1) ** 2 + (u * cf_real_star_err_2) ** 2)
     cf_imag_star_err = np.sqrt(((1 - u) * cf_imag_star_err_1) ** 2 + (u * cf_imag_star_err_2) ** 2)
 
-    # Complexify
+    # Complexify 
     cf_star_interp = cf_real_star_interp + 1j * cf_imag_star_interp
 
     # Compute the planet-to-star flux ratio and associated errors
@@ -209,26 +227,58 @@ for n_file, file_planet in enumerate(files_planet):
     Cps_real_err_all[n_file] = Cps_real_err
     Cps_imag_err_all[n_file] = Cps_imag_err
 
-    ### Plots
+    # Compute SNR
+    snr_real = np.abs(np.real(Cps) / Cps_real_err)
+    snr_imag = np.abs(np.imag(Cps) / Cps_imag_err)
+    snr_real_all[n_file] = snr_real
+    snr_imag_all[n_file] = snr_imag
+
+    ## Plots
     if plot == True:
-        fig, ax = plt.subplots(3, 2, figsize=(12, 8))
-        ax = ax.flatten()
+        fig_Cps, ax_Cps = plt.subplots(3, 2, figsize=(12, 8))
+        ax_Cps = ax_Cps.flatten()
+
+        fig_snr, ax_snr = plt.subplots(3, 2, figsize=(12, 8))
+        ax_snr = ax_snr.flatten()
 
         for i_base in range(6): 
-
-            fig.text(0.5, 0.001, 'Wavelength (µm)', ha='center', fontsize=12)
-            fig.text(0.001, 0.5, 'Real Contrast (p/s)', va='center', rotation='vertical', fontsize=12)
-            fig.suptitle('Planet-to-Star Contrast', fontsize=16)
-            ax[i_base].plot(wl*1e6, np.real(Cps_all[n_file,i_base]), color='crimson', alpha=0.8)
-            ax[i_base].fill_between(wl*1e6, np.real(Cps_all[n_file,i_base])-Cps_real_err_all[n_file, i_base], 
+            
+            #Cps
+            fig_Cps.text(0.5, 0.001, 'Wavelength (µm)', ha='center', fontsize=12)
+            fig_Cps.text(0.001, 0.5, 'Real Contrast (p/s)', va='center', rotation='vertical', fontsize=12)
+            fig_Cps.suptitle('Planet-to-Star Contrast', fontsize=16)
+            ax_Cps[i_base].plot(wl*1e6, np.real(Cps_all[n_file,i_base]), color='crimson', alpha=0.8)
+            ax_Cps[i_base].fill_between(wl*1e6, np.real(Cps_all[n_file,i_base])-Cps_real_err_all[n_file, i_base], 
                                     np.real(Cps_all[n_file,i_base])+Cps_real_err_all[n_file, i_base], alpha=0.2, color='hotpink')
-            ax[i_base].set_ylim(-0.5e-1, 0.75e-1)
-            ax[i_base].set_title(f'Baseline {base_order_name[i_base]}')
+            ax_Cps[i_base].set_ylim(-0.5e-1, 0.75e-1)
+            ax_Cps[i_base].set_title(f'Baseline {base_order_name[i_base]}')
             # ax[i_base].set_ylim(-1.5e-1, 2e-1)
             # ax[i_base].legend(loc='upper right')
+
+            #SNR
+            fig_snr.text(0.5, 0.001, 'Wavelength (µm)', ha='center', fontsize=12)
+            fig_snr.text(0.001, 0.5, 'SNR Real Contrast', va='center', rotation='vertical', fontsize=12)
+            fig_snr.suptitle('SNR on Planet-to-Star Contrast', fontsize=16)
+            ax_snr[i_base].plot(wl*1e6, snr_real_all[n_file,i_base], color='navy', alpha=0.8)
+            ax_snr[i_base].set_ylim(0, 6)
+            ax_snr[i_base].set_title(f'Baseline {base_order_name[i_base]}')
+
         plt.tight_layout()
 
         # Save the figure
-        fig.savefig(path_output + f'/Contrast/Cps_OB{num_OB_planet}_exp{num_exp_planet}_frame{num_frame_planet}.png', dpi=300)
+        fig_Cps.savefig(path_output + f'/Contrast/Cps_OB{num_OB_planet}_exp{num_exp_planet}_frame{num_frame_planet}.png', dpi=300)
+        fig_snr.savefig(path_output + f'/SNR/snr_Cps_OB{num_OB_planet}_exp{num_exp_planet}_frame{num_frame_planet}.png', dpi=300)
 
+
+
+### Determine the astrometry 
+
+if sci_case == 'faint':
+     # Fitter les oscillation après soustraction de la partie stellaire ???
+
+    
+
+
+elif sci_case == 'bright':
+    # Fitter directement les oscillations (via current model)
 
