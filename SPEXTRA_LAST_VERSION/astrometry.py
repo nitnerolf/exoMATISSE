@@ -10,7 +10,7 @@ from common_tools import reorder_baselines, wrap
 
 
 # Path of the OiFits files (outputs of the pipeline, phase corrected)
-path_oifits = '/Users/jscigliuto/exoMATISSE/exoMATISSE/data_hd72946b/corrected_data/'
+path_oifits = '/Users/jscigliuto/Nextcloud/DATA/HD72946B/corrected_data_wo_rmnrec/'
 
 # Output path 
 path_output = '/Users/jscigliuto/exoMATISSE/exoMATISSE/data_hd72946b/test/'
@@ -25,14 +25,6 @@ sci_case = 'bright' #'faint'
 
 # Baseline order and names
 base_order_name = ('U3-U4', 'U1-U2', 'U2-U3', 'U2-U4', 'U1-U3', 'U1-U4')
-
-# Planet offsets coords mentioned in the OB [mas]
-Offset_RA = 106
-Offset_Dec = -145
-
-# Grid of coordinates to determine the astrometry of the planet
-xp = np.linspace(Offset_RA-50, Offset_RA+50, 100)
-yp = np.linspace(Offset_Dec-50, Offset_Dec+50, 100)
 
 ### Functions
 
@@ -95,8 +87,11 @@ if not os.path.isdir(path_output + '/stellar_OB_averages'):
     os.makedirs(path_output + '/stellar_OB_averages')
 if not os.path.isdir(path_output + '/Contrast'):
         os.makedirs(path_output + '/Contrast')
+if not os.path.isdir(path_output + '/Contrast_fits'):
+        os.makedirs(path_output + '/Contrast_fits')
 if not os.path.isdir(path_output + '/SNR'):
         os.makedirs(path_output + '/SNR')
+                
 
 # List the input OiFits files
 files        = sorted([file for file in os.listdir(path_oifits) if '.fits' in file])
@@ -107,12 +102,14 @@ OBs_star     = list(set([int(file[file.find('OB')+2:file.find('_exp')]) for file
 OBs_planet   = list(set([int(file[file.find('OB')+2:file.find('_exp')]) for file in files_planet]))
 
 
-### Compute the Cps for each planet file
+### Compute the Cps for each planet frame
 # Loop to average the star quantities for each OB
 for i_OB in OBs_star:
 
     # Select the files corresponding to the current OB
     filelist_star = [file for file in files_star if f'OB{i_OB}_' in file]
+
+    # Extract the wavelength grid 
     hdul = fits.open(path_oifits + filelist_star[0])
     wl = hdul['OI_WAVELENGTH'].data['EFF_WAVE']
 
@@ -155,6 +152,8 @@ for n_file, file_planet in enumerate(files_planet):
     cf_phi_planet     = np.deg2rad(hdul_planet['OI_VIS'].data['VISPHI'])
     cf_phi_planet_err = np.deg2rad(hdul_planet['OI_VIS'].data['VISPHIERR'])
     mjd_planet        = hdul_planet['OI_VIS'].data['MJD'][0]
+    U_planet          = hdul_planet['OI_VIS'].data['UCOORD']
+    V_planet          = hdul_planet['OI_VIS'].data['VCOORD']
 
     # Complexify planet quantities
     cf_planet          = cf_amp_planet * np.exp(1j * cf_phi_planet)
@@ -223,6 +222,8 @@ for n_file, file_planet in enumerate(files_planet):
     Cps_imag_err = Cps * np.sqrt((cf_imag_planet_err / np.imag(cf_planet)) ** 2 \
                            + (cf_imag_star_err / np.imag(cf_star_interp)) ** 2) 
     
+    ##### ENREGISTRER FICHIER CPS + ERREURS
+    
     Cps_all[n_file]          = Cps
     Cps_real_err_all[n_file] = Cps_real_err
     Cps_imag_err_all[n_file] = Cps_imag_err
@@ -232,6 +233,33 @@ for n_file, file_planet in enumerate(files_planet):
     snr_imag = np.abs(np.imag(Cps) / Cps_imag_err)
     snr_real_all[n_file] = snr_real
     snr_imag_all[n_file] = snr_imag
+
+    # Save contrast and associated real/imag errors to a FITS file
+    cps_real = np.real(Cps)
+    cps_imag = np.imag(Cps)
+    cps_real_err = np.real(Cps_real_err)
+    cps_imag_err = np.real(Cps_imag_err)
+
+    hdul = fits.HDUList()
+    hdul.append(fits.PrimaryHDU())
+    hdul.append(fits.ImageHDU(cps_real.astype(np.float32), name='CPS_REAL'))
+    hdul.append(fits.ImageHDU(cps_imag.astype(np.float32), name='CPS_IMAG'))
+    hdul.append(fits.ImageHDU(cps_real_err.astype(np.float32), name='CPS_REAL_ERR'))
+    hdul.append(fits.ImageHDU(cps_imag_err.astype(np.float32), name='CPS_IMAG_ERR'))
+    hdul.append(fits.ImageHDU(U_planet, name='U'))
+    hdul.append(fits.ImageHDU(V_planet, name='V'))
+
+    # Add simple metadata
+    hdr = hdul[0].header
+    hdul.append(fits.ImageHDU(wl.astype(np.float32), name='WAVELENGTH'))
+    hdr['OB'] = num_OB_planet
+    hdr['EXP'] = num_exp_planet
+    hdr['FRAME'] = num_frame_planet
+    hdr['MJD'] = mjd_planet
+
+    outfile = path_output + f'/Contrast_fits/Cps_OB{num_OB_planet}_exp{num_exp_planet}_frame{num_frame_planet}.fits'
+    hdul.writeto(outfile, overwrite=True)
+    
 
     ## Plots
     if plot == True:
@@ -271,14 +299,60 @@ for n_file, file_planet in enumerate(files_planet):
 
 
 
+##############################################################################################################################
+##############################################################################################################################
+##############################################################################################################################
+
+### Initializations 
+# Planet offsets coords mentioned in the OB [mas]
+Offset_RA = 106
+Offset_Dec = -145
+
+# Grid of coordinates to determine the astrometry of the planet
+x      = np.linspace(Offset_RA-50, Offset_RA+50, 100)
+y      = np.linspace(Offset_Dec-50, Offset_Dec+50, 100)
+xp, yp = np.meshgrid(x, y) #grid of coords to look for the planet position
+
+# 
+n_poly = 1 # Degree of the polynomial to model the stellar speckle
+stellar_coeffs_init = 1.e-4 * (n_poly + 1)  # Initial coeffs for the stellar speckle polynomial
+alpha = 1. # Multiplicative factor to scale the Cps
+params_init = np.array([alpha, *stellar_coeffs_init]) 
+n_params = params_init.size
+bounds_params = [(0., None), (None, None)* (n_poly + 1)]
+
+# List the Cps files
+Cps_path = path_output + '/test/Contrast_fits/'
+files_Cps = sorted([file for file in os.listdir(path_output + Cps_path) if '.fits' in file and '_planet' in file])
+
+# Path to Cps model 
+Cps_model_path = ''
+
 ### Determine the astrometry 
 
-if sci_case == 'faint':
-     # Fitter les oscillation après soustraction de la partie stellaire ???
-
+for i_file, file_Cps in enumerate(files_Cps):
     
+    num_OB_planet    = int(file_Cps[file_Cps.find('OB')+2:file_Cps.find('_exp')])
+    num_exp_planet   = int(file_Cps[file_Cps.find('_exp')+4:file_Cps.find('_frame')])
+    num_frame_planet = int(file_Cps[file_Cps.find('_frame')+6:file_Cps.find('.fits')])
+
+    # Extract Cps quantities
+    hdul_Cps = fits.open(path_output + Cps_path + file_Cps)
+    U = hdul_planet['OI_VIS'].data['U']
+    V = hdul_planet['OI_VIS'].data['V']
+
+    if sci_case == 'faint':
+        
+        # Position angle (PA) and separation grid
+        PA = np.arctan2(yp, xp) 
+        sep = np.sqrt(xp**2 + yp**2)
+
+        # Baseline-PA coverage in the UV-space
+        PAcov = np.arctan2(U,V)
+        Bcov = np.sqrt(U**2 + V**2)
+        
+        
 
 
-elif sci_case == 'bright':
-    # Fitter directement les oscillations (via current model)
-
+    # elif sci_case == 'bright':
+    #     # Fitter directement les oscillations (via current model)
