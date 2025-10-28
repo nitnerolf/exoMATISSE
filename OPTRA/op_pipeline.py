@@ -171,7 +171,7 @@ def op_compute_oifits(starfile, skyfile, badfile, flatfile, shiftfile, outdir=No
     ##########################################################
     # load raw data file
     data = op_loadAndCal_rawdata(starfile, skyfile, badfile, flatfile, verbose=verbose, plot=plot)
-    data = op_extract_beams(data, verbose=verbose, plot=True)
+    data = op_extract_beams(data, verbose=verbose, plot=plot)
     
     ##########################################################
     # Compute correlated flux
