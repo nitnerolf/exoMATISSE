@@ -5,8 +5,10 @@
 import numpy as np
 from astropy.io import fits
 import os 
+import shutil
 import matplotlib.pyplot as plt
-from common_tools import reorder_baselines, wrap
+import scipy 
+from common_tools import reorder_baselines, wrap, mas2rad
 
 
 # Path of the OiFits files (outputs of the pipeline, phase corrected)
@@ -21,7 +23,7 @@ model_planet = ''
 
 # Flags
 plot     = True
-sci_case = 'bright' #'faint' 
+sci_case = 'faint'  #'bright' 
 
 # Baseline order and names
 base_order_name = ('U3-U4', 'U1-U2', 'U2-U3', 'U2-U4', 'U1-U3', 'U1-U4')
@@ -85,12 +87,25 @@ mjd_dict = {}
 # Create necessary directories
 if not os.path.isdir(path_output + '/stellar_OB_averages'):
     os.makedirs(path_output + '/stellar_OB_averages')
+if os.path.isdir(path_output + '/stellar_OB_averages'):
+    shutil.rmtree(path_output + '/stellar_OB_averages')
+    os.makedirs(path_output + '/stellar_OB_averages')
 if not os.path.isdir(path_output + '/Contrast'):
-        os.makedirs(path_output + '/Contrast')
+    os.makedirs(path_output + '/Contrast')
+if os.path.isdir(path_output + '/Contrast'):
+    shutil.rmtree(path_output + '/Contrast')
+    os.makedirs(path_output + '/Contrast')
 if not os.path.isdir(path_output + '/Contrast_fits'):
-        os.makedirs(path_output + '/Contrast_fits')
+    os.makedirs(path_output + '/Contrast_fits')
+if os.path.isdir(path_output + '/Contrast_fits'):
+    shutil.rmtree(path_output + '/Contrast_fits')
+    os.makedirs(path_output + '/Contrast_fits')
 if not os.path.isdir(path_output + '/SNR'):
-        os.makedirs(path_output + '/SNR')
+    os.makedirs(path_output + '/SNR')
+if os.path.isdir(path_output + '/SNR'):
+    shutil.rmtree(path_output + '/SNR')
+    os.makedirs(path_output + '/SNR')
+
                 
 
 # List the input OiFits files
@@ -263,23 +278,29 @@ for n_file, file_planet in enumerate(files_planet):
 
     ## Plots
     if plot == True:
-        fig_Cps, ax_Cps = plt.subplots(3, 2, figsize=(12, 8))
+        fig_Cps, ax_Cps = plt.subplots(6, 1, figsize=(12, 8), sharex=True)
         ax_Cps = ax_Cps.flatten()
 
-        fig_snr, ax_snr = plt.subplots(3, 2, figsize=(12, 8))
+        fig_snr, ax_snr = plt.subplots(6, 1, figsize=(12, 8))
         ax_snr = ax_snr.flatten()
 
         for i_base in range(6): 
             
             #Cps
-            fig_Cps.text(0.5, 0.001, 'Wavelength (µm)', ha='center', fontsize=12)
-            fig_Cps.text(0.001, 0.5, 'Real Contrast (p/s)', va='center', rotation='vertical', fontsize=12)
+            fig_Cps.text(0.5, 0.04, 'Wavelength (µm)', ha='center', va='bottom', fontsize=12)
+            fig_Cps.text(0.06, 0.5, 'Real Contrast (p/s)', va='center', ha='right', rotation='vertical', fontsize=12)
             fig_Cps.suptitle('Planet-to-Star Contrast', fontsize=16)
+            if i_base < 5:
+                # ax_Cps[i_base].set_xlabel('')      
+                ax_Cps[i_base].tick_params(labelbottom=False)  
+
             ax_Cps[i_base].plot(wl*1e6, np.real(Cps_all[n_file,i_base]), color='crimson', alpha=0.8)
             ax_Cps[i_base].fill_between(wl*1e6, np.real(Cps_all[n_file,i_base])-Cps_real_err_all[n_file, i_base], 
                                     np.real(Cps_all[n_file,i_base])+Cps_real_err_all[n_file, i_base], alpha=0.2, color='hotpink')
-            ax_Cps[i_base].set_ylim(-0.5e-1, 0.75e-1)
-            ax_Cps[i_base].set_title(f'Baseline {base_order_name[i_base]}')
+            ax_Cps[i_base].set_ylim(-0.5e-1, 1e-1)
+            # ax_Cps[i_base].set_title(f'Baseline {base_order_name[i_base]}', loc='left')
+            ax_Cps[i_base].set_ylabel(f'{base_order_name[i_base]}')
+            # ax[i_base].set_xlim
             # ax[i_base].set_ylim(-1.5e-1, 2e-1)
             # ax[i_base].legend(loc='upper right')
 
@@ -299,60 +320,3 @@ for n_file, file_planet in enumerate(files_planet):
 
 
 
-##############################################################################################################################
-##############################################################################################################################
-##############################################################################################################################
-
-### Initializations 
-# Planet offsets coords mentioned in the OB [mas]
-Offset_RA = 106
-Offset_Dec = -145
-
-# Grid of coordinates to determine the astrometry of the planet
-x      = np.linspace(Offset_RA-50, Offset_RA+50, 100)
-y      = np.linspace(Offset_Dec-50, Offset_Dec+50, 100)
-xp, yp = np.meshgrid(x, y) #grid of coords to look for the planet position
-
-# 
-n_poly = 1 # Degree of the polynomial to model the stellar speckle
-stellar_coeffs_init = 1.e-4 * (n_poly + 1)  # Initial coeffs for the stellar speckle polynomial
-alpha = 1. # Multiplicative factor to scale the Cps
-params_init = np.array([alpha, *stellar_coeffs_init]) 
-n_params = params_init.size
-bounds_params = [(0., None), (None, None)* (n_poly + 1)]
-
-# List the Cps files
-Cps_path = path_output + '/test/Contrast_fits/'
-files_Cps = sorted([file for file in os.listdir(path_output + Cps_path) if '.fits' in file and '_planet' in file])
-
-# Path to Cps model 
-Cps_model_path = ''
-
-### Determine the astrometry 
-
-for i_file, file_Cps in enumerate(files_Cps):
-    
-    num_OB_planet    = int(file_Cps[file_Cps.find('OB')+2:file_Cps.find('_exp')])
-    num_exp_planet   = int(file_Cps[file_Cps.find('_exp')+4:file_Cps.find('_frame')])
-    num_frame_planet = int(file_Cps[file_Cps.find('_frame')+6:file_Cps.find('.fits')])
-
-    # Extract Cps quantities
-    hdul_Cps = fits.open(path_output + Cps_path + file_Cps)
-    U = hdul_planet['OI_VIS'].data['U']
-    V = hdul_planet['OI_VIS'].data['V']
-
-    if sci_case == 'faint':
-        
-        # Position angle (PA) and separation grid
-        PA = np.arctan2(yp, xp) 
-        sep = np.sqrt(xp**2 + yp**2)
-
-        # Baseline-PA coverage in the UV-space
-        PAcov = np.arctan2(U,V)
-        Bcov = np.sqrt(U**2 + V**2)
-        
-        
-
-
-    # elif sci_case == 'bright':
-    #     # Fitter directement les oscillations (via current model)
