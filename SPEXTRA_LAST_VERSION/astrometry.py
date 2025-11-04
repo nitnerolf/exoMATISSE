@@ -12,18 +12,16 @@ from common_tools import reorder_baselines, wrap, mas2rad
 
 
 # Path of the OiFits files (outputs of the pipeline, phase corrected)
-path_oifits = '/Users/jscigliuto/Nextcloud/DATA/HD72946B/corrected_data_wo_rmnrec/'
+# path_oifits = '/Users/jscigliuto/Nextcloud/DATA/HD72946B/corrected_data_wo_rmnrec/' #HD 72946 B
+path_oifits = '/Users/jscigliuto/Desktop/Licallo_backup/Pipeline/betaPicb/corrPhaseMathis_MACAO/corrected_data_bin/' #beta Pic b
 
 # Output path 
-path_output = '/Users/jscigliuto/exoMATISSE/exoMATISSE/data_hd72946b/test/'
+# path_output = '/Users/jscigliuto/exoMATISSE/exoMATISSE/data_hd72946b/test/' #HD 72946 B
+path_output = '/Users/jscigliuto/exoMATISSE/exoMATISSE/data_betaPicb/' #beta Pic b
 
-# Models path
-model_star = ''
-model_planet = ''
 
 # Flags
-plot     = True
-sci_case = 'faint'  #'bright' 
+plot = True
 
 # Baseline order and names
 base_order_name = ('U3-U4', 'U1-U2', 'U2-U3', 'U2-U4', 'U1-U3', 'U1-U4')
@@ -150,173 +148,311 @@ Cps_imag_err_all = np.zeros((n_file_planet, 6, n_wave))
 snr_real_all     = np.zeros((n_file_planet, 6, n_wave))
 snr_imag_all     = np.zeros((n_file_planet, 6, n_wave))
 
-# Loop to interpolate the average star quantities between the OBs
-for n_file, file_planet in enumerate(files_planet):
 
-    # Identify the OB numbers for the planet and star (for interpolation)
-    num_OB_planet    = int(file_planet[file_planet.find('OB')+2:file_planet.find('_exp')])
-    num_exp_planet   = int(file_planet[file_planet.find('_exp')+4:file_planet.find('_frame')])
-    num_frame_planet = int(file_planet[file_planet.find('_frame')+6:file_planet.find('_planet')])
-    num_OB_star = [int(num_OB_planet)-1, int(num_OB_planet)+1] # Assuming star OBs are just before and after planet OB
+if 'betaPicb' in path_oifits:
+    for n_file, file_planet in enumerate(files_planet):
 
-    # Extract planet quantities
-    hdul_planet = fits.open(path_oifits + file_planet)
-    hdul_planet = reorder_baselines(hdul_planet)
-    cf_amp_planet     = hdul_planet['OI_VIS'].data['VISAMP']
-    cf_amp_planet_err = hdul_planet['OI_VIS'].data['VISAMPERR']
-    cf_phi_planet     = np.deg2rad(hdul_planet['OI_VIS'].data['VISPHI'])
-    cf_phi_planet_err = np.deg2rad(hdul_planet['OI_VIS'].data['VISPHIERR'])
-    mjd_planet        = hdul_planet['OI_VIS'].data['MJD'][0]
-    U_planet          = hdul_planet['OI_VIS'].data['UCOORD']
-    V_planet          = hdul_planet['OI_VIS'].data['VCOORD']
-
-    # Complexify planet quantities
-    cf_planet          = cf_amp_planet * np.exp(1j * cf_phi_planet)
-    cf_real_planet_err = np.sqrt((np.cos(cf_phi_planet) * cf_amp_planet_err) ** 2 \
-                                + (cf_amp_planet * np.sin(cf_phi_planet) * cf_phi_planet_err) ** 2)
-    cf_imag_planet_err = np.sqrt((np.sin(cf_phi_planet) * cf_amp_planet_err) ** 2 \
-                                + (cf_amp_planet * np.cos(cf_phi_planet) * cf_phi_planet_err) ** 2)
-
-    # 1 st star OB
-    with fits.open(path_output + f'/stellar_OB_averages/star_avg_visphi_OB{num_OB_star[0]}.fits') as hdul_phi1:
-        visphi_data = hdul_phi1[0].data
-        cf_phi_star_1 = visphi_data[0]  
-        cf_phi_star_err_1 = visphi_data[1]  
-    with fits.open(path_output + f'/stellar_OB_averages/star_avg_visamp_OB{num_OB_star[0]}.fits') as hdul_amp1:
-        visamp_data = hdul_amp1[0].data
-        cf_amp_star_1 = visamp_data[0]
-        cf_amp_star_err_1 = visamp_data[1]
-
-    # Complexify 
-    cf_star_1 = cf_amp_star_1 * np.exp(1j * cf_phi_star_1)
-    cf_real_star_1 = np.real(cf_star_1)
-    cf_imag_star_1 = np.imag(cf_star_1)
-    cf_real_star_err_1 = np.sqrt((np.cos(cf_phi_star_1) * cf_amp_star_err_1) ** 2 \
-                                + (cf_amp_star_1 * np.sin(cf_phi_star_1) * cf_phi_star_err_1) ** 2)
-    cf_imag_star_err_1 = np.sqrt((np.sin(cf_phi_star_1) * cf_amp_star_err_1) ** 2 \
-                                + (cf_amp_star_1 * np.cos(cf_phi_star_1) * cf_phi_star_err_1) ** 2)
-
-    # Next star OB
-    with fits.open(path_output + f'/stellar_OB_averages/star_avg_visphi_OB{num_OB_star[1]}.fits') as hdul_phi2:
-        visphi_data = hdul_phi2[0].data
-        cf_phi_star_2 = visphi_data[0]  
-        cf_phi_star_err_2 = visphi_data[1]  
-    with fits.open(path_output + f'/stellar_OB_averages/star_avg_visamp_OB{num_OB_star[1]}.fits') as hdul_amp2:
-        visamp_data = hdul_amp2[0].data
-        cf_amp_star_2 = visamp_data[0]
-        cf_amp_star_err_2 = visamp_data[1]
-    
-    # Complexify
-    cf_star_2 = cf_amp_star_2 * np.exp(1j * cf_phi_star_2)
-    cf_real_star_2 = np.real(cf_star_2)
-    cf_imag_star_2 = np.imag(cf_star_2)
-    cf_real_star_err_2 = np.sqrt((np.cos(cf_phi_star_2) * cf_amp_star_err_2) ** 2 \
-                                + (cf_amp_star_2 * np.sin(cf_phi_star_2) * cf_phi_star_err_2) ** 2)
-    cf_imag_star_err_2 = np.sqrt((np.sin(cf_phi_star_2) * cf_amp_star_err_2) ** 2 \
-                                + (cf_amp_star_2 * np.cos(cf_phi_star_2) * cf_phi_star_err_2) ** 2)
-    
-
-    # Extract the MJD values for the two OBs
-    mjd_1 = mjd_dict[num_OB_star[0]]
-    mjd_2 = mjd_dict[num_OB_star[1]]
-    u = (mjd_planet - mjd_1) / (mjd_2 - mjd_1)
-
-    # Interpolate at the planet mjd
-    cf_real_star_interp = (1 - u) * cf_real_star_1 + u * cf_real_star_2
-    cf_imag_star_interp = (1 - u) * cf_imag_star_1 + u * cf_imag_star_2
-    cf_real_star_err = np.sqrt(((1 - u) * cf_real_star_err_1) ** 2 + (u * cf_real_star_err_2) ** 2)
-    cf_imag_star_err = np.sqrt(((1 - u) * cf_imag_star_err_1) ** 2 + (u * cf_imag_star_err_2) ** 2)
-
-    # Complexify 
-    cf_star_interp = cf_real_star_interp + 1j * cf_imag_star_interp
-
-    # Compute the planet-to-star flux ratio and associated errors
-    Cps = cf_planet / cf_star_interp
-    Cps_real_err = Cps * np.sqrt((cf_real_planet_err / np.real(cf_planet)) ** 2 \
-                           + (cf_real_star_err / np.real(cf_star_interp)) ** 2) 
-    Cps_imag_err = Cps * np.sqrt((cf_imag_planet_err / np.imag(cf_planet)) ** 2 \
-                           + (cf_imag_star_err / np.imag(cf_star_interp)) ** 2) 
-    
-    ##### ENREGISTRER FICHIER CPS + ERREURS
-    
-    Cps_all[n_file]          = Cps
-    Cps_real_err_all[n_file] = Cps_real_err
-    Cps_imag_err_all[n_file] = Cps_imag_err
-
-    # Compute SNR
-    snr_real = np.abs(np.real(Cps) / Cps_real_err)
-    snr_imag = np.abs(np.imag(Cps) / Cps_imag_err)
-    snr_real_all[n_file] = snr_real
-    snr_imag_all[n_file] = snr_imag
-
-    # Save contrast and associated real/imag errors to a FITS file
-    cps_real = np.real(Cps)
-    cps_imag = np.imag(Cps)
-    cps_real_err = np.real(Cps_real_err)
-    cps_imag_err = np.real(Cps_imag_err)
-
-    hdul = fits.HDUList()
-    hdul.append(fits.PrimaryHDU())
-    hdul.append(fits.ImageHDU(cps_real.astype(np.float32), name='CPS_REAL'))
-    hdul.append(fits.ImageHDU(cps_imag.astype(np.float32), name='CPS_IMAG'))
-    hdul.append(fits.ImageHDU(cps_real_err.astype(np.float32), name='CPS_REAL_ERR'))
-    hdul.append(fits.ImageHDU(cps_imag_err.astype(np.float32), name='CPS_IMAG_ERR'))
-    hdul.append(fits.ImageHDU(U_planet, name='U'))
-    hdul.append(fits.ImageHDU(V_planet, name='V'))
-
-    # Add simple metadata
-    hdr = hdul[0].header
-    hdul.append(fits.ImageHDU(wl.astype(np.float32), name='WAVELENGTH'))
-    hdr['OB'] = num_OB_planet
-    hdr['EXP'] = num_exp_planet
-    hdr['FRAME'] = num_frame_planet
-    hdr['MJD'] = mjd_planet
-
-    outfile = path_output + f'/Contrast_fits/Cps_OB{num_OB_planet}_exp{num_exp_planet}_frame{num_frame_planet}.fits'
-    hdul.writeto(outfile, overwrite=True)
-    
-
-    ## Plots
-    if plot == True:
-        fig_Cps, ax_Cps = plt.subplots(6, 1, figsize=(12, 8), sharex=True)
-        ax_Cps = ax_Cps.flatten()
-
-        fig_snr, ax_snr = plt.subplots(6, 1, figsize=(12, 8))
-        ax_snr = ax_snr.flatten()
-
-        for i_base in range(6): 
-            
-            #Cps
-            fig_Cps.text(0.5, 0.04, 'Wavelength (µm)', ha='center', va='bottom', fontsize=12)
-            fig_Cps.text(0.06, 0.5, 'Real Contrast (p/s)', va='center', ha='right', rotation='vertical', fontsize=12)
-            fig_Cps.suptitle('Planet-to-Star Contrast', fontsize=16)
-            if i_base < 5:
-                # ax_Cps[i_base].set_xlabel('')      
-                ax_Cps[i_base].tick_params(labelbottom=False)  
-
-            ax_Cps[i_base].plot(wl*1e6, np.real(Cps_all[n_file,i_base]), color='crimson', alpha=0.8)
-            ax_Cps[i_base].fill_between(wl*1e6, np.real(Cps_all[n_file,i_base])-Cps_real_err_all[n_file, i_base], 
-                                    np.real(Cps_all[n_file,i_base])+Cps_real_err_all[n_file, i_base], alpha=0.2, color='hotpink')
-            ax_Cps[i_base].set_ylim(-0.5e-1, 1e-1)
-            # ax_Cps[i_base].set_title(f'Baseline {base_order_name[i_base]}', loc='left')
-            ax_Cps[i_base].set_ylabel(f'{base_order_name[i_base]}')
-            # ax[i_base].set_xlim
-            # ax[i_base].set_ylim(-1.5e-1, 2e-1)
-            # ax[i_base].legend(loc='upper right')
-
-            #SNR
-            fig_snr.text(0.5, 0.001, 'Wavelength (µm)', ha='center', fontsize=12)
-            fig_snr.text(0.001, 0.5, 'SNR Real Contrast', va='center', rotation='vertical', fontsize=12)
-            fig_snr.suptitle('SNR on Planet-to-Star Contrast', fontsize=16)
-            ax_snr[i_base].plot(wl*1e6, snr_real_all[n_file,i_base], color='navy', alpha=0.8)
-            ax_snr[i_base].set_ylim(0, 6)
-            ax_snr[i_base].set_title(f'Baseline {base_order_name[i_base]}')
-
-        plt.tight_layout()
-
-        # Save the figure
-        fig_Cps.savefig(path_output + f'/Contrast/Cps_OB{num_OB_planet}_exp{num_exp_planet}_frame{num_frame_planet}.png', dpi=300)
-        fig_snr.savefig(path_output + f'/SNR/snr_Cps_OB{num_OB_planet}_exp{num_exp_planet}_frame{num_frame_planet}.png', dpi=300)
+        # Identify the OB numbers for the planet and star (for interpolation)
+        num_OB_planet    = int(file_planet[file_planet.find('OB')+2:file_planet.find('_exp')])
+        num_exp_planet   = int(file_planet[file_planet.find('_exp')+4:file_planet.find('_frame')])
+        num_frame_planet = int(file_planet[file_planet.find('_frame')+6:file_planet.find('_planet')])
 
 
+        # Extract planet quantities
+        hdul_planet = fits.open(path_oifits + file_planet)
+        hdul_planet = reorder_baselines(hdul_planet)
+        cf_amp_planet     = hdul_planet['OI_VIS'].data['VISAMP']
+        cf_amp_planet_err = hdul_planet['OI_VIS'].data['VISAMPERR']
+        cf_phi_planet     = np.deg2rad(hdul_planet['OI_VIS'].data['VISPHI'])
+        cf_phi_planet_err = np.deg2rad(hdul_planet['OI_VIS'].data['VISPHIERR'])
+        mjd_planet        = hdul_planet['OI_VIS'].data['MJD'][0]
+        U_planet          = hdul_planet['OI_VIS'].data['UCOORD']
+        V_planet          = hdul_planet['OI_VIS'].data['VCOORD']
 
+        # Complexify planet quantities
+        cf_planet          = cf_amp_planet * np.exp(1j * cf_phi_planet)
+        cf_real_planet_err = np.sqrt((np.cos(cf_phi_planet) * cf_amp_planet_err) ** 2 \
+                                    + (cf_amp_planet * np.sin(cf_phi_planet) * cf_phi_planet_err) ** 2)
+        cf_imag_planet_err = np.sqrt((np.sin(cf_phi_planet) * cf_amp_planet_err) ** 2 \
+                                    + (cf_amp_planet * np.cos(cf_phi_planet) * cf_phi_planet_err) ** 2)
+
+        # 1 st star OB
+        with fits.open(path_output + f'/stellar_OB_averages/star_avg_visphi_OB{num_OB_planet}.fits') as hdul_phi1:
+            visphi_data = hdul_phi1[0].data
+            cf_phi_star_1 = visphi_data[0]  
+            cf_phi_star_err_1 = visphi_data[1]  
+        with fits.open(path_output + f'/stellar_OB_averages/star_avg_visamp_OB{num_OB_planet}.fits') as hdul_amp1:
+            visamp_data = hdul_amp1[0].data
+            cf_amp_star_1 = visamp_data[0]
+            cf_amp_star_err_1 = visamp_data[1]
+
+        # Complexify 
+        cf_star_1 = cf_amp_star_1 * np.exp(1j * cf_phi_star_1)
+        cf_real_star_1 = np.real(cf_star_1)
+        cf_imag_star_1 = np.imag(cf_star_1)
+        cf_real_star_err_1 = np.sqrt((np.cos(cf_phi_star_1) * cf_amp_star_err_1) ** 2 \
+                                    + (cf_amp_star_1 * np.sin(cf_phi_star_1) * cf_phi_star_err_1) ** 2)
+        cf_imag_star_err_1 = np.sqrt((np.sin(cf_phi_star_1) * cf_amp_star_err_1) ** 2 \
+                                    + (cf_amp_star_1 * np.cos(cf_phi_star_1) * cf_phi_star_err_1) ** 2)
+
+        
+        # Complexify
+        cf_star_interp = cf_real_star_1 + 1j * cf_imag_star_1
+        cf_real_star_err = cf_real_star_err_1
+        cf_imag_star_err = cf_imag_star_err_1
+
+        # Compute the planet-to-star flux ratio and associated errors
+        Cps = cf_planet / cf_star_interp
+        Cps_real_err = Cps * np.sqrt((cf_real_planet_err / np.real(cf_planet)) ** 2 \
+                            + (cf_real_star_err / np.real(cf_star_interp)) ** 2) 
+        Cps_imag_err = Cps * np.sqrt((cf_imag_planet_err / np.imag(cf_planet)) ** 2 \
+                            + (cf_imag_star_err / np.imag(cf_star_interp)) ** 2) 
+        
+        
+        Cps_all[n_file]          = Cps
+        Cps_real_err_all[n_file] = Cps_real_err
+        Cps_imag_err_all[n_file] = Cps_imag_err
+
+        # Compute SNR
+        snr_real = np.abs(np.real(Cps) / Cps_real_err)
+        snr_imag = np.abs(np.imag(Cps) / Cps_imag_err)
+        snr_real_all[n_file] = snr_real
+        snr_imag_all[n_file] = snr_imag
+
+        # Save contrast and associated real/imag errors to a FITS file
+        cps_real = np.real(Cps)
+        cps_imag = np.imag(Cps)
+        cps_real_err = np.real(Cps_real_err)
+        cps_imag_err = np.real(Cps_imag_err)
+
+        hdul = fits.HDUList()
+        hdul.append(fits.PrimaryHDU())
+        hdul.append(fits.ImageHDU(cps_real.astype(np.float32), name='CPS_REAL'))
+        hdul.append(fits.ImageHDU(cps_imag.astype(np.float32), name='CPS_IMAG'))
+        hdul.append(fits.ImageHDU(cps_real_err.astype(np.float32), name='CPS_REAL_ERR'))
+        hdul.append(fits.ImageHDU(cps_imag_err.astype(np.float32), name='CPS_IMAG_ERR'))
+        hdul.append(fits.ImageHDU(U_planet, name='U'))
+        hdul.append(fits.ImageHDU(V_planet, name='V'))
+
+        # Add simple metadata
+        hdr = hdul[0].header
+        hdul.append(fits.ImageHDU(wl.astype(np.float32), name='WAVELENGTH'))
+        hdr['OB'] = num_OB_planet
+        hdr['EXP'] = num_exp_planet
+        hdr['FRAME'] = num_frame_planet
+        hdr['MJD'] = mjd_planet
+
+        outfile = path_output + f'/Contrast_fits/Cps_OB{num_OB_planet}_exp{num_exp_planet}_frame{num_frame_planet}.fits'
+        hdul.writeto(outfile, overwrite=True)
+        
+
+        ## Plots
+        if plot == True:
+            fig_Cps, ax_Cps = plt.subplots(6, 1, figsize=(12, 8), sharex=True)
+            ax_Cps = ax_Cps.flatten()
+
+            fig_snr, ax_snr = plt.subplots(6, 1, figsize=(12, 8))
+            ax_snr = ax_snr.flatten()
+
+            for i_base in range(6): 
+                
+                #Cps
+                fig_Cps.text(0.5, 0.04, 'Wavelength (µm)', ha='center', va='bottom', fontsize=12)
+                fig_Cps.text(0.06, 0.5, 'Real Contrast (p/s)', va='center', ha='right', rotation='vertical', fontsize=12)
+                fig_Cps.suptitle('Planet-to-Star Contrast', fontsize=16)
+                if i_base < 5:
+                    # ax_Cps[i_base].set_xlabel('')      
+                    ax_Cps[i_base].tick_params(labelbottom=False)  
+
+                ax_Cps[i_base].plot(wl*1e6, np.real(Cps_all[n_file,i_base]), color='crimson', alpha=0.8)
+                ax_Cps[i_base].fill_between(wl*1e6, np.real(Cps_all[n_file,i_base])-Cps_real_err_all[n_file, i_base], 
+                                        np.real(Cps_all[n_file,i_base])+Cps_real_err_all[n_file, i_base], alpha=0.2, color='hotpink')
+                ax_Cps[i_base].set_ylim(-3e-3, 5e-3)
+                # ax_Cps[i_base].set_title(f'Baseline {base_order_name[i_base]}', loc='left')
+                ax_Cps[i_base].set_ylabel(f'{base_order_name[i_base]}')
+                # ax[i_base].set_xlim
+                # ax[i_base].set_ylim(-1.5e-1, 2e-1)
+                # ax[i_base].legend(loc='upper right')
+
+                #SNR
+                fig_snr.text(0.5, 0.001, 'Wavelength (µm)', ha='center', fontsize=12)
+                fig_snr.text(0.001, 0.5, 'SNR Real Contrast', va='center', rotation='vertical', fontsize=12)
+                fig_snr.suptitle('SNR on Planet-to-Star Contrast', fontsize=16)
+                ax_snr[i_base].plot(wl*1e6, snr_real_all[n_file,i_base], color='navy', alpha=0.8)
+                ax_snr[i_base].set_ylim(0, 6)
+                ax_snr[i_base].set_title(f'Baseline {base_order_name[i_base]}')
+
+            plt.tight_layout()
+
+            # Save the figure
+            fig_Cps.savefig(path_output + f'/Contrast/Cps_OB{num_OB_planet}_exp{num_exp_planet}_frame{num_frame_planet}.png', dpi=300)
+            fig_snr.savefig(path_output + f'/SNR/snr_Cps_OB{num_OB_planet}_exp{num_exp_planet}_frame{num_frame_planet}.png', dpi=300)
+
+
+else:
+    # Loop to interpolate the average star quantities between the OBs
+    for n_file, file_planet in enumerate(files_planet):
+
+        # Identify the OB numbers for the planet and star (for interpolation)
+        num_OB_planet    = int(file_planet[file_planet.find('OB')+2:file_planet.find('_exp')])
+        num_exp_planet   = int(file_planet[file_planet.find('_exp')+4:file_planet.find('_frame')])
+        num_frame_planet = int(file_planet[file_planet.find('_frame')+6:file_planet.find('_planet')])
+        num_OB_star = [int(num_OB_planet)-1, int(num_OB_planet)+1] # Assuming star OBs are just before and after planet OB
+
+        # Extract planet quantities
+        hdul_planet = fits.open(path_oifits + file_planet)
+        hdul_planet = reorder_baselines(hdul_planet)
+        cf_amp_planet     = hdul_planet['OI_VIS'].data['VISAMP']
+        cf_amp_planet_err = hdul_planet['OI_VIS'].data['VISAMPERR']
+        cf_phi_planet     = np.deg2rad(hdul_planet['OI_VIS'].data['VISPHI'])
+        cf_phi_planet_err = np.deg2rad(hdul_planet['OI_VIS'].data['VISPHIERR'])
+        mjd_planet        = hdul_planet['OI_VIS'].data['MJD'][0]
+        U_planet          = hdul_planet['OI_VIS'].data['UCOORD']
+        V_planet          = hdul_planet['OI_VIS'].data['VCOORD']
+
+        # Complexify planet quantities
+        cf_planet          = cf_amp_planet * np.exp(1j * cf_phi_planet)
+        cf_real_planet_err = np.sqrt((np.cos(cf_phi_planet) * cf_amp_planet_err) ** 2 \
+                                    + (cf_amp_planet * np.sin(cf_phi_planet) * cf_phi_planet_err) ** 2)
+        cf_imag_planet_err = np.sqrt((np.sin(cf_phi_planet) * cf_amp_planet_err) ** 2 \
+                                    + (cf_amp_planet * np.cos(cf_phi_planet) * cf_phi_planet_err) ** 2)
+
+        # 1 st star OB
+        with fits.open(path_output + f'/stellar_OB_averages/star_avg_visphi_OB{num_OB_star[0]}.fits') as hdul_phi1:
+            visphi_data = hdul_phi1[0].data
+            cf_phi_star_1 = visphi_data[0]  
+            cf_phi_star_err_1 = visphi_data[1]  
+        with fits.open(path_output + f'/stellar_OB_averages/star_avg_visamp_OB{num_OB_star[0]}.fits') as hdul_amp1:
+            visamp_data = hdul_amp1[0].data
+            cf_amp_star_1 = visamp_data[0]
+            cf_amp_star_err_1 = visamp_data[1]
+
+        # Complexify 
+        cf_star_1 = cf_amp_star_1 * np.exp(1j * cf_phi_star_1)
+        cf_real_star_1 = np.real(cf_star_1)
+        cf_imag_star_1 = np.imag(cf_star_1)
+        cf_real_star_err_1 = np.sqrt((np.cos(cf_phi_star_1) * cf_amp_star_err_1) ** 2 \
+                                    + (cf_amp_star_1 * np.sin(cf_phi_star_1) * cf_phi_star_err_1) ** 2)
+        cf_imag_star_err_1 = np.sqrt((np.sin(cf_phi_star_1) * cf_amp_star_err_1) ** 2 \
+                                    + (cf_amp_star_1 * np.cos(cf_phi_star_1) * cf_phi_star_err_1) ** 2)
+
+        # Next star OB
+        with fits.open(path_output + f'/stellar_OB_averages/star_avg_visphi_OB{num_OB_star[1]}.fits') as hdul_phi2:
+            visphi_data = hdul_phi2[0].data
+            cf_phi_star_2 = visphi_data[0]  
+            cf_phi_star_err_2 = visphi_data[1]  
+        with fits.open(path_output + f'/stellar_OB_averages/star_avg_visamp_OB{num_OB_star[1]}.fits') as hdul_amp2:
+            visamp_data = hdul_amp2[0].data
+            cf_amp_star_2 = visamp_data[0]
+            cf_amp_star_err_2 = visamp_data[1]
+        
+        # Complexify
+        cf_star_2 = cf_amp_star_2 * np.exp(1j * cf_phi_star_2)
+        cf_real_star_2 = np.real(cf_star_2)
+        cf_imag_star_2 = np.imag(cf_star_2)
+        cf_real_star_err_2 = np.sqrt((np.cos(cf_phi_star_2) * cf_amp_star_err_2) ** 2 \
+                                    + (cf_amp_star_2 * np.sin(cf_phi_star_2) * cf_phi_star_err_2) ** 2)
+        cf_imag_star_err_2 = np.sqrt((np.sin(cf_phi_star_2) * cf_amp_star_err_2) ** 2 \
+                                    + (cf_amp_star_2 * np.cos(cf_phi_star_2) * cf_phi_star_err_2) ** 2)
+        
+
+        # Extract the MJD values for the two OBs
+        mjd_1 = mjd_dict[num_OB_star[0]]
+        mjd_2 = mjd_dict[num_OB_star[1]]
+        u = (mjd_planet - mjd_1) / (mjd_2 - mjd_1)
+
+        # Interpolate at the planet mjd
+        cf_real_star_interp = (1 - u) * cf_real_star_1 + u * cf_real_star_2
+        cf_imag_star_interp = (1 - u) * cf_imag_star_1 + u * cf_imag_star_2
+        cf_real_star_err = np.sqrt(((1 - u) * cf_real_star_err_1) ** 2 + (u * cf_real_star_err_2) ** 2)
+        cf_imag_star_err = np.sqrt(((1 - u) * cf_imag_star_err_1) ** 2 + (u * cf_imag_star_err_2) ** 2)
+
+        # Complexify 
+        cf_star_interp = cf_real_star_interp + 1j * cf_imag_star_interp
+
+        # Compute the planet-to-star flux ratio and associated errors
+        Cps = cf_planet / cf_star_interp
+        Cps_real_err = Cps * np.sqrt((cf_real_planet_err / np.real(cf_planet)) ** 2 \
+                            + (cf_real_star_err / np.real(cf_star_interp)) ** 2) 
+        Cps_imag_err = Cps * np.sqrt((cf_imag_planet_err / np.imag(cf_planet)) ** 2 \
+                            + (cf_imag_star_err / np.imag(cf_star_interp)) ** 2) 
+        
+        
+        Cps_all[n_file]          = Cps
+        Cps_real_err_all[n_file] = Cps_real_err
+        Cps_imag_err_all[n_file] = Cps_imag_err
+
+        # Compute SNR
+        snr_real = np.abs(np.real(Cps) / Cps_real_err)
+        snr_imag = np.abs(np.imag(Cps) / Cps_imag_err)
+        snr_real_all[n_file] = snr_real
+        snr_imag_all[n_file] = snr_imag
+
+        # Save contrast and associated real/imag errors to a FITS file
+        cps_real = np.real(Cps)
+        cps_imag = np.imag(Cps)
+        cps_real_err = np.real(Cps_real_err)
+        cps_imag_err = np.real(Cps_imag_err)
+
+        hdul = fits.HDUList()
+        hdul.append(fits.PrimaryHDU())
+        hdul.append(fits.ImageHDU(cps_real.astype(np.float32), name='CPS_REAL'))
+        hdul.append(fits.ImageHDU(cps_imag.astype(np.float32), name='CPS_IMAG'))
+        hdul.append(fits.ImageHDU(cps_real_err.astype(np.float32), name='CPS_REAL_ERR'))
+        hdul.append(fits.ImageHDU(cps_imag_err.astype(np.float32), name='CPS_IMAG_ERR'))
+        hdul.append(fits.ImageHDU(U_planet, name='U'))
+        hdul.append(fits.ImageHDU(V_planet, name='V'))
+
+        # Add simple metadata
+        hdr = hdul[0].header
+        hdul.append(fits.ImageHDU(wl.astype(np.float32), name='WAVELENGTH'))
+        hdr['OB'] = num_OB_planet
+        hdr['EXP'] = num_exp_planet
+        hdr['FRAME'] = num_frame_planet
+        hdr['MJD'] = mjd_planet
+
+        outfile = path_output + f'/Contrast_fits/Cps_OB{num_OB_planet}_exp{num_exp_planet}_frame{num_frame_planet}.fits'
+        hdul.writeto(outfile, overwrite=True)
+        
+
+        ## Plots
+        if plot == True:
+            fig_Cps, ax_Cps = plt.subplots(6, 1, figsize=(12, 8), sharex=True)
+            ax_Cps = ax_Cps.flatten()
+
+            fig_snr, ax_snr = plt.subplots(6, 1, figsize=(12, 8))
+            ax_snr = ax_snr.flatten()
+
+            for i_base in range(6): 
+                
+                #Cps
+                fig_Cps.text(0.5, 0.04, 'Wavelength (µm)', ha='center', va='bottom', fontsize=12)
+                fig_Cps.text(0.06, 0.5, 'Real Contrast (p/s)', va='center', ha='right', rotation='vertical', fontsize=12)
+                fig_Cps.suptitle('Planet-to-Star Contrast', fontsize=16)
+                if i_base < 5:
+                    # ax_Cps[i_base].set_xlabel('')      
+                    ax_Cps[i_base].tick_params(labelbottom=False)  
+
+                ax_Cps[i_base].plot(wl*1e6, np.real(Cps_all[n_file,i_base]), color='crimson', alpha=0.8)
+                ax_Cps[i_base].fill_between(wl*1e6, np.real(Cps_all[n_file,i_base])-Cps_real_err_all[n_file, i_base], 
+                                        np.real(Cps_all[n_file,i_base])+Cps_real_err_all[n_file, i_base], alpha=0.2, color='hotpink')
+                ax_Cps[i_base].set_ylim(-1e-3, 8e-3)
+                # ax_Cps[i_base].set_title(f'Baseline {base_order_name[i_base]}', loc='left')
+                ax_Cps[i_base].set_ylabel(f'{base_order_name[i_base]}')
+                # ax[i_base].set_xlim
+                # ax[i_base].set_ylim(-1.5e-1, 2e-1)
+                # ax[i_base].legend(loc='upper right')
+
+                #SNR
+                fig_snr.text(0.5, 0.001, 'Wavelength (µm)', ha='center', fontsize=12)
+                fig_snr.text(0.001, 0.5, 'SNR Real Contrast', va='center', rotation='vertical', fontsize=12)
+                fig_snr.suptitle('SNR on Planet-to-Star Contrast', fontsize=16)
+                ax_snr[i_base].plot(wl*1e6, snr_real_all[n_file,i_base], color='navy', alpha=0.8)
+                ax_snr[i_base].set_ylim(0, 6)
+                ax_snr[i_base].set_title(f'Baseline {base_order_name[i_base]}')
+
+            plt.tight_layout()
+
+            # Save the figure
+            fig_Cps.savefig(path_output + f'/Contrast/Cps_OB{num_OB_planet}_exp{num_exp_planet}_frame{num_frame_planet}.png', dpi=300)
+            fig_snr.savefig(path_output + f'/SNR/snr_Cps_OB{num_OB_planet}_exp{num_exp_planet}_frame{num_frame_planet}.png', dpi=300)
