@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import astropy.constants as cst
 import spectres
 import scipy
-from common_tools import wrap, mas2rad
+
 
 ####################################################################################################################################################################################
 ####################################################################################################################################################################################
@@ -46,9 +46,9 @@ wmax = 4.15e-6
 n_cores = 10
 
 # Path to Cps and star model 
-# Cps_model_path = '/Users/jscigliuto/Nextcloud/Py/MATISSE-DataProcessing/Spectrum/computed_spectra/contrast_template_bt-settl_hd72946_ph1ld.fits' #HD 72946 B
+# Cps_model_path = '/Users/jscigliuto/Nextcloud/Py/MATISSE-DataProcessing/Spectrum/computed_spectra/contrast_template_bt-settl_hd72946_ph1ld.fits' #HD 72946 B/ HD72946 
 
-Cps_model_path = '/Users/jscigliuto/Nextcloud/Py/MATISSE-DataProcessing/Spectrum/computed_spectra/contrast_template_bt-settl_betPic.fits' #beta Pic b
+Cps_model_path = '/Users/jscigliuto/Nextcloud/Py/MATISSE-DataProcessing/Spectrum/computed_spectra/contrast_template_bt-settl_betPic.fits' #beta Pic b/ beta Pic 
 star_model_path = '/Users/jscigliuto/Nextcloud/Py/MATISSE-DataProcessing/Spectrum/computed_spectra/BT-NextGen_T7890K_lg3.8_M0.0_R15.5_res300.800.txt' #beta Pic
 planet_model_path = '/Users/jscigliuto/Nextcloud/Py/MATISSE-DataProcessing/Spectrum/computed_spectra/planet_spectrum_template_bt-settl_betPicb.fits' #beta Pic b
 
@@ -61,11 +61,23 @@ base_order_name = ('U3-U4', 'U1-U2', 'U2-U3', 'U2-U4', 'U1-U3', 'U1-U4')
 # Cps files path 
 Cps_path = 'Contrast_fits/'
 
+
 ####################################################################################################################################################################################
 ####################################################################################################################################################################################
 ####################################################################################################################################################################################
 ####################################################################################################################################################################################
 ### FUNCTIONS
+
+def mas2deg(angle):
+    return angle/1000/3600
+def deg2mas(angle):
+    return angle*1000*3600
+def mas2rad(angle):
+    return np.deg2rad(mas2deg(angle))
+def rad2mas(angle):
+    return deg2mas(np.rad2deg(angle))
+def wrap(angle):
+    return np.angle(np.exp(1j*angle))
 
 ####################################################################################################################################################################################
 ####################################################################################################################################################################################
@@ -145,7 +157,8 @@ V_all = np.delete(V_all, 0, 0)
 
 ## Build the a contrast file with all the frame
 # Get the alpha
-alpha_best = np.load(path_output + f'/fitted_params/alpha_global.npy')
+# alpha_best = np.load(path_output + f'/fitted_params/alpha_global.npy')
+# alpha_best = np.load(path_output + f'/fitted_params/alphas_all_files.npy')
 
 # Complexify 
 Cps_all = Cps_real_cal_all + 1j * Cps_imag_cal_all
@@ -198,7 +211,7 @@ x_best = best_pos_dict['x_best']
 y_best = best_pos_dict['y_best']
 sep_best = best_pos_dict['sep_best']
 PA_best_rad = np.arctan2(x_best, y_best)
-alpha_optimal = best_pos_dict['alpha_best']
+# alpha_optimal = best_pos_dict['alpha_best']
 
 # Compute the spatial frequencies projected on these coordinates
 Bproj = np.sqrt(U_all**2 + V_all**2) * mas2rad(sep_best) * np.cos(np.arctan2(U_all, V_all) - PA_best_rad) 
@@ -282,6 +295,9 @@ for iw in range(wl.size):
 ####################################################################################################################################################################################
 ####################################################################################################################################################################################
 ### FIGURES
+
+
+
 star_model_spectrum = np.loadtxt(star_model_path)
 # wl_star, spec_star_conv_SI = star_model_spectrum[:, 0], star_model_spectrum[:, 1]
 # spec_star_conv_SI = spectres.spectres(wl[::-1], wl_star, spec_star_conv_SI)
@@ -296,6 +312,10 @@ spec_star_interp = f_interp(wl)
 
 spec_planet = C * spec_star_interp 
 spec_planet_err = C_err * spec_star_interp
+
+# Save planetary spectru in fits file 
+out_path = os.path.join(path_output, 'spectrometry', 'planet_spectrum.fits')
+fits.writeto(out_path, np.array([wl, spec_planet, spec_planet_err]), overwrite=True)
 
 # Back to SI 
 # spec_planet_SI = spec_planet * 1e-26 * (cst.c.value / wl**2) * 1e-6
@@ -338,7 +358,7 @@ plt.savefig(path_output + '/spectrometry/Contrast_Error.png')
 
 ## Planetary spectrum
 plt.figure(figsize=(15, 5))
-plt.errorbar(wl*1e6, spec_planet, yerr=np.sqrt(spec_planet_err**2), fmt='o', label='Planet Spectrum')
+plt.errorbar(wl*1e6, spec_planet, yerr=spec_planet_err**2, fmt='o', label='Planet Spectrum')
 plt.xlabel(r'Wavelength [$\mu$m]')
 plt.ylabel('Flux')
 plt.legend(loc='upper left')
