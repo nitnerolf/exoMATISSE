@@ -211,31 +211,40 @@ x_best = best_pos_dict['x_best']
 y_best = best_pos_dict['y_best']
 sep_best = best_pos_dict['sep_best']
 PA_best_rad = np.arctan2(x_best, y_best)
-# alpha_optimal = best_pos_dict['alpha_best']
+
+normalization_params = np.load(path_output + '/fitted_params/normalization_params.npy', allow_pickle=True).item()
+wl_mean = normalization_params['wl_mean']
+wl_std = normalization_params['wl_std']
+
+# Normalize the wavelength grid
+wl_norm = (wl - wl_mean) / wl_std
 
 # Compute the spatial frequencies projected on these coordinates
 Bproj = np.sqrt(U_all**2 + V_all**2) * mas2rad(sep_best) * np.cos(np.arctan2(U_all, V_all) - PA_best_rad) 
 spat_freq = np.outer(Bproj, 1/wl)
 
 # Build the speckle coherent flux with the quantities fitted previously 
-stellar_part = np.zeros_like(Cps_real_cal_all, dtype=complex)
-stellar_poly_real = np.zeros_like(Cps_real_cal_all, dtype=complex)
-stellar_poly_imag = np.zeros_like(Cps_real_cal_all, dtype=complex)
+# stellar_part = np.zeros_like(Cps_real_cal_all, dtype=complex)
+# stellar_poly_real = np.zeros_like(Cps_real_cal_all)
+# stellar_poly_imag = np.zeros_like(Cps_real_cal_all)
 
-for i_base in range(6):
-    # Extract coeffs (real+imag)
-    stellar_poly_real[i_base] = np.polyval(stellar_coeffs_all[i_base, :n_poly+1], wl)
-    stellar_poly_imag[i_base] = np.polyval(stellar_coeffs_all[i_base, n_poly+1:], wl)
+stellar_part = np.zeros_like(stellar_coeffs_all, dtype=complex)
+stellar_poly_real = np.zeros_like(stellar_coeffs_all)
+stellar_poly_imag = np.zeros_like(stellar_coeffs_all)
+
+n_baselines_total = stellar_coeffs_all.shape[0]
+print(stellar_poly_real.shape)
+for i_base in range(n_baselines_total): 
+    print(stellar_poly_real[i_base].shape) 
+    print(f"Loaded shape: {fitted_stellar_coeffs.shape}")
+    stellar_poly_real[i_base] = np.polyval(stellar_coeffs_all[i_base, :n_poly+1], wl_norm)
+    stellar_poly_imag[i_base] = np.polyval(stellar_coeffs_all[i_base, n_poly+1:], wl_norm)
 
     # Complexify
-    stellar_part[i_base] = stellar_poly_real[i_base] * np.cos(2 * np.pi * spat_freq[i_base]) + 1j * stellar_poly_imag[i_base] * np.sin(2 * np.pi * spat_freq[i_base])
+    stellar_part[i_base] = (stellar_poly_real[i_base] * np.cos(2 * np.pi * spat_freq[i_base]) + 
+                           1j * stellar_poly_imag[i_base] * np.sin(2 * np.pi * spat_freq[i_base]))
 
-    # Amp/phase space
-    amp_stellar_part = np.abs(stellar_part[i_base])
-    phi_stellar_part = np.angle(stellar_part[i_base])
-
-    # Save
-    stellar_part[i_base] = amp_stellar_part * np.exp(1j * phi_stellar_part)
+print(f"Stellar contamination computed for {stellar_coeffs_all.shape[0]} baselines")
 
 ## Remove the stellar part to get the contrast only
 Cps_only_all = Cps_all - stellar_part
@@ -282,13 +291,13 @@ for iw in range(wl.size):
     n_valid = Cps_valid.sum()
 
     # Moyenne simple
-    C[iw] = np.mean(values_valid)
-    C_err[iw] = np.sqrt(np.sum(errors_valid**2)) / n_valid
+    # C[iw] = np.mean(values_valid)
+    # C_err[iw] = np.sqrt(np.sum(errors_valid**2)) / n_valid
 
     # Moyenne pondérée 
-    # weights = 1.0 / (errors_valid**2)
-    # C[iw] = np.sum(weights * values_valid) / np.sum(weights)
-    # C_err[iw] = 1.0 / np.sqrt(np.sum(weights))
+    weights = 1.0 / (errors_valid**2)
+    C[iw] = np.sum(weights * values_valid) / np.sum(weights)
+    C_err[iw] = 1.0 / np.sqrt(np.sum(weights))
 
 ####################################################################################################################################################################################
 ####################################################################################################################################################################################
