@@ -183,7 +183,11 @@ def op_get_wlen(shift_map, rawdata, verbose=True, plot=False):
     rawdata['OI_WAVELENGTH'] = {}
     rawdata['OI_WAVELENGTH']['EFF_WAVE'] = wlen * 1e-6 # Convert to meters
     rawdata['OI_WAVELENGTH']['EFF_BAND'] = band * 1e-6 # Convert to meters
-    rawdata['OI_WAVELENGTH']['EFF_REF']  = rawdata['hdr']['HIERARCH ESO SEQ DIL WL0'] * 1e-6
+    try:
+        rawdata['OI_WAVELENGTH']['EFF_REF']  = rawdata['hdr']['HIERARCH ESO SEQ DIL WL0'] * 1e-6
+    except:
+        print('No HIERARCH ESO SEQ DIL WL0 keyword in header, setting EFF_REF to EFF_WAVE')
+        rawdata['OI_WAVELENGTH']['EFF_REF']  = wlen * 1e-6
 
     rawdata['hdr'][f'HIERARCH PROC{count} FILE'] = os.path.basename(shift_map)
     return wlen * 1e-6
@@ -286,7 +290,7 @@ def op_extract_CF(fftdata, peaks, peakswd, verbose=True, plot=False):
 
 ################################################################################
 # demodulate MATISSE fringes
-def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
+def op_demodulate(CFdata, cfin='CF', verbose=True, plot=False):
     if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
     
     wlen = CFdata['OI_WAVELENGTH']['EFF_WAVE'] * 1e6  # Convert to micrometers
@@ -356,7 +360,7 @@ def op_demodulate(CFdata, cfin='CF', verbose=False, plot=False):
 
 ################################################################################
 # Function to compute correlated flux
-def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=False, plot=False, corr_opd=True ):
+def op_get_corrflux(bdata, shiftfile, bindata=True, verbose=True, plot=False, corr_opd=True ):
     if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
         
     #########################################################

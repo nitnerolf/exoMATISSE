@@ -32,7 +32,8 @@ from tqdm import tqdm
 
 ########################################################
 
-def op_sort_files(data_dir):
+def op_sort_files(data_dir, selectDET="HAWAII-2RG", verbose=True):
+    if verbose: print(f"executing --> {inspect.currentframe().f_code.co_name}")
     print("Sorting files in directory:", data_dir)
     files = os.listdir(data_dir)
     fitsfiles = [
@@ -53,10 +54,21 @@ def op_sort_files(data_dir):
     for fi in tqdm(fitsfiles,desc='Sorting files...'):
         #print(fi)
         hdr = fits.getheader(data_dir+fi)
-        catg = hdr['ESO DPR CATG']
+        try:
+            catg = hdr['ESO DPR CATG']
+        except:
+            print('No ESO DPR CATG keyword in header of file', fi)
+            continue
         type = hdr['ESO DPR TYPE']
         mjd  = hdr['MJD-OBS']
+        try:
+            det  = hdr['ESO DET CHIP NAME']
+        except:
+            print('No ESO DET CHIP NAME keyword in header of file', fi)
+            continue
         #print(fi, inst, catg, type, chip, dit, ndit)
+        if det != selectDET:
+            continue
         if catg == 'CALIB' and type == 'STD':
             #print("calibrator file!")
             data_collection['obs'].append(fi)
